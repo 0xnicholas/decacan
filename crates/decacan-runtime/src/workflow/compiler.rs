@@ -1,6 +1,6 @@
 use crate::playbook::entity::Playbook;
 use crate::playbook::modes::PlaybookMode;
-use crate::playbook::registry::{find_registered_playbook_for_test, SUMMARY_PLAYBOOK_KEY};
+use crate::playbook::registry::{get_registered_playbook, SUMMARY_PLAYBOOK_KEY};
 
 use super::entity::Workflow;
 use super::step::{WorkflowStep, WorkflowStepType};
@@ -13,7 +13,7 @@ pub fn compile_playbook(playbook: &Playbook) -> Option<Workflow> {
 }
 
 pub fn compile_summary_playbook_for_test() -> Workflow {
-    let playbook = find_registered_playbook_for_test(SUMMARY_PLAYBOOK_KEY)
+    let playbook = get_registered_playbook(SUMMARY_PLAYBOOK_KEY)
         .expect("summary playbook should be registered");
 
     compile_playbook(&playbook).expect("summary playbook should compile")
