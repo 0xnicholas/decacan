@@ -33,7 +33,10 @@ pub enum ArtifactType {
 pub struct Artifact {
     pub id: String,
     pub task_id: String,
-    pub path: String,
+    pub label: String,
+    pub logical_name: String,
+    pub canonical_path: String,
+    pub physical_path: String,
     pub kind: ArtifactKind,
     pub status: ArtifactStatus,
     pub r#type: ArtifactType,
@@ -46,14 +49,20 @@ impl Artifact {
     pub fn new_primary_for_test(
         id: &str,
         task_id: &str,
-        path: &str,
+        label: &str,
+        logical_name: &str,
+        canonical_path: &str,
+        physical_path: &str,
         artifact_type: ArtifactType,
     ) -> Self {
         let now = OffsetDateTime::now_utc();
         Self {
             id: id.to_owned(),
             task_id: task_id.to_owned(),
-            path: path.to_owned(),
+            label: label.to_owned(),
+            logical_name: logical_name.to_owned(),
+            canonical_path: canonical_path.to_owned(),
+            physical_path: physical_path.to_owned(),
             kind: ArtifactKind::Primary,
             status: ArtifactStatus::Ready,
             r#type: artifact_type,

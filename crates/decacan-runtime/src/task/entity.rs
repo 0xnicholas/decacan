@@ -16,7 +16,8 @@ pub enum TaskStatus {
 pub struct Task {
     pub id: String,
     pub workspace_id: String,
-    pub playbook_key: String,
+    pub playbook_id: String,
+    pub playbook_version_id: Uuid,
     pub status: TaskStatus,
     pub created_at: OffsetDateTime,
     pub updated_at: OffsetDateTime,
@@ -24,12 +25,18 @@ pub struct Task {
 }
 
 impl Task {
-    pub fn new_for_test(id: &str, workspace_id: &str, playbook_key: &str) -> Self {
+    pub fn new_for_test(
+        id: &str,
+        workspace_id: &str,
+        playbook_id: &str,
+        playbook_version_id: Uuid,
+    ) -> Self {
         let now = OffsetDateTime::now_utc();
         Self {
             id: id.to_owned(),
             workspace_id: workspace_id.to_owned(),
-            playbook_key: playbook_key.to_owned(),
+            playbook_id: playbook_id.to_owned(),
+            playbook_version_id,
             status: TaskStatus::Created,
             created_at: now,
             updated_at: now,
