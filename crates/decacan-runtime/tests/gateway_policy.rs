@@ -72,6 +72,19 @@ fn denied_tool_returns_deny_policy_decision() {
 }
 
 #[test]
+fn overwrite_boundary_precedes_denied_tool_policy() {
+    let gateway = gateway_for_test();
+    let request = request_for_test("network.egress", "overwrite")
+        .with_target_path("/tmp/workspace/secrets.txt")
+        .with_overwrite_existing(true);
+
+    let (decision, record) = gateway.evaluate(request, OffsetDateTime::UNIX_EPOCH);
+
+    assert!(matches!(decision, PolicyDecision::ApprovalRequired { .. }));
+    assert!(matches!(record.decision, PolicyDecision::ApprovalRequired { .. }));
+}
+
+#[test]
 fn evaluation_uses_request_descriptor_identity_as_single_source_of_truth() {
     let gateway = gateway_for_test();
     let request = request_for_test("shell.exec", "run");
