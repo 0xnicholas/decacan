@@ -6,7 +6,9 @@ use uuid::Uuid;
 #[serde(rename_all = "snake_case")]
 pub enum TaskStatus {
     Created,
+    Planning,
     Running,
+    Paused,
     Succeeded,
     Failed,
     Cancelled,
