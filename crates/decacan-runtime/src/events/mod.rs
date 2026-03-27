@@ -1,6 +1,7 @@
 pub(crate) mod execution;
 pub mod projector;
-pub(crate) mod runtime;
+mod runtime;
 pub mod task;
 
+pub use runtime::RuntimeEvent;
 pub use task::{TaskEvent, TaskEventPayload};

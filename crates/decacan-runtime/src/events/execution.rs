@@ -2,7 +2,7 @@ use time::OffsetDateTime;
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ExecutionEvent {
+pub(crate) enum ExecutionEvent {
     StepStarted {
         task_id: String,
         run_id: String,
@@ -12,6 +12,7 @@ pub enum ExecutionEvent {
     Semantic(SemanticExecutionEvent),
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum SemanticExecutionEvent {
     OutputCandidateDiscovered {
@@ -23,16 +24,4 @@ pub(crate) enum SemanticExecutionEvent {
         physical_path: String,
         occurred_at: OffsetDateTime,
     },
-}
-
-pub(crate) fn output_candidate_for_test() -> ExecutionEvent {
-    ExecutionEvent::Semantic(SemanticExecutionEvent::OutputCandidateDiscovered {
-        task_id: "task-1".to_owned(),
-        run_id: "run-1".to_owned(),
-        artifact_id: "artifact-1".to_owned(),
-        logical_name: "summary".to_owned(),
-        canonical_path: "artifacts/summary.md".to_owned(),
-        physical_path: "/tmp/workspace/artifacts/summary.md".to_owned(),
-        occurred_at: OffsetDateTime::now_utc(),
-    })
 }

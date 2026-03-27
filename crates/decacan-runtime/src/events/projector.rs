@@ -1,5 +1,5 @@
-use crate::events::execution::{output_candidate_for_test as execution_output_candidate_for_test, ExecutionEvent};
-use crate::events::runtime::RuntimeEvent;
+use crate::events::execution::ExecutionEvent;
+use crate::events::RuntimeEvent;
 use crate::events::task::{TaskEvent, TaskEventPayload};
 
 pub fn project(runtime_event: RuntimeEvent) -> TaskEvent {
@@ -38,10 +38,7 @@ pub fn project(runtime_event: RuntimeEvent) -> TaskEvent {
     }
 }
 
+#[allow(dead_code)]
 pub(crate) fn project_execution(event: ExecutionEvent) -> TaskEvent {
     project(RuntimeEvent::from_execution(event))
-}
-
-pub fn project_output_candidate_for_test() -> TaskEvent {
-    project_execution(execution_output_candidate_for_test())
 }

@@ -22,6 +22,7 @@ pub enum RuntimeEvent {
 }
 
 impl RuntimeEvent {
+    #[allow(dead_code)]
     pub(crate) fn from_execution(event: ExecutionEvent) -> Self {
         match event {
             ExecutionEvent::StepStarted {
