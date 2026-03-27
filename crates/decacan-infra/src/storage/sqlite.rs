@@ -1,45 +1,70 @@
 use decacan_runtime::ports::storage::StoragePort;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SqliteStorage {
-    connection_string: String,
+pub struct SqliteStoragePlaceholder {
+    reason: String,
 }
 
-impl SqliteStorage {
-    pub fn new(connection_string: impl Into<String>) -> Self {
+impl SqliteStoragePlaceholder {
+    pub fn new(reason: impl Into<String>) -> Self {
         Self {
-            connection_string: connection_string.into(),
+            reason: reason.into(),
         }
     }
 
-    pub fn connection_string(&self) -> &str {
-        &self.connection_string
+    pub fn reason(&self) -> &str {
+        &self.reason
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum SqliteStorageError {
-    NotConfigured,
+pub enum SqliteStoragePlaceholderError {
+    Placeholder(String),
 }
 
-impl std::fmt::Display for SqliteStorageError {
+impl std::fmt::Display for SqliteStoragePlaceholderError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::NotConfigured => f.write_str("SQLite storage is not configured"),
+            Self::Placeholder(reason) => {
+                write!(f, "SQLite adapter placeholder cannot be used yet: {reason}")
+            }
         }
     }
 }
 
-impl std::error::Error for SqliteStorageError {}
+impl std::error::Error for SqliteStoragePlaceholderError {}
 
-impl StoragePort for SqliteStorage {
-    type Error = SqliteStorageError;
+impl StoragePort for SqliteStoragePlaceholder {
+    type Error = SqliteStoragePlaceholderError;
 
     fn put(&self, _key: &str, _value: &str) -> Result<(), Self::Error> {
-        Err(SqliteStorageError::NotConfigured)
+        Err(SqliteStoragePlaceholderError::Placeholder(
+            self.reason.clone(),
+        ))
     }
 
     fn get(&self, _key: &str) -> Result<Option<String>, Self::Error> {
-        Err(SqliteStorageError::NotConfigured)
+        Err(SqliteStoragePlaceholderError::Placeholder(
+            self.reason.clone(),
+        ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SqliteStoragePlaceholder;
+    use super::SqliteStoragePlaceholderError;
+    use decacan_runtime::ports::storage::StoragePort;
+
+    #[test]
+    fn placeholder_storage_returns_explicit_placeholder_error() {
+        let storage = SqliteStoragePlaceholder::new("placeholder only");
+
+        assert_eq!(
+            storage.put("key", "value"),
+            Err(SqliteStoragePlaceholderError::Placeholder(
+                "placeholder only".to_string()
+            ))
+        );
     }
 }
