@@ -1,6 +1,3 @@
-use crate::gateway::semantic_adapter::SemanticGatewayAdapter;
-use crate::gateway::tool_gateway::ToolGateway;
-use crate::policy::entity::PolicyProfile;
 use crate::semantic::events::SemanticInvocationEvent;
 use crate::semantic::invocation::{ContinuationState, InvocationState};
 use crate::semantic::model::{ModelContext, OutputCandidate, SemanticModel};
@@ -12,15 +9,12 @@ pub struct InvocationResult {
     pub output_candidates: Vec<OutputCandidate>,
 }
 
-pub fn run_summary_invocation_for_test() -> InvocationResult {
-    let gateway = ToolGateway::new(
-        PolicyProfile::new_for_test("policy-1", "workspace-1", "default"),
-        "/tmp/workspace/output",
-    );
-    let tool_protocol = SemanticGatewayAdapter::new(gateway);
-    let model = SummaryModelForTest;
-
-    execute_summary_invocation(&tool_protocol, &model)
+pub fn run_summary_invocation_for_test<T, M>(tool_protocol: &T, model: &M) -> InvocationResult
+where
+    T: ToolProtocol,
+    M: SemanticModel,
+{
+    execute_summary_invocation(tool_protocol, model)
 }
 
 fn execute_summary_invocation<T, M>(tool_protocol: &T, model: &M) -> InvocationResult
@@ -75,25 +69,5 @@ where
 
     InvocationResult {
         output_candidates: state.output_candidates,
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-struct SummaryModelForTest;
-
-impl SemanticModel for SummaryModelForTest {
-    type Error = ();
-
-    fn produce_output_candidate(
-        &self,
-        context: &ModelContext,
-    ) -> Result<OutputCandidate, Self::Error> {
-        Ok(OutputCandidate {
-            artifact_id: "artifact-summary-1".to_owned(),
-            logical_name: "summary.md".to_owned(),
-            canonical_path: format!("/{}/summary.md", context.task_id),
-            physical_path: format!("/tmp/{}/summary.md", context.run_id),
-            content: format!("Summary generated from {}", context.source_material),
-        })
     }
 }
