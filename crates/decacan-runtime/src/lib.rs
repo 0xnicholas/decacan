@@ -1,8 +1,10 @@
 pub mod approval;
 pub mod artifact;
 pub mod events;
+pub mod gateway;
 pub mod playbook;
 pub mod policy;
+pub mod ports;
 pub mod run;
 pub mod task;
 pub mod workflow;
