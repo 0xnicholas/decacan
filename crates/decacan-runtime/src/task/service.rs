@@ -23,6 +23,12 @@ impl From<RunTransitionError> for TaskServiceError {
     }
 }
 
+pub fn begin_planning(task: &mut Task) -> Result<(), TaskServiceError> {
+    TaskStateMachine::ensure_transition(task, TaskStatus::Planning)?;
+    TaskStateMachine::transition(task, TaskStatus::Planning)?;
+    Ok(())
+}
+
 pub fn mark_running(task: &mut Task, run: &mut Run) -> Result<(), TaskServiceError> {
     TaskStateMachine::ensure_transition(task, TaskStatus::Running)?;
     RunService::ensure_transition(run, RunStatus::Running)?;

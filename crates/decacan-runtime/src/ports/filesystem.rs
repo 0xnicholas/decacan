@@ -6,6 +6,7 @@ pub trait FilesystemPort {
     fn read_to_string(&self, path: &Path) -> Result<String, Self::Error>;
     fn write_string(&self, path: &Path, contents: &str) -> Result<(), Self::Error>;
     fn exists(&self, path: &Path) -> Result<bool, Self::Error>;
+    fn list_markdown_files(&self, root: &Path) -> Result<Vec<PathBuf>, Self::Error>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

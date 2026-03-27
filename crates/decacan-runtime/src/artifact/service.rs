@@ -8,7 +8,7 @@ use crate::artifact::entity::{Artifact, ArtifactKind, ArtifactStatus, ArtifactTy
 use crate::artifact::relations::{
     artifact_relation_storage_key, ArtifactRelation, ArtifactRelationKind,
 };
-use crate::outputs::backup::backup_existing_summary;
+use crate::outputs::backup::{backup_existing_summary, BackupResult};
 use crate::outputs::writer::{summary_output_path, write_summary_output};
 use crate::ports::clock::ClockPort;
 use crate::ports::filesystem::FilesystemPort;
@@ -83,8 +83,21 @@ where
         let written_path = write_summary_output(self.filesystem, &command.workspace_root, &command.contents)
             .map_err(|error| ArtifactServiceError::Filesystem(format!("{error:?}")))?;
 
+        self.register_written_summary_artifacts(
+            &command.task_id,
+            &written_path,
+            backup_result,
+        )
+    }
+
+    pub(crate) fn register_written_summary_artifacts(
+        &self,
+        task_id: &str,
+        written_path: &Path,
+        backup_result: Option<BackupResult>,
+    ) -> Result<SummaryArtifactWriteResult, ArtifactServiceError> {
         let now = self.clock.now_utc();
-        let primary_artifact = build_primary_artifact(&command.task_id, &written_path, now);
+        let primary_artifact = build_primary_artifact(task_id, written_path, now);
         let primary_storage_key = store_artifact(self.storage, &primary_artifact)?;
 
         let mut backup_artifact = None;
@@ -93,7 +106,7 @@ where
 
         if let Some(backup_result) = backup_result {
             let backup = build_backup_artifact(
-                &command.task_id,
+                task_id,
                 &backup_result.backup_path,
                 &backup_result.backup_relative_path,
                 &backup_result.backup_identity,

@@ -40,7 +40,7 @@ pub enum BlockedReason {
     Denied { detail: String },
 }
 
-pub fn start_summary_invocation_for_test<T, M>(
+pub fn start_summary_invocation<T, M>(
     context: &InvocationContext,
     tool_protocol: &T,
     model: &M,
@@ -52,7 +52,7 @@ where
     execute_summary_invocation(InvocationState::new(context), context, None, tool_protocol, model)
 }
 
-pub fn resume_summary_invocation_for_test<T, M>(
+pub fn resume_summary_invocation<T, M>(
     state: InvocationState,
     context: &InvocationContext,
     continuation: ResumeAction,

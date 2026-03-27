@@ -32,7 +32,9 @@ fn local_fs_and_memory_storage_support_runtime_ports() {
     assert_model(&model);
     assert_clock(&clock);
 
-    let file_path = unique_test_path("local-fs-and-memory-storage-support-runtime-ports.txt");
+    let test_root = unique_test_path("local-fs-and-memory-storage-support-runtime-ports");
+    fs::create_dir_all(&test_root).expect("test root directory should be created");
+    let file_path = test_root.join("runtime-smoke-test.txt");
     filesystem
         .write_string(&file_path, "runtime smoke test")
         .expect("local filesystem write should succeed");
@@ -45,6 +47,12 @@ fn local_fs_and_memory_storage_support_runtime_ports() {
             .read_to_string(&file_path)
             .expect("local filesystem read should succeed"),
         "runtime smoke test"
+    );
+    assert_eq!(
+        filesystem
+            .list_markdown_files(&test_root)
+            .expect("markdown listing should succeed"),
+        Vec::<PathBuf>::new()
     );
 
     storage
@@ -67,7 +75,7 @@ fn local_fs_and_memory_storage_support_runtime_ports() {
     let now = clock.now_utc();
     assert_eq!(now.offset().whole_seconds(), 0);
 
-    fs::remove_file(file_path).expect("test file cleanup should succeed");
+    fs::remove_dir_all(test_root).expect("test fixture cleanup should succeed");
 }
 
 #[test]

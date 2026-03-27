@@ -40,6 +40,23 @@ where
     }))
 }
 
+pub(crate) fn backup_from_existing_summary<F, C>(
+    filesystem: &F,
+    clock: &C,
+    workspace_root: &Path,
+) -> Result<Option<BackupResult>, F::Error>
+where
+    F: FilesystemPort,
+    C: ClockPort,
+{
+    backup_existing_summary(
+        filesystem,
+        clock,
+        workspace_root,
+        &workspace_root.join("output/summary.md"),
+    )
+}
+
 fn backup_output_relative_path(timestamp: OffsetDateTime, backup_identity: &str) -> PathBuf {
     PathBuf::from("output/backups").join(format!(
         "summary-{:04}{:02}{:02}T{:02}{:02}{:02}Z-{}.md",

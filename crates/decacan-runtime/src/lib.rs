@@ -14,7 +14,7 @@ pub mod workflow;
 pub mod workspace;
 
 pub use crate::semantic::executor::{
-    start_summary_invocation_for_test, resume_summary_invocation_for_test, BlockedReason,
+    start_summary_invocation, resume_summary_invocation, BlockedReason,
     ContinuationState, InvocationContext, InvocationOutcome, InvocationResult, InvocationState,
     PendingAction, ResumeAction,
 };

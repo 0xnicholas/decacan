@@ -1,7 +1,7 @@
 use decacan_runtime::gateway::{SemanticGatewayAdapter, ToolGateway};
 use decacan_runtime::policy::entity::PolicyProfile;
 use decacan_runtime::{
-    start_summary_invocation_for_test, resume_summary_invocation_for_test, BlockedReason,
+    start_summary_invocation, resume_summary_invocation, BlockedReason,
     ContinuationState, InvocationContext, InvocationOutcome, InvocationState, PendingAction,
     ResumeAction, ModelContext, OutputCandidate, SemanticModel, ToolCall, ToolCallResult,
     ToolProtocol,
@@ -20,7 +20,7 @@ fn semantic_invocation_requests_tool_and_returns_output_candidate() {
         source_material: "source material collected outside semantic".to_owned(),
         read_target_path: Some("/workspace/notes.md".into()),
     };
-    let blocked = start_summary_invocation_for_test(&context, &tool_protocol, &model);
+    let blocked = start_summary_invocation(&context, &tool_protocol, &model);
 
     assert_eq!(
         blocked.outcome,
@@ -35,7 +35,7 @@ fn semantic_invocation_requests_tool_and_returns_output_candidate() {
     assert_eq!(blocked.output_candidates.len(), 0);
     assert_eq!(blocked.state.continuation, ContinuationState::AwaitingTool);
 
-    let completed = resume_summary_invocation_for_test(
+    let completed = resume_summary_invocation(
         blocked.state,
         &context,
         ResumeAction::ToolCompleted,
@@ -54,7 +54,7 @@ fn semantic_invocation_blocks_when_tool_requires_approval() {
     let tool_protocol = StubToolProtocol::approval_required("approval needed");
     let context = invocation_context();
 
-    let result = start_summary_invocation_for_test(&context, &tool_protocol, &SummaryModelForTest);
+    let result = start_summary_invocation(&context, &tool_protocol, &SummaryModelForTest);
 
     assert_eq!(
         result.outcome,
@@ -75,7 +75,7 @@ fn semantic_invocation_blocks_when_tool_is_denied() {
     let tool_protocol = StubToolProtocol::denied("policy denied");
     let context = invocation_context();
 
-    let result = start_summary_invocation_for_test(&context, &tool_protocol, &SummaryModelForTest);
+    let result = start_summary_invocation(&context, &tool_protocol, &SummaryModelForTest);
 
     assert_eq!(
         result.outcome,
@@ -92,7 +92,7 @@ fn semantic_invocation_fails_when_tool_protocol_errors() {
     let tool_protocol = StubToolProtocol::error("tool transport broke");
     let context = invocation_context();
 
-    let result = start_summary_invocation_for_test(&context, &tool_protocol, &SummaryModelForTest);
+    let result = start_summary_invocation(&context, &tool_protocol, &SummaryModelForTest);
 
     assert_eq!(
         result.outcome,
@@ -108,9 +108,9 @@ fn semantic_invocation_fails_when_model_fails() {
     let tool_protocol = StubToolProtocol::allowed("allowed");
     let context = invocation_context();
 
-    let blocked = start_summary_invocation_for_test(&context, &tool_protocol, &FailingModel);
+    let blocked = start_summary_invocation(&context, &tool_protocol, &FailingModel);
 
-    let result = resume_summary_invocation_for_test(
+    let result = resume_summary_invocation(
         blocked.state,
         &context,
         ResumeAction::ToolCompleted,
@@ -131,11 +131,11 @@ fn semantic_invocation_fails_when_model_fails() {
 fn semantic_invocation_state_roundtrips_and_resumes_after_tool_completion() {
     let tool_protocol = StubToolProtocol::allowed("allowed");
     let context = invocation_context();
-    let blocked = start_summary_invocation_for_test(&context, &tool_protocol, &SummaryModelForTest);
+    let blocked = start_summary_invocation(&context, &tool_protocol, &SummaryModelForTest);
     let serialized = to_string(&blocked.state).expect("state serializes");
     let restored: InvocationState = from_str(&serialized).expect("state deserializes");
 
-    let resumed = resume_summary_invocation_for_test(
+    let resumed = resume_summary_invocation(
         restored,
         &context,
         ResumeAction::ToolCompleted,

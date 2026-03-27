@@ -15,6 +15,26 @@ fn project(runtime_event: RuntimeEvent) -> TaskEvent {
             occurred_at,
         } => TaskEvent {
             task_id,
+            event_type: "output_candidate.ready".to_owned(),
+            occurred_at,
+            payload: TaskEventPayload::ArtifactReady {
+                run_id,
+                artifact_id,
+                logical_name,
+                canonical_path,
+                physical_path,
+            },
+        },
+        RuntimeEvent::ArtifactReady {
+            task_id,
+            run_id,
+            artifact_id,
+            logical_name,
+            canonical_path,
+            physical_path,
+            occurred_at,
+        } => TaskEvent {
+            task_id,
             event_type: "artifact.ready".to_owned(),
             occurred_at,
             payload: TaskEventPayload::ArtifactReady {
@@ -38,14 +58,14 @@ mod tests {
     use time::OffsetDateTime;
 
     use super::project_execution;
-    use crate::events::execution::{ExecutionEvent, SemanticExecutionEvent};
+    use crate::events::execution::{ArtifactExecutionEvent, ExecutionEvent};
     use crate::events::task::TaskEventPayload;
 
     #[test]
-    fn output_candidate_execution_event_projects_to_artifact_ready_task_event() {
+    fn artifact_execution_event_projects_to_artifact_ready_task_event() {
         let occurred_at = OffsetDateTime::now_utc();
-        let task_event = project_execution(ExecutionEvent::Semantic(
-            SemanticExecutionEvent::OutputCandidateDiscovered {
+        let task_event = project_execution(ExecutionEvent::Artifact(
+            ArtifactExecutionEvent::ArtifactRegistered {
                 task_id: "task-1".to_owned(),
                 run_id: "run-1".to_owned(),
                 artifact_id: "artifact-1".to_owned(),
