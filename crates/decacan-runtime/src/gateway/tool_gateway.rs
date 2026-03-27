@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 use time::OffsetDateTime;
 
@@ -94,11 +94,11 @@ impl ToolGateway {
             && request
                 .target_path
                 .as_deref()
-                .is_some_and(|path| !path_starts_with(path, &self.output_root))
+                .is_some_and(|path| !path_within_output_root(path, &self.output_root))
     }
 
     pub fn allow(&self, reason: String) -> ToolResult {
-        ToolResult::Allowed { reason }
+        ToolResult::Ok { reason }
     }
 
     pub fn approval_required(&self, reason: String) -> ToolResult {
@@ -110,8 +110,33 @@ impl ToolGateway {
     }
 }
 
-fn path_starts_with(path: &Path, root: &Path) -> bool {
-    path.starts_with(root)
+fn normalized_path(path: &Path) -> PathBuf {
+    let mut normalized = PathBuf::new();
+
+    for component in path.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                let can_pop_normal = matches!(normalized.components().next_back(), Some(Component::Normal(_)));
+                if can_pop_normal {
+                    normalized.pop();
+                } else if !path.is_absolute() {
+                    normalized.push(component.as_os_str());
+                }
+            }
+            Component::Normal(part) => normalized.push(part),
+            Component::RootDir | Component::Prefix(_) => normalized.push(component.as_os_str()),
+        }
+    }
+
+    normalized
+}
+
+fn path_within_output_root(path: &Path, root: &Path) -> bool {
+    let normalized_target = normalized_path(path);
+    let normalized_root = normalized_path(root);
+
+    normalized_target.starts_with(&normalized_root)
 }
 
 pub fn evaluate_overwrite_for_test() -> ToolResult {
@@ -126,4 +151,40 @@ pub fn evaluate_overwrite_for_test() -> ToolResult {
 
     let (result, _) = gateway.evaluate(descriptor, request);
     result
+}
+
+pub fn evaluate_output_traversal_for_test() -> ToolResult {
+    let gateway = ToolGateway::new(
+        PolicyProfile::new_for_test("policy-1", "workspace-1", "default"),
+        "/tmp/workspace/output",
+    );
+    let descriptor = ToolDescriptor::new("artifact.write", "Persist an artifact candidate");
+    let request = ToolRequest::new("artifact.write", "overwrite")
+        .with_target_path("/tmp/workspace/output/../notes.md")
+        .with_overwrite_existing(true);
+
+    let (result, _) = gateway.evaluate(descriptor, request);
+    result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::path_within_output_root;
+    use std::path::Path;
+
+    #[test]
+    fn normalized_boundary_rejects_traversal_escape() {
+        assert!(!path_within_output_root(
+            Path::new("/tmp/workspace/output/../notes.md"),
+            Path::new("/tmp/workspace/output"),
+        ));
+    }
+
+    #[test]
+    fn normalized_boundary_allows_descendant_output_path() {
+        assert!(path_within_output_root(
+            Path::new("/tmp/workspace/output/final/summary.md"),
+            Path::new("/tmp/workspace/output"),
+        ));
+    }
 }

@@ -11,7 +11,8 @@ pub enum PolicyDecision {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum ToolResult {
-    Allowed { reason: String },
+    Ok { reason: String },
     ApprovalRequired { reason: String },
     Denied { reason: String },
+    Error { reason: String },
 }
