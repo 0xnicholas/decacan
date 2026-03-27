@@ -3,7 +3,6 @@ use decacan_runtime::playbook::modes::PlaybookMode;
 use decacan_runtime::policy::entity::PolicyProfile;
 use decacan_runtime::run::entity::{Run, RunStatus};
 use decacan_runtime::run::service::RunService;
-use decacan_runtime::run::supervisor;
 use decacan_runtime::task::entity::{Task, TaskStatus};
 use decacan_runtime::task::service;
 use decacan_runtime::task::state_machine::TaskStateMachine;
@@ -58,12 +57,12 @@ fn task_and_run_follow_expected_lifecycle() {
     assert_eq!(task.status, TaskStatus::Running);
     assert_eq!(run.status, RunStatus::Running);
 
-    supervisor::pause(&mut task, &mut run, "approval pending").unwrap();
+    service::pause(&mut task, &mut run, "approval pending").unwrap();
     assert_eq!(task.status, TaskStatus::Paused);
     assert_eq!(run.status, RunStatus::Paused);
     assert_eq!(run.pause_reason.as_deref(), Some("approval pending"));
 
-    supervisor::resume(&mut task, &mut run).unwrap();
+    service::resume(&mut task, &mut run).unwrap();
     assert_eq!(task.status, TaskStatus::Running);
     assert_eq!(run.status, RunStatus::Running);
     assert_eq!(run.pause_reason, None);
@@ -80,8 +79,8 @@ fn failure_transitions_update_task_and_run_together() {
     let (mut task, mut run) = planning_task_and_initialized_run();
 
     service::mark_running(&mut task, &mut run).unwrap();
-    supervisor::pause(&mut task, &mut run, "tool approval required").unwrap();
-    supervisor::fail(&mut task, &mut run, "approval denied").unwrap();
+    service::pause(&mut task, &mut run, "tool approval required").unwrap();
+    service::mark_failed(&mut task, &mut run, "approval denied").unwrap();
 
     assert_eq!(task.status, TaskStatus::Failed);
     assert_eq!(run.status, RunStatus::Failed);
@@ -111,4 +110,50 @@ fn invalid_run_transition_does_not_mutate_task_first() {
     );
     assert_eq!(task, before_task);
     assert_eq!(run, before_run);
+}
+
+#[test]
+fn task_can_be_cancelled_before_run_creation() {
+    let mut task = Task::new_for_test(
+        "task-1",
+        "workspace-1",
+        "playbook-1",
+        Workflow::new_for_test("workflow-1", "playbook-1", Vec::new()).version_id,
+    );
+
+    service::cancel_before_run(&mut task).unwrap();
+
+    assert_eq!(task.status, TaskStatus::Cancelled);
+}
+
+#[test]
+fn invalid_pause_and_resume_paths_are_rejected() {
+    let (mut task, mut run) = planning_task_and_initialized_run();
+
+    let pause_error = service::pause(&mut task, &mut run, "approval pending").unwrap_err();
+    assert_eq!(
+        pause_error,
+        service::TaskServiceError::TaskTransition(
+            decacan_runtime::task::state_machine::TaskTransitionError::InvalidTransition {
+                from: TaskStatus::Planning,
+                to: TaskStatus::Paused,
+            },
+        )
+    );
+    assert_eq!(task.status, TaskStatus::Planning);
+    assert_eq!(run.status, RunStatus::Initialized);
+
+    service::mark_running(&mut task, &mut run).unwrap();
+    let resume_error = service::resume(&mut task, &mut run).unwrap_err();
+    assert_eq!(
+        resume_error,
+        service::TaskServiceError::TaskTransition(
+            decacan_runtime::task::state_machine::TaskTransitionError::InvalidTransition {
+                from: TaskStatus::Running,
+                to: TaskStatus::Running,
+            },
+        )
+    );
+    assert_eq!(task.status, TaskStatus::Running);
+    assert_eq!(run.status, RunStatus::Running);
 }

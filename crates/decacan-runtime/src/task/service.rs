@@ -1,4 +1,5 @@
 use crate::run::entity::Run;
+use crate::run::entity::RunStatus;
 use crate::run::service::{RunService, RunTransitionError};
 
 use super::entity::{Task, TaskStatus};
@@ -24,7 +25,7 @@ impl From<RunTransitionError> for TaskServiceError {
 
 pub fn mark_running(task: &mut Task, run: &mut Run) -> Result<(), TaskServiceError> {
     TaskStateMachine::ensure_transition(task, TaskStatus::Running)?;
-    RunService::ensure_transition(run, crate::run::entity::RunStatus::Running)?;
+    RunService::ensure_transition(run, RunStatus::Running)?;
     TaskStateMachine::transition(task, TaskStatus::Running)?;
     RunService::start(run)?;
     Ok(())
@@ -32,7 +33,7 @@ pub fn mark_running(task: &mut Task, run: &mut Run) -> Result<(), TaskServiceErr
 
 pub fn mark_succeeded(task: &mut Task, run: &mut Run) -> Result<(), TaskServiceError> {
     TaskStateMachine::ensure_transition(task, TaskStatus::Succeeded)?;
-    RunService::ensure_transition(run, crate::run::entity::RunStatus::Completed)?;
+    RunService::ensure_transition(run, RunStatus::Completed)?;
     RunService::complete(run)?;
     TaskStateMachine::transition(task, TaskStatus::Succeeded)?;
     Ok(())
@@ -45,16 +46,43 @@ pub fn mark_failed(
 ) -> Result<(), TaskServiceError> {
     let details = details.into();
     TaskStateMachine::ensure_transition(task, TaskStatus::Failed)?;
-    RunService::ensure_transition(run, crate::run::entity::RunStatus::Failed)?;
+    RunService::ensure_transition(run, RunStatus::Failed)?;
     RunService::fail(run, details)?;
     TaskStateMachine::transition(task, TaskStatus::Failed)?;
     Ok(())
 }
 
+pub fn pause(
+    task: &mut Task,
+    run: &mut Run,
+    reason: impl Into<String>,
+) -> Result<(), TaskServiceError> {
+    let reason = reason.into();
+    TaskStateMachine::ensure_transition(task, TaskStatus::Paused)?;
+    RunService::ensure_transition(run, RunStatus::Paused)?;
+    RunService::pause(run, reason)?;
+    TaskStateMachine::transition(task, TaskStatus::Paused)?;
+    Ok(())
+}
+
+pub fn resume(task: &mut Task, run: &mut Run) -> Result<(), TaskServiceError> {
+    TaskStateMachine::ensure_transition(task, TaskStatus::Running)?;
+    RunService::ensure_transition(run, RunStatus::Running)?;
+    RunService::resume(run)?;
+    TaskStateMachine::transition(task, TaskStatus::Running)?;
+    Ok(())
+}
+
 pub fn cancel(task: &mut Task, run: &mut Run) -> Result<(), TaskServiceError> {
     TaskStateMachine::ensure_transition(task, TaskStatus::Cancelled)?;
-    RunService::ensure_transition(run, crate::run::entity::RunStatus::Cancelled)?;
+    RunService::ensure_transition(run, RunStatus::Cancelled)?;
     RunService::cancel(run)?;
+    TaskStateMachine::transition(task, TaskStatus::Cancelled)?;
+    Ok(())
+}
+
+pub fn cancel_before_run(task: &mut Task) -> Result<(), TaskServiceError> {
+    TaskStateMachine::ensure_transition(task, TaskStatus::Cancelled)?;
     TaskStateMachine::transition(task, TaskStatus::Cancelled)?;
     Ok(())
 }
@@ -125,8 +153,30 @@ mod tests {
         assert_eq!(task.status, TaskStatus::Running);
         assert_eq!(run.status, RunStatus::Running);
 
+        pause(&mut task, &mut run, "approval pending").unwrap();
+        assert_eq!(task.status, TaskStatus::Paused);
+        assert_eq!(run.status, RunStatus::Paused);
+
+        resume(&mut task, &mut run).unwrap();
+        assert_eq!(task.status, TaskStatus::Running);
+        assert_eq!(run.status, RunStatus::Running);
+
         mark_succeeded(&mut task, &mut run).unwrap();
         assert_eq!(task.status, TaskStatus::Succeeded);
         assert_eq!(run.status, RunStatus::Completed);
+    }
+
+    #[test]
+    fn task_service_supports_cancellation_before_run_creation() {
+        let mut task = Task::new_for_test(
+            "task-1",
+            "workspace-1",
+            "playbook-1",
+            Workflow::new_for_test("workflow-1", "playbook-1", Vec::new()).version_id,
+        );
+
+        cancel_before_run(&mut task).unwrap();
+
+        assert_eq!(task.status, TaskStatus::Cancelled);
     }
 }
