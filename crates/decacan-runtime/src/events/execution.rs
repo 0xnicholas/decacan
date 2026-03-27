@@ -3,12 +3,6 @@ use time::OffsetDateTime;
 #[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum ExecutionEvent {
-    StepStarted {
-        task_id: String,
-        run_id: String,
-        step_id: String,
-        occurred_at: OffsetDateTime,
-    },
     Semantic(SemanticExecutionEvent),
 }
 

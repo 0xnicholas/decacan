@@ -2,14 +2,9 @@ use time::OffsetDateTime;
 
 use crate::events::execution::{ExecutionEvent, SemanticExecutionEvent};
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum RuntimeEvent {
-    RunStepStarted {
-        task_id: String,
-        run_id: String,
-        step_id: String,
-        occurred_at: OffsetDateTime,
-    },
+pub(crate) enum RuntimeEvent {
     OutputCandidateReady {
         task_id: String,
         run_id: String,
@@ -25,17 +20,6 @@ impl RuntimeEvent {
     #[allow(dead_code)]
     pub(crate) fn from_execution(event: ExecutionEvent) -> Self {
         match event {
-            ExecutionEvent::StepStarted {
-                task_id,
-                run_id,
-                step_id,
-                occurred_at,
-            } => Self::RunStepStarted {
-                task_id,
-                run_id,
-                step_id,
-                occurred_at,
-            },
             ExecutionEvent::Semantic(semantic_event) => match semantic_event {
                 SemanticExecutionEvent::OutputCandidateDiscovered {
                     task_id,

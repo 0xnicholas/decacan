@@ -19,8 +19,4 @@ pub enum TaskEventPayload {
         canonical_path: String,
         physical_path: String,
     },
-    StepStarted {
-        run_id: String,
-        step_id: String,
-    },
 }
