@@ -2,18 +2,20 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
+use crate::gateway::descriptor::ToolDescriptor;
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ToolRequest {
-    pub tool_name: String,
+    pub descriptor: ToolDescriptor,
     pub action: String,
     pub target_path: Option<PathBuf>,
     pub overwrite_existing: bool,
 }
 
 impl ToolRequest {
-    pub fn new(tool_name: impl Into<String>, action: impl Into<String>) -> Self {
+    pub fn new(descriptor: ToolDescriptor, action: impl Into<String>) -> Self {
         Self {
-            tool_name: tool_name.into(),
+            descriptor,
             action: action.into(),
             target_path: None,
             overwrite_existing: false,

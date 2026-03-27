@@ -2,10 +2,9 @@ use std::path::{Component, Path, PathBuf};
 
 use time::OffsetDateTime;
 
-use crate::gateway::descriptor::ToolDescriptor;
 use crate::gateway::execution_record::ToolExecutionRecord;
 use crate::gateway::request::ToolRequest;
-use crate::gateway::result::{PolicyDecision, ToolResult};
+use crate::gateway::result::PolicyDecision;
 use crate::policy::entity::PolicyProfile;
 
 #[derive(Debug, Clone)]
@@ -24,69 +23,57 @@ impl ToolGateway {
 
     pub fn evaluate(
         &self,
-        descriptor: ToolDescriptor,
         request: ToolRequest,
-    ) -> (ToolResult, ToolExecutionRecord) {
+        evaluated_at: OffsetDateTime,
+    ) -> (PolicyDecision, ToolExecutionRecord) {
         let decision = self.evaluate_policy(&request);
-        let result = match &decision {
-            PolicyDecision::Allow { reason } => self.allow(reason.clone()),
-            PolicyDecision::ApprovalRequired { reason } => self.approval_required(reason.clone()),
-            PolicyDecision::Deny { reason } => self.deny(reason.clone()),
-        };
         let record = ToolExecutionRecord {
-            tool_name: descriptor.name.clone(),
-            action: request.action.clone(),
-            descriptor,
             request,
-            decision,
-            evaluated_at: OffsetDateTime::now_utc(),
+            decision: decision.clone(),
+            evaluated_at,
         };
-        (result, record)
+        (decision, record)
     }
 
     fn evaluate_policy(&self, request: &ToolRequest) -> PolicyDecision {
         if self.requires_overwrite_approval(request) {
-            return PolicyDecision::ApprovalRequired {
-                reason: "overwrite outside output root requires approval".to_owned(),
-            };
+            return self.approval_required("overwrite outside output root requires approval");
         }
 
         if self
             .policy
             .denied_tools
             .iter()
-            .any(|tool| tool == &request.tool_name)
+            .any(|tool| tool == &request.descriptor.name)
         {
-            return PolicyDecision::Deny {
-                reason: format!("tool '{}' is denied by policy", request.tool_name),
-            };
+            return self.deny(format!("tool '{}' is denied by policy", request.descriptor.name));
         }
 
         if self
             .policy
             .approval_required_tools
             .iter()
-            .any(|tool| tool == &request.tool_name)
+            .any(|tool| tool == &request.descriptor.name)
         {
-            return PolicyDecision::ApprovalRequired {
-                reason: format!("tool '{}' requires approval by policy", request.tool_name),
-            };
+            return self.approval_required(format!(
+                "tool '{}' requires approval by policy",
+                request.descriptor.name
+            ));
         }
 
         if self
             .policy
             .allowed_tools
             .iter()
-            .any(|tool| tool == &request.tool_name)
+            .any(|tool| tool == &request.descriptor.name)
         {
-            return PolicyDecision::Allow {
-                reason: format!("tool '{}' allowed by policy", request.tool_name),
-            };
+            return self.allow(format!("tool '{}' allowed by policy", request.descriptor.name));
         }
 
-        PolicyDecision::Deny {
-            reason: format!("tool '{}' is not listed in policy", request.tool_name),
-        }
+        self.deny(format!(
+            "tool '{}' is not listed in policy",
+            request.descriptor.name
+        ))
     }
 
     fn requires_overwrite_approval(&self, request: &ToolRequest) -> bool {
@@ -97,16 +84,22 @@ impl ToolGateway {
                 .is_some_and(|path| !path_within_output_root(path, &self.output_root))
     }
 
-    pub fn allow(&self, reason: String) -> ToolResult {
-        ToolResult::Ok { reason }
+    pub fn allow(&self, reason: impl Into<String>) -> PolicyDecision {
+        PolicyDecision::Allow {
+            reason: reason.into(),
+        }
     }
 
-    pub fn approval_required(&self, reason: String) -> ToolResult {
-        ToolResult::ApprovalRequired { reason }
+    pub fn approval_required(&self, reason: impl Into<String>) -> PolicyDecision {
+        PolicyDecision::ApprovalRequired {
+            reason: reason.into(),
+        }
     }
 
-    pub fn deny(&self, reason: String) -> ToolResult {
-        ToolResult::Denied { reason }
+    pub fn deny(&self, reason: impl Into<String>) -> PolicyDecision {
+        PolicyDecision::Deny {
+            reason: reason.into(),
+        }
     }
 }
 
@@ -139,37 +132,10 @@ fn path_within_output_root(path: &Path, root: &Path) -> bool {
     normalized_target.starts_with(&normalized_root)
 }
 
-pub fn evaluate_overwrite_for_test() -> ToolResult {
-    let gateway = ToolGateway::new(
-        PolicyProfile::new_for_test("policy-1", "workspace-1", "default"),
-        "/tmp/workspace/output",
-    );
-    let descriptor = ToolDescriptor::new("artifact.write", "Persist an artifact candidate");
-    let request = ToolRequest::new("artifact.write", "overwrite")
-        .with_target_path("/tmp/workspace/notes.md")
-        .with_overwrite_existing(true);
-
-    let (result, _) = gateway.evaluate(descriptor, request);
-    result
-}
-
-pub fn evaluate_output_traversal_for_test() -> ToolResult {
-    let gateway = ToolGateway::new(
-        PolicyProfile::new_for_test("policy-1", "workspace-1", "default"),
-        "/tmp/workspace/output",
-    );
-    let descriptor = ToolDescriptor::new("artifact.write", "Persist an artifact candidate");
-    let request = ToolRequest::new("artifact.write", "overwrite")
-        .with_target_path("/tmp/workspace/output/../notes.md")
-        .with_overwrite_existing(true);
-
-    let (result, _) = gateway.evaluate(descriptor, request);
-    result
-}
-
 #[cfg(test)]
 mod tests {
-    use super::path_within_output_root;
+    use super::{path_within_output_root, ToolGateway};
+    use crate::policy::entity::PolicyProfile;
     use std::path::Path;
 
     #[test]
@@ -186,5 +152,20 @@ mod tests {
             Path::new("/tmp/workspace/output/final/summary.md"),
             Path::new("/tmp/workspace/output"),
         ));
+    }
+
+    #[test]
+    fn policy_decision_helpers_return_expected_variants() {
+        let gateway = ToolGateway::new(
+            PolicyProfile::new_for_test("policy-1", "workspace-1", "default"),
+            "/tmp/workspace/output",
+        );
+
+        assert!(matches!(gateway.allow("ok"), crate::gateway::result::PolicyDecision::Allow { .. }));
+        assert!(matches!(
+            gateway.approval_required("review"),
+            crate::gateway::result::PolicyDecision::ApprovalRequired { .. }
+        ));
+        assert!(matches!(gateway.deny("no"), crate::gateway::result::PolicyDecision::Deny { .. }));
     }
 }
