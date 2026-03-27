@@ -36,10 +36,7 @@ impl ToolProtocol for SemanticGatewayAdapter {
         let (decision, _) = self.gateway.evaluate(tool_request, OffsetDateTime::UNIX_EPOCH);
 
         Ok(match decision {
-            PolicyDecision::Allow { reason } => ToolCallResult::Allowed {
-                reason,
-                payload: "source material collected".to_owned(),
-            },
+            PolicyDecision::Allow { reason } => ToolCallResult::Allowed { reason },
             PolicyDecision::ApprovalRequired { reason } => {
                 ToolCallResult::ApprovalRequired { reason }
             }

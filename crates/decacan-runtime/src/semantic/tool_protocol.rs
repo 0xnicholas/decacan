@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
@@ -34,14 +35,13 @@ impl ToolCall {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum ToolCallResult {
-    Allowed { reason: String, payload: String },
+    Allowed { reason: String },
     ApprovalRequired { reason: String },
     Denied { reason: String },
-    Error { reason: String },
 }
 
 pub trait ToolProtocol {
-    type Error;
+    type Error: Debug;
 
     fn invoke(&self, request: ToolCall) -> Result<ToolCallResult, Self::Error>;
 }

@@ -1,9 +1,9 @@
+use std::fmt::Debug;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModelContext {
-    pub task_id: String,
-    pub run_id: String,
     pub source_material: String,
 }
 
@@ -17,7 +17,7 @@ pub struct OutputCandidate {
 }
 
 pub trait SemanticModel {
-    type Error;
+    type Error: Debug;
 
     fn produce_output_candidate(
         &self,
