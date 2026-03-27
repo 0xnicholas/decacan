@@ -1,5 +1,8 @@
 pub mod approval;
 pub mod artifact;
 pub mod playbook;
+pub mod policy;
+pub mod run;
 pub mod task;
+pub mod workflow;
 pub mod workspace;
