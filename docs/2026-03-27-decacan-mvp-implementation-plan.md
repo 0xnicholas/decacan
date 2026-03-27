@@ -138,7 +138,6 @@ The first truly complete milestone is:
 - If `output/summary.md` already exists, the runtime automatically backs it up before overwriting.
 - The first discovery-mode playbook writes `output/discovery.md`.
 - The initial web UX is intentionally minimal and server-rendered.
-- The current workspace is not yet a Git repository. Treat each `git add` / `git commit` step below as a checkpoint to execute only after the repository is initialized under Git.
 
 ## Task 1: Initialize Rust Workspace Skeleton
 
