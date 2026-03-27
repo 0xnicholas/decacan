@@ -6,12 +6,3 @@ pub enum PlaybookMode {
     Discovery,
     Standard,
 }
-
-impl PlaybookMode {
-    pub fn display_name(self) -> &'static str {
-        match self {
-            Self::Discovery => "发现模式",
-            Self::Standard => "标准模式",
-        }
-    }
-}
