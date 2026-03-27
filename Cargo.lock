@@ -33,11 +33,16 @@ version = "0.1.0"
 [[package]]
 name = "decacan-infra"
 version = "0.1.0"
+dependencies = [
+ "decacan-runtime",
+ "time",
+]
 
 [[package]]
 name = "decacan-runtime"
 version = "0.1.0"
 dependencies = [
+ "decacan-infra",
  "serde",
  "serde_json",
  "time",
