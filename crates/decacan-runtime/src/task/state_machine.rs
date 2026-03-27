@@ -4,22 +4,32 @@ use super::entity::{Task, TaskStatus};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TaskTransitionError {
-    InvalidTransition {
-        from: TaskStatus,
-        to: TaskStatus,
-    },
+    InvalidTransition { from: TaskStatus, to: TaskStatus },
 }
 
 pub struct TaskStateMachine;
 
 impl TaskStateMachine {
-    pub fn transition(task: &mut Task, next: TaskStatus) -> Result<(), TaskTransitionError> {
-        if !Self::can_transition(task.status, next) {
-            return Err(TaskTransitionError::InvalidTransition {
-                from: task.status,
+    pub fn ensure_transition(task: &Task, next: TaskStatus) -> Result<(), TaskTransitionError> {
+        Self::ensure_status_transition(task.status, next)
+    }
+
+    pub fn ensure_status_transition(
+        current: TaskStatus,
+        next: TaskStatus,
+    ) -> Result<(), TaskTransitionError> {
+        if Self::can_transition(current, next) {
+            Ok(())
+        } else {
+            Err(TaskTransitionError::InvalidTransition {
+                from: current,
                 to: next,
-            });
+            })
         }
+    }
+
+    pub fn transition(task: &mut Task, next: TaskStatus) -> Result<(), TaskTransitionError> {
+        Self::ensure_transition(task, next)?;
 
         task.status = next;
         task.updated_at = OffsetDateTime::now_utc();
@@ -27,9 +37,7 @@ impl TaskStateMachine {
     }
 
     fn can_transition(current: TaskStatus, next: TaskStatus) -> bool {
-        use TaskStatus::{
-            Cancelled, Created, Failed, Paused, Planning, Running, Succeeded,
-        };
+        use TaskStatus::{Cancelled, Created, Failed, Paused, Planning, Running, Succeeded};
 
         matches!(
             (current, next),

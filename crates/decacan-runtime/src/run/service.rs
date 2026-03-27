@@ -4,15 +4,30 @@ use super::entity::{Run, RunStatus};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RunTransitionError {
-    InvalidTransition {
-        from: RunStatus,
-        to: RunStatus,
-    },
+    InvalidTransition { from: RunStatus, to: RunStatus },
 }
 
 pub struct RunService;
 
 impl RunService {
+    pub fn ensure_transition(run: &Run, next: RunStatus) -> Result<(), RunTransitionError> {
+        Self::ensure_status_transition(run.status, next)
+    }
+
+    pub fn ensure_status_transition(
+        current: RunStatus,
+        next: RunStatus,
+    ) -> Result<(), RunTransitionError> {
+        if can_transition(current, next) {
+            Ok(())
+        } else {
+            Err(RunTransitionError::InvalidTransition {
+                from: current,
+                to: next,
+            })
+        }
+    }
+
     pub fn start(run: &mut Run) -> Result<(), RunTransitionError> {
         transition(run, RunStatus::Running)?;
         if run.started_at.is_none() {
@@ -57,12 +72,7 @@ impl RunService {
 }
 
 fn transition(run: &mut Run, next: RunStatus) -> Result<(), RunTransitionError> {
-    if !can_transition(run.status, next) {
-        return Err(RunTransitionError::InvalidTransition {
-            from: run.status,
-            to: next,
-        });
-    }
+    RunService::ensure_transition(run, next)?;
 
     run.status = next;
     Ok(())

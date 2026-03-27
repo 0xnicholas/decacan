@@ -1,11 +1,5 @@
-use crate::playbook::entity::Playbook;
-use crate::playbook::modes::PlaybookMode;
-use crate::policy::entity::PolicyProfile;
 use crate::run::entity::Run;
 use crate::run::service::{RunService, RunTransitionError};
-use crate::workflow::entity::Workflow;
-use crate::workflow::step::{WorkflowStep, WorkflowStepType};
-use crate::workspace::entity::Workspace;
 
 use super::entity::{Task, TaskStatus};
 use super::state_machine::{TaskStateMachine, TaskTransitionError};
@@ -28,44 +22,17 @@ impl From<RunTransitionError> for TaskServiceError {
     }
 }
 
-pub fn start_summary_task_for_test() -> (Task, Run) {
-    let workspace = Workspace::new_for_test("workspace-1", "workspace", "/tmp/workspace");
-    let playbook = Playbook::new_for_test(
-        "playbook-1",
-        "workspace-1",
-        "playbook.summary",
-        PlaybookMode::Discovery,
-    );
-    let workflow = summary_workflow_for_test(&playbook.id);
-    let policy = PolicyProfile::new_for_test("policy-1", "workspace-1", "default");
-    let mut task = Task::new_for_test(
-        "task-1",
-        &workspace.id,
-        &playbook.id,
-        workflow.version_id,
-    );
-
-    TaskStateMachine::transition(&mut task, TaskStatus::Planning).unwrap();
-
-    let run = Run::new_for_test(
-        "run-1",
-        &task.id,
-        workflow,
-        policy,
-        workspace,
-        playbook,
-    );
-
-    (task, run)
-}
-
 pub fn mark_running(task: &mut Task, run: &mut Run) -> Result<(), TaskServiceError> {
+    TaskStateMachine::ensure_transition(task, TaskStatus::Running)?;
+    RunService::ensure_transition(run, crate::run::entity::RunStatus::Running)?;
     TaskStateMachine::transition(task, TaskStatus::Running)?;
     RunService::start(run)?;
     Ok(())
 }
 
 pub fn mark_succeeded(task: &mut Task, run: &mut Run) -> Result<(), TaskServiceError> {
+    TaskStateMachine::ensure_transition(task, TaskStatus::Succeeded)?;
+    RunService::ensure_transition(run, crate::run::entity::RunStatus::Completed)?;
     RunService::complete(run)?;
     TaskStateMachine::transition(task, TaskStatus::Succeeded)?;
     Ok(())
@@ -76,49 +43,75 @@ pub fn mark_failed(
     run: &mut Run,
     details: impl Into<String>,
 ) -> Result<(), TaskServiceError> {
+    let details = details.into();
+    TaskStateMachine::ensure_transition(task, TaskStatus::Failed)?;
+    RunService::ensure_transition(run, crate::run::entity::RunStatus::Failed)?;
     RunService::fail(run, details)?;
     TaskStateMachine::transition(task, TaskStatus::Failed)?;
     Ok(())
 }
 
 pub fn cancel(task: &mut Task, run: &mut Run) -> Result<(), TaskServiceError> {
+    TaskStateMachine::ensure_transition(task, TaskStatus::Cancelled)?;
+    RunService::ensure_transition(run, crate::run::entity::RunStatus::Cancelled)?;
     RunService::cancel(run)?;
     TaskStateMachine::transition(task, TaskStatus::Cancelled)?;
     Ok(())
 }
 
-fn summary_workflow_for_test(playbook_id: &str) -> Workflow {
-    Workflow::new_for_test(
-        "workflow-1",
-        playbook_id,
-        vec![
-            WorkflowStep::new_for_test(
-                "step-1",
-                "load_context",
-                WorkflowStepType::Deterministic,
-                "Load task context for summary generation",
-                Some("step-2"),
-            ),
-            WorkflowStep::new_for_test(
-                "step-2",
-                "draft_summary",
-                WorkflowStepType::Psi,
-                "Draft the summary body",
-                None,
-            ),
-        ],
-    )
-}
-
 #[cfg(test)]
 mod tests {
+    use crate::playbook::entity::Playbook;
+    use crate::playbook::modes::PlaybookMode;
+    use crate::policy::entity::PolicyProfile;
     use crate::run::entity::RunStatus;
+    use crate::workflow::entity::Workflow;
+    use crate::workflow::step::{WorkflowStep, WorkflowStepType};
+    use crate::workspace::entity::Workspace;
 
     use super::*;
 
+    fn planning_task_and_initialized_run() -> (Task, Run) {
+        let workspace = Workspace::new_for_test("workspace-1", "workspace", "/tmp/workspace");
+        let playbook = Playbook::new_for_test(
+            "playbook-1",
+            "workspace-1",
+            "playbook.summary",
+            PlaybookMode::Discovery,
+        );
+        let workflow = Workflow::new_for_test(
+            "workflow-1",
+            &playbook.id,
+            vec![
+                WorkflowStep::new_for_test(
+                    "step-1",
+                    "load_context",
+                    WorkflowStepType::Deterministic,
+                    "Load task context for summary generation",
+                    Some("step-2"),
+                ),
+                WorkflowStep::new_for_test(
+                    "step-2",
+                    "draft_summary",
+                    WorkflowStepType::Psi,
+                    "Draft the summary body",
+                    None,
+                ),
+            ],
+        );
+        let policy = PolicyProfile::new_for_test("policy-1", "workspace-1", "default");
+        let mut task =
+            Task::new_for_test("task-1", &workspace.id, &playbook.id, workflow.version_id);
+        TaskStateMachine::transition(&mut task, TaskStatus::Planning).unwrap();
+
+        let run = Run::new_for_test("run-1", &task.id, workflow, policy, workspace, playbook);
+
+        (task, run)
+    }
+
     #[test]
     fn starting_summary_task_enters_planning_with_initialized_run() {
-        let (task, run) = start_summary_task_for_test();
+        let (task, run) = planning_task_and_initialized_run();
 
         assert_eq!(task.status, TaskStatus::Planning);
         assert_eq!(run.status, RunStatus::Initialized);
@@ -126,7 +119,7 @@ mod tests {
 
     #[test]
     fn task_service_advances_task_and_run_together() {
-        let (mut task, mut run) = start_summary_task_for_test();
+        let (mut task, mut run) = planning_task_and_initialized_run();
 
         mark_running(&mut task, &mut run).unwrap();
         assert_eq!(task.status, TaskStatus::Running);
