@@ -76,8 +76,9 @@ where
         command: SummaryArtifactCommand,
     ) -> Result<SummaryArtifactWriteResult, ArtifactServiceError> {
         let summary_path = summary_output_path(&command.workspace_root);
-        let backup_result = backup_existing_summary(self.filesystem, self.clock, &summary_path)
-            .map_err(|error| ArtifactServiceError::Filesystem(format!("{error:?}")))?;
+        let backup_result =
+            backup_existing_summary(self.filesystem, self.clock, &command.workspace_root, &summary_path)
+                .map_err(|error| ArtifactServiceError::Filesystem(format!("{error:?}")))?;
 
         let written_path = write_summary_output(self.filesystem, &command.workspace_root, &command.contents)
             .map_err(|error| ArtifactServiceError::Filesystem(format!("{error:?}")))?;
@@ -91,7 +92,13 @@ where
         let mut relations = Vec::new();
 
         if let Some(backup_result) = backup_result {
-            let backup = build_backup_artifact(&command.task_id, &backup_result.backup_path, now);
+            let backup = build_backup_artifact(
+                &command.task_id,
+                &backup_result.backup_path,
+                &backup_result.backup_relative_path,
+                &backup_result.backup_identity,
+                now,
+            );
             let relation = ArtifactRelation {
                 id: format!("artifact-relation-{}-backup-of-{}", backup.id, primary_artifact.id),
                 from_artifact_id: backup.id.clone(),
@@ -133,21 +140,19 @@ fn build_primary_artifact(task_id: &str, path: &Path, now: OffsetDateTime) -> Ar
     }
 }
 
-fn build_backup_artifact(task_id: &str, path: &Path, now: OffsetDateTime) -> Artifact {
+fn build_backup_artifact(
+    task_id: &str,
+    path: &Path,
+    relative_path: &Path,
+    backup_identity: &str,
+    now: OffsetDateTime,
+) -> Artifact {
     Artifact {
-        id: format!("artifact-{task_id}-summary-backup-{}", now.unix_timestamp()),
+        id: format!("artifact-{task_id}-summary-backup-{backup_identity}"),
         task_id: task_id.to_owned(),
         label: "summary-backup".to_owned(),
         logical_name: "workspace.summary.backup".to_owned(),
-        canonical_path: path
-            .strip_prefix(
-                path.ancestors()
-                    .nth(3)
-                    .expect("backup path should live below workspace root"),
-            )
-            .unwrap_or(path)
-            .to_string_lossy()
-            .to_string(),
+        canonical_path: relative_path.to_string_lossy().to_string(),
         physical_path: path.to_string_lossy().to_string(),
         kind: ArtifactKind::Derived,
         status: ArtifactStatus::Ready,
@@ -164,7 +169,8 @@ where
     S::Error: Debug,
 {
     let key = format!("artifact/{}", artifact.id);
-    let value = artifact_record_json(artifact);
+    let value = serde_json::to_string(artifact)
+        .map_err(|error| ArtifactServiceError::Serialization(error.to_string()))?;
     storage
         .put(&key, &value)
         .map_err(|error| ArtifactServiceError::Storage(format!("{error:?}")))?;
@@ -177,70 +183,10 @@ where
     S::Error: Debug,
 {
     let key = artifact_relation_storage_key(relation);
-    let value = relation_record_json(relation);
+    let value = serde_json::to_string(relation)
+        .map_err(|error| ArtifactServiceError::Serialization(error.to_string()))?;
     storage
         .put(&key, &value)
         .map_err(|error| ArtifactServiceError::Storage(format!("{error:?}")))?;
     Ok(())
-}
-
-fn artifact_record_json(artifact: &Artifact) -> String {
-    format!(
-        "{{\"id\":\"{}\",\"task_id\":\"{}\",\"label\":\"{}\",\"logical_name\":\"{}\",\"canonical_path\":\"{}\",\"physical_path\":\"{}\",\"kind\":\"{}\",\"status\":\"{}\",\"type\":\"{}\",\"created_at\":\"{}\",\"updated_at\":\"{}\",\"content_id\":\"{}\"}}",
-        artifact.id,
-        artifact.task_id,
-        artifact.label,
-        artifact.logical_name,
-        artifact.canonical_path,
-        artifact.physical_path,
-        artifact_kind_name(artifact.kind),
-        artifact_status_name(artifact.status),
-        artifact_type_name(artifact.r#type),
-        artifact.created_at,
-        artifact.updated_at,
-        artifact.content_id
-    )
-}
-
-fn relation_record_json(relation: &ArtifactRelation) -> String {
-    format!(
-        "{{\"id\":\"{}\",\"from_artifact_id\":\"{}\",\"to_artifact_id\":\"{}\",\"kind\":\"{}\"}}",
-        relation.id,
-        relation.from_artifact_id,
-        relation.to_artifact_id,
-        relation_kind_name(relation.kind)
-    )
-}
-
-fn artifact_kind_name(kind: ArtifactKind) -> &'static str {
-    match kind {
-        ArtifactKind::Primary => "primary",
-        ArtifactKind::Derived => "derived",
-        ArtifactKind::Attachment => "attachment",
-    }
-}
-
-fn artifact_status_name(status: ArtifactStatus) -> &'static str {
-    match status {
-        ArtifactStatus::Pending => "pending",
-        ArtifactStatus::Ready => "ready",
-        ArtifactStatus::Archived => "archived",
-        ArtifactStatus::Failed => "failed",
-    }
-}
-
-fn artifact_type_name(artifact_type: ArtifactType) -> &'static str {
-    match artifact_type {
-        ArtifactType::Summary => "summary",
-        ArtifactType::Report => "report",
-        ArtifactType::Log => "log",
-        ArtifactType::Dataset => "dataset",
-        ArtifactType::Binary => "binary",
-    }
-}
-
-fn relation_kind_name(kind: ArtifactRelationKind) -> &'static str {
-    match kind {
-        ArtifactRelationKind::BackupOf => "backup_of",
-    }
 }
