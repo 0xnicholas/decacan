@@ -1,0 +1,8 @@
+[workspace]
+members = [
+    "crates/decacan-app",
+    "crates/decacan-runtime",
+    "crates/decacan-infra",
+]
+resolver = "2"
+
