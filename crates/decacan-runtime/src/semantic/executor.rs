@@ -35,6 +35,7 @@ pub enum PendingAction {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "reason", rename_all = "snake_case")]
 pub enum BlockedReason {
+    AwaitingToolCompletion { detail: String },
     ApprovalRequired { detail: String },
     Denied { detail: String },
 }
@@ -117,12 +118,17 @@ where
                 state.requested_tools.push(tool_call.clone());
 
                 match tool_protocol.invoke(tool_call.clone()) {
-                    Ok(ToolCallResult::Allowed { .. }) => {
-                        state.events.push(SemanticInvocationEvent::ContinuationAdvanced {
-                            state: ContinuationState::Ready,
-                        });
-                        state.advance();
-                        continue;
+                    Ok(ToolCallResult::Allowed { reason }) => {
+                        state.pending_tool_call = Some(tool_call.clone());
+                        state.continuation = ContinuationState::AwaitingTool;
+                        return InvocationResult {
+                            output_candidates: state.output_candidates.clone(),
+                            pending_action: Some(PendingAction::ToolRequest { request: tool_call }),
+                            outcome: InvocationOutcome::Blocked(
+                                BlockedReason::AwaitingToolCompletion { detail: reason },
+                            ),
+                            state,
+                        };
                     }
                     Ok(ToolCallResult::ApprovalRequired { reason }) => {
                         state.pending_tool_call = Some(tool_call.clone());
@@ -193,7 +199,7 @@ where
 
 fn blocked_outcome_for_pending(state: &InvocationState) -> InvocationOutcome {
     if state.pending_tool_call.is_some() {
-        InvocationOutcome::Blocked(BlockedReason::ApprovalRequired {
+        InvocationOutcome::Blocked(BlockedReason::AwaitingToolCompletion {
             detail: "tool request is awaiting external continuation".to_owned(),
         })
     } else {

@@ -1,13 +1,11 @@
-use decacan_runtime::gateway::semantic_adapter::SemanticGatewayAdapter;
-use decacan_runtime::gateway::tool_gateway::ToolGateway;
+use decacan_runtime::gateway::{SemanticGatewayAdapter, ToolGateway};
 use decacan_runtime::policy::entity::PolicyProfile;
-use decacan_runtime::semantic::executor::{
+use decacan_runtime::{
     start_summary_invocation_for_test, resume_summary_invocation_for_test, BlockedReason,
     ContinuationState, InvocationContext, InvocationOutcome, InvocationState, PendingAction,
-    ResumeAction,
+    ResumeAction, ModelContext, OutputCandidate, SemanticModel, ToolCall, ToolCallResult,
+    ToolProtocol,
 };
-use decacan_runtime::semantic::model::{ModelContext, OutputCandidate, SemanticModel};
-use decacan_runtime::semantic::tool_protocol::{ToolCall, ToolCallResult, ToolProtocol};
 use serde_json::{from_str, to_string};
 
 #[test]
@@ -22,12 +20,33 @@ fn semantic_invocation_requests_tool_and_returns_output_candidate() {
         source_material: "source material collected outside semantic".to_owned(),
         read_target_path: Some("/workspace/notes.md".into()),
     };
-    let result = start_summary_invocation_for_test(&context, &tool_protocol, &model);
+    let blocked = start_summary_invocation_for_test(&context, &tool_protocol, &model);
 
-    assert_eq!(result.outcome, InvocationOutcome::Completed);
-    assert_eq!(result.pending_action, None);
-    assert_eq!(result.output_candidates.len(), 1);
-    assert_eq!(result.state.continuation, ContinuationState::Completed);
+    assert_eq!(
+        blocked.outcome,
+        InvocationOutcome::Blocked(BlockedReason::AwaitingToolCompletion {
+            detail: "tool 'workspace.read' allowed by policy".to_owned(),
+        })
+    );
+    assert!(matches!(
+        blocked.pending_action,
+        Some(PendingAction::ToolRequest { request }) if request.name == "workspace.read"
+    ));
+    assert_eq!(blocked.output_candidates.len(), 0);
+    assert_eq!(blocked.state.continuation, ContinuationState::AwaitingTool);
+
+    let completed = resume_summary_invocation_for_test(
+        blocked.state,
+        &context,
+        ResumeAction::ToolCompleted,
+        &StubToolProtocol::error("resume should not re-evaluate tool"),
+        &model,
+    );
+
+    assert_eq!(completed.outcome, InvocationOutcome::Completed);
+    assert_eq!(completed.pending_action, None);
+    assert_eq!(completed.output_candidates.len(), 1);
+    assert_eq!(completed.state.continuation, ContinuationState::Completed);
 }
 
 #[test]
@@ -89,7 +108,15 @@ fn semantic_invocation_fails_when_model_fails() {
     let tool_protocol = StubToolProtocol::allowed("allowed");
     let context = invocation_context();
 
-    let result = start_summary_invocation_for_test(&context, &tool_protocol, &FailingModel);
+    let blocked = start_summary_invocation_for_test(&context, &tool_protocol, &FailingModel);
+
+    let result = resume_summary_invocation_for_test(
+        blocked.state,
+        &context,
+        ResumeAction::ToolCompleted,
+        &StubToolProtocol::error("resume should not re-evaluate tool"),
+        &FailingModel,
+    );
 
     assert_eq!(
         result.outcome,
@@ -102,7 +129,7 @@ fn semantic_invocation_fails_when_model_fails() {
 
 #[test]
 fn semantic_invocation_state_roundtrips_and_resumes_after_tool_completion() {
-    let tool_protocol = StubToolProtocol::approval_required("approval needed");
+    let tool_protocol = StubToolProtocol::allowed("allowed");
     let context = invocation_context();
     let blocked = start_summary_invocation_for_test(&context, &tool_protocol, &SummaryModelForTest);
     let serialized = to_string(&blocked.state).expect("state serializes");

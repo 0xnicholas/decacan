@@ -6,8 +6,15 @@ pub mod playbook;
 pub mod policy;
 pub mod ports;
 pub mod run;
-#[doc(hidden)]
-pub mod semantic;
+mod semantic;
 pub mod task;
 pub mod workflow;
 pub mod workspace;
+
+pub use crate::semantic::executor::{
+    start_summary_invocation_for_test, resume_summary_invocation_for_test, BlockedReason,
+    ContinuationState, InvocationContext, InvocationOutcome, InvocationResult, InvocationState,
+    PendingAction, ResumeAction,
+};
+pub use crate::semantic::model::{ModelContext, OutputCandidate, SemanticModel};
+pub use crate::semantic::tool_protocol::{ToolCall, ToolCallResult, ToolProtocol};
