@@ -1,5 +1,6 @@
 pub mod approval;
 pub mod artifact;
+pub mod events;
 pub mod playbook;
 pub mod policy;
 pub mod run;
