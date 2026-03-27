@@ -6,6 +6,7 @@ pub mod playbook;
 pub mod policy;
 pub mod ports;
 pub mod run;
+pub mod semantic;
 pub mod task;
 pub mod workflow;
 pub mod workspace;
