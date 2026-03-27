@@ -1,8 +1,10 @@
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 
+use crate::playbook::entity::Playbook;
 use crate::policy::entity::PolicyProfile;
 use crate::workflow::entity::Workflow;
+use crate::workspace::entity::Workspace;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -23,8 +25,8 @@ pub struct Run {
     pub created_at: OffsetDateTime,
     pub workflow_snapshot: Workflow,
     pub policy_snapshot: PolicyProfile,
-    pub workspace_snapshot: String,
-    pub playbook_snapshot: String,
+    pub workspace_snapshot: Workspace,
+    pub playbook_snapshot: Playbook,
     pub status: RunStatus,
     pub current_step_id: Option<String>,
     pub step_cursor: usize,
@@ -44,6 +46,8 @@ impl Run {
         task_id: &str,
         workflow_snapshot: Workflow,
         policy_snapshot: PolicyProfile,
+        workspace_snapshot: Workspace,
+        playbook_snapshot: Playbook,
     ) -> Self {
         let current_step_id = workflow_snapshot.steps.first().map(|step| step.id.clone());
         Self {
@@ -53,8 +57,8 @@ impl Run {
             created_at: OffsetDateTime::now_utc(),
             workflow_snapshot,
             policy_snapshot,
-            workspace_snapshot: "workspace-1".to_owned(),
-            playbook_snapshot: "playbook.summary".to_owned(),
+            workspace_snapshot,
+            playbook_snapshot,
             status: RunStatus::Initialized,
             current_step_id,
             step_cursor: 0,
