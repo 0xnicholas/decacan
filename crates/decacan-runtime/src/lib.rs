@@ -5,6 +5,7 @@ pub mod gateway;
 pub mod playbook;
 pub mod policy;
 pub mod ports;
+mod routine;
 pub mod run;
 mod semantic;
 mod outputs;

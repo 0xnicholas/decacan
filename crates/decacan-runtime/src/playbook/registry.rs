@@ -20,6 +20,11 @@ pub fn get_registered_playbook(key: &str) -> Option<Playbook> {
         .find(|playbook| playbook.key == key)
 }
 
+pub fn get_registered_summary_playbook_for_test() -> Playbook {
+    get_registered_playbook(SUMMARY_PLAYBOOK_KEY)
+        .expect("summary playbook should be registered")
+}
+
 fn registry() -> &'static [Playbook] {
     REGISTERED_PLAYBOOKS.get_or_init(|| {
         vec![
