@@ -370,6 +370,45 @@ async fn workspace_scoped_task_routes_enforce_task_ownership() {
 }
 
 #[tokio::test]
+async fn workspace_scoped_tasks_list_is_newest_first_and_stable() {
+    let app = decacan_app::app::wiring::router_for_test();
+    let (task_1, _artifact_1) = create_task(&app, "总结资料", "one").await;
+    let (task_2, _artifact_2) = create_task(&app, "总结资料", "two").await;
+    let (task_3, _artifact_3) = create_task(&app, "总结资料", "three").await;
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/api/workspaces/workspace-1/tasks")
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("scoped tasks list route should respond");
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("scoped tasks list body should be readable");
+    let json: Value = serde_json::from_slice(&body).expect("scoped tasks list should be json");
+    let ids = json
+        .as_array()
+        .expect("scoped tasks list should be an array")
+        .iter()
+        .map(|task| {
+            task["id"]
+                .as_str()
+                .expect("task id should be present")
+                .to_owned()
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(ids, vec![task_3, task_2, task_1]);
+}
+
+#[tokio::test]
 async fn every_advertised_instruction_action_is_accepted() {
     let app = decacan_app::app::wiring::router_for_test();
     let (task_id, _artifact_id) = create_task(&app, "总结资料", "alpha\nbeta\ngamma").await;
@@ -400,6 +439,44 @@ async fn every_advertised_instruction_action_is_accepted() {
             .expect("instruction route should respond");
         assert_eq!(response.status(), StatusCode::ACCEPTED);
     }
+}
+
+#[tokio::test]
+async fn workspace_scoped_instruction_route_accepts_matching_workspace_and_rejects_mismatch() {
+    let app = decacan_app::app::wiring::router_for_test();
+    let (task_id, _artifact_id) = create_task(&app, "总结资料", "alpha\nbeta\ngamma").await;
+    let _ = wait_for_terminal_task(&app, &task_id).await;
+
+    let accepted = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!(
+                    "/api/workspaces/workspace-1/tasks/{task_id}/instructions"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"instruction_key":"status-brief"}"#))
+                .expect("request should build"),
+        )
+        .await
+        .expect("scoped instruction route should respond");
+    assert_eq!(accepted.status(), StatusCode::ACCEPTED);
+
+    let mismatch = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!(
+                    "/api/workspaces/workspace-2/tasks/{task_id}/instructions"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"instruction_key":"status-brief"}"#))
+                .expect("request should build"),
+        )
+        .await
+        .expect("scoped instruction route should respond");
+    assert_eq!(mismatch.status(), StatusCode::NOT_FOUND);
 }
 
 #[tokio::test]

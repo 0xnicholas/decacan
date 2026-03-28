@@ -144,13 +144,30 @@ impl AppState {
     }
 
     pub fn list_tasks(&self) -> Vec<TaskDto> {
-        self.inner
+        let mut tasks = self
+            .inner
             .tasks
             .lock()
             .expect("task lock should not be poisoned")
             .values()
             .map(task_to_dto)
-            .collect()
+            .collect::<Vec<_>>();
+        sort_tasks_newest_first(&mut tasks);
+        tasks
+    }
+
+    pub fn list_tasks_in_workspace(&self, workspace_id: &str) -> Vec<TaskDto> {
+        let mut tasks = self
+            .inner
+            .tasks
+            .lock()
+            .expect("task lock should not be poisoned")
+            .values()
+            .filter(|task| task.workspace_id == workspace_id)
+            .map(task_to_dto)
+            .collect::<Vec<_>>();
+        sort_tasks_newest_first(&mut tasks);
+        tasks
     }
 
     pub fn get_task(&self, task_id: &str) -> Option<TaskDto> {
@@ -925,6 +942,22 @@ fn map_registered_playbook_error(error: RegisteredPlaybookError) -> CreateTaskEr
             CreateTaskError::UnknownPlaybook
         }
     }
+}
+
+fn sort_tasks_newest_first(tasks: &mut [TaskDto]) {
+    tasks.sort_by(|left, right| {
+        task_id_sequence(&right.id)
+            .cmp(&task_id_sequence(&left.id))
+            .then_with(|| right.id.cmp(&left.id))
+    });
+}
+
+fn task_id_sequence(task_id: &str) -> u64 {
+    task_id
+        .rsplit('-')
+        .next()
+        .and_then(|value| value.parse::<u64>().ok())
+        .unwrap_or(0)
 }
 
 #[cfg(test)]

@@ -69,6 +69,10 @@ export function listTasks() {
   return getJson<TaskListItem[]>("/api/tasks");
 }
 
+export function listWorkspaceTasks(workspaceId: string) {
+  return getJson<TaskListItem[]>(`/api/workspaces/${workspaceId}/tasks`);
+}
+
 export function getTaskDetail(taskId: string, workspaceId?: string) {
   const path = workspaceId
     ? `/api/workspaces/${workspaceId}/tasks/${taskId}`
@@ -93,9 +97,16 @@ export function retryTask(taskId: string, request: RetryTaskRequest) {
   return postJson<RetryTaskRequest, unknown>(`/api/tasks/${taskId}/retry`, request);
 }
 
-export function sendTaskInstruction(taskId: string, request: TaskInstructionRequest) {
+export function sendTaskInstruction(
+  taskId: string,
+  request: TaskInstructionRequest,
+  workspaceId?: string,
+) {
+  const path = workspaceId
+    ? `/api/workspaces/${workspaceId}/tasks/${taskId}/instructions`
+    : `/api/tasks/${taskId}/instructions`;
   return postJson<TaskInstructionRequest, TaskInstructionResponse>(
-    `/api/tasks/${taskId}/instructions`,
+    path,
     request,
   );
 }

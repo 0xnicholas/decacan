@@ -94,7 +94,7 @@ describe("TaskPage", () => {
         );
       }
 
-      if (url.endsWith("/api/tasks") && method === "GET") {
+      if (url.endsWith("/api/workspaces/workspace-1/tasks") && method === "GET") {
         return new Response(
           JSON.stringify([
             {
@@ -108,6 +108,10 @@ describe("TaskPage", () => {
           ]),
           { status: 200, headers: { "content-type": "application/json" } },
         );
+      }
+
+      if (url.endsWith("/api/tasks") && method === "GET") {
+        throw new Error("Global task list should not be fetched for workspace-scoped task detail");
       }
 
       if (url.endsWith("/api/workspaces") && method === "GET") {
@@ -133,6 +137,7 @@ describe("TaskPage", () => {
   });
 
   it("shows a workspace-scoped not-found state when task does not belong to route workspace", async () => {
+    let scopedTaskListCalled = false;
     fetchMock.mockImplementation(async (input, init) => {
       const url = typeof input === "string" ? input : input.toString();
       const method = init?.method ?? "GET";
@@ -154,6 +159,14 @@ describe("TaskPage", () => {
           JSON.stringify({ error: "not found" }),
           { status: 404, headers: { "content-type": "application/json" } },
         );
+      }
+
+      if (url.endsWith("/api/workspaces/workspace-2/tasks") && method === "GET") {
+        scopedTaskListCalled = true;
+        return new Response(JSON.stringify([]), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
       }
 
       if (url.endsWith("/api/tasks") && method === "GET") {
@@ -181,6 +194,7 @@ describe("TaskPage", () => {
       await screen.findByText("Task not found in workspace workspace-2"),
     ).toBeInTheDocument();
     expect(FakeEventSource.instances).toHaveLength(0);
+    expect(scopedTaskListCalled).toBe(false);
   });
 
   it("refreshes collaboration from named SSE events and keeps persisted agent messages visible", async () => {
@@ -310,6 +324,113 @@ describe("TaskPage", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Server persisted instruction")).toBeInTheDocument();
+    });
+  });
+
+  it("uses workspace-scoped endpoints for recent tasks and instruction actions", async () => {
+    let scopedInstructionCalled = false;
+    fetchMock.mockImplementation(async (input, init) => {
+      const url = typeof input === "string" ? input : input.toString();
+      const method = init?.method ?? "GET";
+
+      if (url.endsWith("/api/workspaces/workspace-1/tasks/task-1") && method === "GET") {
+        return new Response(
+          JSON.stringify({
+            task: {
+              id: "task-1",
+              workspace_id: "workspace-1",
+              playbook_key: "总结资料",
+              input: "Summarize notes",
+              status: "running",
+              status_summary: "Task is running",
+              artifact_id: "artifact-1"
+            },
+            plan: {
+              steps: ["Scan markdown files"],
+              current_step_index: 0,
+              status: "running"
+            },
+            approvals: [],
+            artifacts: [],
+            timeline: [],
+            collaboration: {
+              agent_messages: [],
+              instruction_actions: [
+                {
+                  key: "status-brief",
+                  label: "Status brief",
+                  instruction: "Provide a concise status update for this task."
+                }
+              ]
+            }
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      if (url.endsWith("/api/workspaces/workspace-1/tasks") && method === "GET") {
+        return new Response(
+          JSON.stringify([
+            {
+              id: "task-2",
+              workspace_id: "workspace-1",
+              playbook_key: "总结资料",
+              input: "Another task",
+              status: "accepted",
+              artifact_id: "artifact-2"
+            }
+          ]),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      if (
+        url.endsWith("/api/workspaces/workspace-1/tasks/task-1/instructions")
+        && method === "POST"
+      ) {
+        scopedInstructionCalled = true;
+        return new Response(
+          JSON.stringify({
+            message: {
+              id: "agent-1",
+              task_id: "task-1",
+              role: "agent",
+              summary: "Status brief ready",
+              detail: "Scoped instruction accepted."
+            }
+          }),
+          { status: 202, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      if (url.endsWith("/api/tasks") && method === "GET") {
+        throw new Error("Global tasks list should not be fetched for workspace task pages");
+      }
+
+      if (url.endsWith("/api/tasks/task-1/instructions") && method === "POST") {
+        throw new Error("Global instruction endpoint should not be used for workspace task pages");
+      }
+
+      if (url.endsWith("/api/workspaces") && method === "GET") {
+        return new Response(
+          JSON.stringify([{ id: "workspace-1", title: "Workspace 1", root_path: "/tmp/workspace-1" }]),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      throw new Error(`Unhandled request: ${url}`);
+    });
+
+    const user = userEvent.setup();
+    window.history.replaceState({}, "", "/workspaces/workspace-1/tasks/task-1");
+
+    render(<App />);
+
+    await user.click(await screen.findByRole("tab", { name: "Agent" }));
+    await user.click(screen.getByRole("button", { name: "Status brief" }));
+
+    await waitFor(() => {
+      expect(scopedInstructionCalled).toBe(true);
     });
   });
 

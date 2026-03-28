@@ -6,7 +6,12 @@ import type {
   TaskEventEnvelope,
   TaskListItem,
 } from "../../entities/task/types";
-import { getTaskDetail, listTasks, taskEventsStreamPath } from "../../shared/api/tasks";
+import {
+  getTaskDetail,
+  listTasks,
+  listWorkspaceTasks,
+  taskEventsStreamPath,
+} from "../../shared/api/tasks";
 
 type TaskLoadState = "loading" | "ready" | "not_found";
 
@@ -23,10 +28,10 @@ export function useTaskDetail(taskId: string, workspaceId?: string) {
 
     async function loadTask() {
       try {
-        const [response, tasks] = await Promise.all([
-          getTaskDetail(taskId, workspaceId),
-          listTasks(),
-        ]);
+        const response = await getTaskDetail(taskId, workspaceId);
+        const tasks = workspaceId
+          ? await listWorkspaceTasks(workspaceId)
+          : await listTasks();
         const normalizedTask = normalizeTaskDetail(response);
 
         if (active) {

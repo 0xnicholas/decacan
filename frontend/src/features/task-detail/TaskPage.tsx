@@ -104,7 +104,7 @@ export function TaskPage({ taskId, workspaceId }: TaskPageProps) {
   async function handleInstruction(instructionKey: string) {
     setPendingInstructionKey(instructionKey);
     try {
-      await sendTaskInstruction(taskId, { instruction_key: instructionKey });
+      await sendTaskInstruction(taskId, { instruction_key: instructionKey }, workspaceId);
       reload();
     } catch {
       // Keep the current rail content unchanged when instruction submission fails.

@@ -30,8 +30,16 @@ pub(super) fn router() -> Router<AppState> {
             get(get_workspace_task),
         )
         .route(
+            "/api/workspaces/:workspace_id/tasks",
+            get(list_workspace_tasks),
+        )
+        .route(
             "/api/workspaces/:workspace_id/tasks/:task_id/events/stream",
             get(stream_workspace_task_events),
+        )
+        .route(
+            "/api/workspaces/:workspace_id/tasks/:task_id/instructions",
+            axum::routing::post(post_workspace_task_instruction),
         )
         .route("/api/tasks/:task_id", get(get_task))
         .route("/api/tasks/:task_id/events", get(list_task_events))
@@ -60,6 +68,17 @@ async fn get_workspace_task(
         .get_task_detail_in_workspace(&workspace_id, &task_id)
         .map(Json)
         .ok_or(StatusCode::NOT_FOUND)
+}
+
+async fn list_workspace_tasks(
+    State(state): State<AppState>,
+    Path(workspace_id): Path<String>,
+) -> Result<Json<Vec<TaskDto>>, StatusCode> {
+    if !state.is_known_workspace(&workspace_id) {
+        return Err(StatusCode::NOT_FOUND);
+    }
+
+    Ok(Json(state.list_tasks_in_workspace(&workspace_id)))
 }
 
 async fn create_task(
@@ -153,6 +172,34 @@ async fn post_task_instruction(
     Json(request): Json<TaskInstructionRequest>,
 ) -> Result<(StatusCode, Json<TaskInstructionResponse>), StatusCode> {
     if !state.has_task(&task_id) {
+        return Err(StatusCode::NOT_FOUND);
+    }
+
+    let message = state
+        .append_instruction_message(&task_id, &request.instruction_key)
+        .ok_or(StatusCode::UNPROCESSABLE_ENTITY)?;
+    let sequence = state.list_task_events(&task_id).len() as u64 + 1;
+    state.append_task_event(TaskEventEnvelopeDto {
+        event_id: state.next_id("event"),
+        task_id: task_id.clone(),
+        sequence,
+        event_type: "task.collaboration.instruction".to_owned(),
+        snapshot_version: sequence,
+        message: format!("Instruction executed: {}", message.summary),
+    });
+
+    Ok((
+        StatusCode::ACCEPTED,
+        Json(TaskInstructionResponse { message }),
+    ))
+}
+
+async fn post_workspace_task_instruction(
+    State(state): State<AppState>,
+    Path((workspace_id, task_id)): Path<(String, String)>,
+    Json(request): Json<TaskInstructionRequest>,
+) -> Result<(StatusCode, Json<TaskInstructionResponse>), StatusCode> {
+    if !state.has_task_in_workspace(&workspace_id, &task_id) {
         return Err(StatusCode::NOT_FOUND);
     }
 
