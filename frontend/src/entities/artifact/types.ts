@@ -5,3 +5,9 @@ export interface Artifact {
   canonical_path: string;
   status: string;
 }
+
+export interface ArtifactContent {
+  artifact_id: string;
+  content_type: string;
+  content: string;
+}

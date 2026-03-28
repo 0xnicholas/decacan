@@ -33,10 +33,30 @@ export interface CreateTaskResponse {
   stream_url: string;
 }
 
+export interface ApprovalDecisionRequest {
+  decision: string;
+  comment: string | null;
+}
+
+export interface RetryTaskRequest {
+  note: string;
+}
+
 export function createTaskPreview(request: TaskPreviewRequest) {
   return postJson<TaskPreviewRequest, TaskPreview>("/api/task-previews", request);
 }
 
 export function createTask(request: CreateTaskRequest) {
   return postJson<CreateTaskRequest, CreateTaskResponse>("/api/tasks", request);
+}
+
+export function decideApproval(approvalId: string, request: ApprovalDecisionRequest) {
+  return postJson<ApprovalDecisionRequest, unknown>(
+    `/api/approvals/${approvalId}/decision`,
+    request,
+  );
+}
+
+export function retryTask(taskId: string, request: RetryTaskRequest) {
+  return postJson<RetryTaskRequest, unknown>(`/api/tasks/${taskId}/retry`, request);
 }

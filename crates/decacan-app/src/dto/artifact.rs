@@ -8,3 +8,10 @@ pub struct ArtifactDto {
     pub canonical_path: String,
     pub status: String,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ArtifactContentDto {
+    pub artifact_id: String,
+    pub content_type: String,
+    pub content: String,
+}

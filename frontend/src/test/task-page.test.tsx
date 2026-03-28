@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, vi } from "vitest";
 
 import { App } from "../app/App";
@@ -13,11 +14,14 @@ describe("TaskPage", () => {
     window.history.replaceState({}, "", "/tasks/task-1");
   });
 
-  it("renders task header, plan, approvals, and artifact panels from the aggregate payload", async () => {
-    fetchMock.mockImplementation(async (input) => {
-      const url = typeof input === "string" ? input : input.toString();
+  it("submits an approval decision and opens the primary artifact preview", async () => {
+    let approvalStatus = "pending";
 
-      if (url.endsWith("/api/tasks/task-1")) {
+    fetchMock.mockImplementation(async (input, init) => {
+      const url = typeof input === "string" ? input : input.toString();
+      const method = init?.method ?? "GET";
+
+      if (url.endsWith("/api/tasks/task-1") && method === "GET") {
         return new Response(
           JSON.stringify({
             task: {
@@ -42,9 +46,9 @@ describe("TaskPage", () => {
               {
                 id: "approval-1",
                 task_id: "task-1",
-                decision: "pending",
-                comment: null,
-                status: "pending"
+                decision: approvalStatus,
+                comment: approvalStatus === "approved" ? "Proceed" : null,
+                status: approvalStatus
               }
             ],
             artifacts: [
@@ -71,14 +75,44 @@ describe("TaskPage", () => {
         );
       }
 
+      if (url.endsWith("/api/approvals/approval-1/decision") && method === "POST") {
+        approvalStatus = "approved";
+        return new Response(
+          JSON.stringify({
+            id: "approval-1",
+            task_id: "task-1",
+            decision: "approved",
+            comment: "Proceed",
+            status: "approved"
+          }),
+          { status: 202, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      if (url.endsWith("/api/artifacts/artifact-1/content") && method === "GET") {
+        return new Response(
+          JSON.stringify({
+            artifact_id: "artifact-1",
+            content_type: "text/markdown",
+            content: "## Summary preview"
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
       throw new Error(`Unhandled request: ${url}`);
     });
 
+    const user = userEvent.setup();
+
     render(<App />);
 
-    expect(await screen.findByText("Running")).toBeInTheDocument();
-    expect(screen.getByText("Plan")).toBeInTheDocument();
-    expect(screen.getByText("Approvals")).toBeInTheDocument();
-    expect(screen.getByText("Artifacts")).toBeInTheDocument();
+    await user.click(await screen.findByRole("button", { name: "Approve" }));
+
+    expect(await screen.findByText(/approved/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Preview output/summary.md" }));
+
+    expect(await screen.findByText("## Summary preview")).toBeInTheDocument();
   });
 });

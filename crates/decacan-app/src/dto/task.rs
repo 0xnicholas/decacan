@@ -45,6 +45,11 @@ pub struct CreateTaskRequest {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RetryTaskRequest {
+    pub note: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TaskPreviewRequest {
     pub workspace_id: String,
     pub playbook_key: String,

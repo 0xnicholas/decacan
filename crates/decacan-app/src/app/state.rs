@@ -102,6 +102,20 @@ impl AppState {
             .contains_key(task_id)
     }
 
+    pub fn update_task<F>(&self, task_id: &str, mutate: F) -> Option<TaskDto>
+    where
+        F: FnOnce(&mut TaskDto),
+    {
+        let mut tasks = self
+            .inner
+            .tasks
+            .lock()
+            .expect("task lock should not be poisoned");
+        let task = tasks.get_mut(task_id)?;
+        mutate(task);
+        Some(task.clone())
+    }
+
     pub fn put_artifact(&self, artifact: ArtifactDto) {
         self.inner
             .artifacts
@@ -134,6 +148,20 @@ impl AppState {
             .expect("approval lock should not be poisoned")
             .get(approval_id)
             .cloned()
+    }
+
+    pub fn update_approval<F>(&self, approval_id: &str, mutate: F) -> Option<ApprovalDto>
+    where
+        F: FnOnce(&mut ApprovalDto),
+    {
+        let mut approvals = self
+            .inner
+            .approvals
+            .lock()
+            .expect("approval lock should not be poisoned");
+        let approval = approvals.get_mut(approval_id)?;
+        mutate(approval);
+        Some(approval.clone())
     }
 
     pub fn append_task_event(&self, event: TaskEventEnvelopeDto) {
@@ -189,6 +217,10 @@ impl AppState {
 
     pub fn is_known_playbook(&self, playbook_key: &str) -> bool {
         self.inner.playbooks.iter().any(|playbook| playbook.key == playbook_key)
+    }
+
+    pub fn next_task_sequence(&self, task_id: &str) -> u64 {
+        self.list_task_events(task_id).len() as u64 + 1
     }
 }
 

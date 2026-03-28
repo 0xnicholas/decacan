@@ -166,3 +166,116 @@ async fn task_detail_endpoint_returns_plan_approvals_artifacts_and_timeline() {
     assert!(detail_json.get("artifacts").is_some());
     assert!(detail_json.get("timeline").is_some());
 }
+
+#[tokio::test]
+async fn approval_decision_and_retry_routes_update_task_snapshot() {
+    let app = decacan_app::app::wiring::router_for_test();
+
+    let create_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/tasks")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"workspace_id":"workspace-1","playbook_key":"总结资料","input":"notes.md"}"#,
+                ))
+                .expect("request should build"),
+        )
+        .await
+        .expect("create route should respond");
+    let create_body = axum::body::to_bytes(create_response.into_body(), usize::MAX)
+        .await
+        .expect("create body should be readable");
+    let create_json: Value =
+        serde_json::from_slice(&create_body).expect("create response should be json");
+    let task_id = create_json["task"]["id"]
+        .as_str()
+        .expect("create response should include a task id");
+    let artifact_id = create_json["task"]["artifact_id"]
+        .as_str()
+        .expect("create response should include an artifact id");
+
+    let approval_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/tasks/{task_id}/approvals"))
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"decision":"pending","comment":null}"#))
+                .expect("request should build"),
+        )
+        .await
+        .expect("approval create route should respond");
+    let approval_body = axum::body::to_bytes(approval_response.into_body(), usize::MAX)
+        .await
+        .expect("approval body should be readable");
+    let approval_json: Value =
+        serde_json::from_slice(&approval_body).expect("approval response should be json");
+    let approval_id = approval_json["id"]
+        .as_str()
+        .expect("approval response should include an approval id");
+
+    let decision_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/approvals/{approval_id}/decision"))
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"decision":"approved","comment":"Proceed"}"#))
+                .expect("request should build"),
+        )
+        .await
+        .expect("approval decision route should respond");
+    assert_eq!(decision_response.status(), StatusCode::ACCEPTED);
+
+    let task_after_decision = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri(format!("/api/tasks/{task_id}"))
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("task detail route should respond");
+    let task_after_decision_body =
+        axum::body::to_bytes(task_after_decision.into_body(), usize::MAX)
+            .await
+            .expect("task detail body should be readable");
+    let task_after_decision_json: Value =
+        serde_json::from_slice(&task_after_decision_body).expect("task detail should be json");
+
+    assert_eq!(task_after_decision_json["task"]["status"], "running");
+    assert_eq!(task_after_decision_json["approvals"][0]["status"], "approved");
+
+    let retry_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/tasks/{task_id}/retry"))
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"note":"Try the task again"}"#))
+                .expect("request should build"),
+        )
+        .await
+        .expect("retry route should respond");
+    assert_eq!(retry_response.status(), StatusCode::ACCEPTED);
+
+    let content_response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri(format!("/api/artifacts/{artifact_id}/content"))
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("artifact content route should respond");
+    assert_eq!(content_response.status(), StatusCode::OK);
+}

@@ -2,9 +2,10 @@ import type { Approval } from "../../entities/approval/types";
 
 interface ApprovalPanelProps {
   approvals: Approval[];
+  onApprove: (approvalId: string) => void;
 }
 
-export function ApprovalPanel({ approvals }: ApprovalPanelProps) {
+export function ApprovalPanel({ approvals, onApprove }: ApprovalPanelProps) {
   return (
     <section className="task-panel">
       <div className="section-header">
@@ -17,6 +18,15 @@ export function ApprovalPanel({ approvals }: ApprovalPanelProps) {
             <li key={approval.id}>
               <strong>{approval.status}</strong>
               <span>{approval.comment ?? "Approval decision pending."}</span>
+              {approval.status === "pending" ? (
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => onApprove(approval.id)}
+                >
+                  Approve
+                </button>
+              ) : null}
             </li>
           ))}
         </ul>

@@ -8,7 +8,7 @@ use axum::{Json, Router};
 use crate::app::state::{pending_artifact_for_task, plan_for_task, AppState};
 use crate::dto::{
     CreateTaskAcceptedResponse, CreateTaskRequest, TaskDetailDto, TaskDto, TaskEventEnvelopeDto,
-    TaskPreviewDto, TaskPreviewRequest, TaskSummaryDto,
+    RetryTaskRequest, TaskPreviewDto, TaskPreviewRequest, TaskSummaryDto,
 };
 use crate::streams::task_events::task_event_sse;
 
@@ -16,6 +16,7 @@ pub(super) fn router() -> Router<AppState> {
     Router::new()
         .route("/api/task-previews", axum::routing::post(create_task_preview))
         .route("/api/tasks", get(list_tasks).post(create_task))
+        .route("/api/tasks/:task_id/retry", axum::routing::post(retry_task))
         .route("/api/tasks/:task_id", get(get_task))
         .route("/api/tasks/:task_id/events", get(list_task_events))
         .route("/api/tasks/:task_id/events/stream", get(stream_task_events))
@@ -169,4 +170,40 @@ async fn stream_task_events(
     }
 
     Ok(task_event_sse(task_id, state.subscribe_task_events()))
+}
+
+async fn retry_task(
+    State(state): State<AppState>,
+    Path(task_id): Path<String>,
+    Json(request): Json<RetryTaskRequest>,
+) -> Result<(StatusCode, Json<TaskSummaryDto>), StatusCode> {
+    let task = state
+        .update_task(&task_id, |task| {
+            task.status = "running".to_owned();
+            task.input = format!("{}\n\nRetry note: {}", task.input, request.note);
+        })
+        .ok_or(StatusCode::NOT_FOUND)?;
+
+    let sequence = state.next_task_sequence(&task_id);
+    state.append_task_event(TaskEventEnvelopeDto {
+        event_id: state.next_id("event"),
+        task_id,
+        sequence,
+        event_type: "task.retried".to_owned(),
+        snapshot_version: sequence,
+        message: "Task retry requested".to_owned(),
+    });
+
+    Ok((
+        StatusCode::ACCEPTED,
+        Json(TaskSummaryDto {
+            id: task.id,
+            workspace_id: task.workspace_id,
+            playbook_key: task.playbook_key,
+            input: task.input,
+            status: task.status,
+            status_summary: "Task retry requested".to_owned(),
+            artifact_id: task.artifact_id,
+        }),
+    ))
 }
