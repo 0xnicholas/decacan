@@ -1,0 +1,61 @@
+:root {
+  color: #181311;
+  background: linear-gradient(135deg, #f8f1de 0%, #efe4c8 50%, #e6d8b8 100%);
+  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.workspace-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 280px 1fr;
+}
+
+.sidebar {
+  padding: 32px 24px;
+  border-right: 1px solid rgba(24, 19, 17, 0.08);
+  background: rgba(255, 252, 246, 0.58);
+  backdrop-filter: blur(12px);
+}
+
+.sidebar-label {
+  margin: 0;
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.main-panel {
+  padding: 48px;
+}
+
+.eyebrow {
+  margin: 0 0 12px;
+  font-size: 0.85rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.main-panel h1 {
+  margin: 0;
+  font-size: 3rem;
+  line-height: 1;
+}
+
+.subcopy {
+  max-width: 32rem;
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
