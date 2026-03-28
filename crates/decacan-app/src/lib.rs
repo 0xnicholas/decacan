@@ -1,4 +1,4 @@
-pub mod api;
 pub mod app;
-pub mod dto;
-pub mod streams;
+mod api;
+mod dto;
+mod streams;
