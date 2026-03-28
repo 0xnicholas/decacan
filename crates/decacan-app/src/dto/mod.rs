@@ -5,7 +5,11 @@ mod task;
 mod workspace;
 
 pub use approval::{ApprovalDto, ApprovalRequestDto};
-pub use artifact::ArtifactDto;
+pub use artifact::{ArtifactContentDto, ArtifactDto};
 pub use playbook::PlaybookDto;
-pub use task::{CreateTaskAcceptedResponse, CreateTaskRequest, TaskDto, TaskEventDto};
+pub use task::{
+    CreateTaskAcceptedResponse, CreateTaskRequest, TaskDetailDto, TaskDto,
+    RetryTaskRequest, TaskEventEnvelopeDto, TaskPlanDto, TaskPreviewDto, TaskPreviewRequest,
+    TaskSummaryDto,
+};
 pub use workspace::WorkspaceDto;

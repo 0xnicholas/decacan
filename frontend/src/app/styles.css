@@ -1,0 +1,307 @@
+:root {
+  color: #181311;
+  background: linear-gradient(135deg, #f8f1de 0%, #efe4c8 50%, #e6d8b8 100%);
+  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.workspace-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 280px 1fr;
+}
+
+.sidebar {
+  padding: 32px 24px;
+  border-right: 1px solid rgba(24, 19, 17, 0.08);
+  background: rgba(255, 252, 246, 0.58);
+  backdrop-filter: blur(12px);
+}
+
+.sidebar-label {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sidebar-title {
+  margin: 0;
+  font-size: 1.6rem;
+}
+
+.sidebar-path {
+  margin: 8px 0 28px;
+  color: rgba(24, 19, 17, 0.68);
+  word-break: break-all;
+}
+
+.sidebar-section {
+  padding-top: 20px;
+  border-top: 1px solid rgba(24, 19, 17, 0.1);
+}
+
+.sidebar-value {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.main-panel {
+  padding: 48px;
+}
+
+.eyebrow {
+  margin: 0 0 12px;
+  font-size: 0.85rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.main-panel h1 {
+  margin: 0;
+  font-size: 3rem;
+  line-height: 1;
+}
+
+.subcopy {
+  max-width: 32rem;
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
+.section-header {
+  margin-bottom: 18px;
+}
+
+.section-kicker {
+  margin: 0 0 8px;
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(24, 19, 17, 0.65);
+}
+
+.section-header h2 {
+  margin: 0;
+  font-size: 1.6rem;
+}
+
+.playbook-section {
+  margin-bottom: 28px;
+}
+
+.playbook-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.playbook-card {
+  display: grid;
+  gap: 12px;
+  text-align: left;
+  border: 1px solid rgba(24, 19, 17, 0.12);
+  background: rgba(255, 250, 240, 0.72);
+  padding: 20px;
+  border-radius: 20px;
+  color: inherit;
+  cursor: pointer;
+}
+
+.playbook-card.selected {
+  border-color: #181311;
+  box-shadow: 0 12px 30px rgba(24, 19, 17, 0.12);
+}
+
+.playbook-mode {
+  font-size: 0.8rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.playbook-title {
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.playbook-summary,
+.playbook-output,
+.panel-copy {
+  color: rgba(24, 19, 17, 0.72);
+  line-height: 1.6;
+}
+
+.launch-grid {
+  display: grid;
+  grid-template-columns: minmax(320px, 1fr) minmax(320px, 1fr);
+  gap: 24px;
+}
+
+.draft-panel,
+.preview-panel {
+  padding: 24px;
+  border-radius: 24px;
+  background: rgba(255, 252, 246, 0.68);
+  border: 1px solid rgba(24, 19, 17, 0.08);
+}
+
+.field {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 20px;
+  font-size: 0.95rem;
+}
+
+.field textarea {
+  width: 100%;
+  border: 1px solid rgba(24, 19, 17, 0.18);
+  border-radius: 16px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.88);
+  font: inherit;
+  resize: vertical;
+}
+
+.primary-button {
+  border: 0;
+  border-radius: 999px;
+  padding: 12px 18px;
+  background: #181311;
+  color: #fff8ef;
+  font: inherit;
+  cursor: pointer;
+}
+
+.primary-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.secondary-button {
+  width: fit-content;
+  border: 1px solid rgba(24, 19, 17, 0.14);
+  border-radius: 999px;
+  padding: 8px 14px;
+  background: rgba(255, 252, 246, 0.95);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.plan-steps {
+  margin: 0 0 16px;
+  padding-left: 22px;
+  line-height: 1.7;
+}
+
+.artifact-path {
+  margin: 0 0 18px;
+  font-size: 0.95rem;
+}
+
+.task-route-placeholder {
+  min-height: 100vh;
+  padding: 48px;
+}
+
+.task-page {
+  min-height: 100vh;
+  padding: 48px;
+}
+
+.task-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(280px, 1fr));
+  gap: 24px;
+}
+
+.task-panel {
+  padding: 24px;
+  border-radius: 24px;
+  background: rgba(255, 252, 246, 0.7);
+  border: 1px solid rgba(24, 19, 17, 0.08);
+}
+
+.task-header {
+  margin-bottom: 24px;
+}
+
+.task-header-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.task-header h1 {
+  margin: 0;
+  font-size: 2.5rem;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: #181311;
+  color: #fff8ef;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.detail-list,
+.timeline-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.detail-list li,
+.timeline-list li {
+  display: grid;
+  gap: 4px;
+}
+
+.current-step {
+  font-weight: 700;
+}
+
+.artifact-preview {
+  margin: 20px 0 0;
+  padding: 16px;
+  border-radius: 16px;
+  background: rgba(24, 19, 17, 0.92);
+  color: #fff8ef;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+}
+
+@media (max-width: 900px) {
+  .workspace-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .launch-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .task-grid {
+    grid-template-columns: 1fr;
+  }
+}

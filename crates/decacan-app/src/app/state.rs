@@ -9,7 +9,7 @@ use decacan_runtime::playbook::registry::{
 use tokio::sync::broadcast;
 
 use crate::dto::{
-    ApprovalDto, ArtifactDto, PlaybookDto, TaskDto, TaskEventDto, WorkspaceDto,
+    ApprovalDto, ArtifactDto, PlaybookDto, TaskDto, TaskEventEnvelopeDto, TaskPlanDto, WorkspaceDto,
 };
 
 #[derive(Clone)]
@@ -24,8 +24,8 @@ struct AppStateInner {
     tasks: Mutex<HashMap<String, TaskDto>>,
     artifacts: Mutex<HashMap<String, ArtifactDto>>,
     approvals: Mutex<HashMap<String, ApprovalDto>>,
-    task_events: Mutex<HashMap<String, Vec<TaskEventDto>>>,
-    task_event_bus: broadcast::Sender<TaskEventDto>,
+    task_events: Mutex<HashMap<String, Vec<TaskEventEnvelopeDto>>>,
+    task_event_bus: broadcast::Sender<TaskEventEnvelopeDto>,
 }
 
 impl AppState {
@@ -33,14 +33,7 @@ impl AppState {
         let (task_event_bus, _) = broadcast::channel(64);
         let playbooks = list_registered_playbooks()
             .into_iter()
-            .map(|playbook| PlaybookDto {
-                key: playbook.key,
-                title: playbook.title,
-                mode: match playbook.mode {
-                    PlaybookMode::Standard => "standard".to_owned(),
-                    PlaybookMode::Discovery => "discovery".to_owned(),
-                },
-            })
+            .map(playbook_to_dto)
             .collect();
 
         Self {
@@ -109,6 +102,20 @@ impl AppState {
             .contains_key(task_id)
     }
 
+    pub fn update_task<F>(&self, task_id: &str, mutate: F) -> Option<TaskDto>
+    where
+        F: FnOnce(&mut TaskDto),
+    {
+        let mut tasks = self
+            .inner
+            .tasks
+            .lock()
+            .expect("task lock should not be poisoned");
+        let task = tasks.get_mut(task_id)?;
+        mutate(task);
+        Some(task.clone())
+    }
+
     pub fn put_artifact(&self, artifact: ArtifactDto) {
         self.inner
             .artifacts
@@ -143,7 +150,21 @@ impl AppState {
             .cloned()
     }
 
-    pub fn append_task_event(&self, event: TaskEventDto) {
+    pub fn update_approval<F>(&self, approval_id: &str, mutate: F) -> Option<ApprovalDto>
+    where
+        F: FnOnce(&mut ApprovalDto),
+    {
+        let mut approvals = self
+            .inner
+            .approvals
+            .lock()
+            .expect("approval lock should not be poisoned");
+        let approval = approvals.get_mut(approval_id)?;
+        mutate(approval);
+        Some(approval.clone())
+    }
+
+    pub fn append_task_event(&self, event: TaskEventEnvelopeDto) {
         self.inner
             .task_events
             .lock()
@@ -154,7 +175,7 @@ impl AppState {
         let _ = self.inner.task_event_bus.send(event);
     }
 
-    pub fn list_task_events(&self, task_id: &str) -> Vec<TaskEventDto> {
+    pub fn list_task_events(&self, task_id: &str) -> Vec<TaskEventEnvelopeDto> {
         self.inner
             .task_events
             .lock()
@@ -164,8 +185,30 @@ impl AppState {
             .unwrap_or_default()
     }
 
-    pub fn subscribe_task_events(&self) -> broadcast::Receiver<TaskEventDto> {
+    pub fn subscribe_task_events(&self) -> broadcast::Receiver<TaskEventEnvelopeDto> {
         self.inner.task_event_bus.subscribe()
+    }
+
+    pub fn list_artifacts_for_task(&self, task_id: &str) -> Vec<ArtifactDto> {
+        self.inner
+            .artifacts
+            .lock()
+            .expect("artifact lock should not be poisoned")
+            .values()
+            .filter(|artifact| artifact.task_id == task_id)
+            .cloned()
+            .collect()
+    }
+
+    pub fn list_approvals_for_task(&self, task_id: &str) -> Vec<ApprovalDto> {
+        self.inner
+            .approvals
+            .lock()
+            .expect("approval lock should not be poisoned")
+            .values()
+            .filter(|approval| approval.task_id == task_id)
+            .cloned()
+            .collect()
     }
 
     pub fn is_known_workspace(&self, workspace_id: &str) -> bool {
@@ -174,6 +217,70 @@ impl AppState {
 
     pub fn is_known_playbook(&self, playbook_key: &str) -> bool {
         self.inner.playbooks.iter().any(|playbook| playbook.key == playbook_key)
+    }
+
+    pub fn next_task_sequence(&self, task_id: &str) -> u64 {
+        self.list_task_events(task_id).len() as u64 + 1
+    }
+}
+
+pub fn plan_for_task(task: &TaskDto) -> TaskPlanDto {
+    let steps = match task.playbook_key.as_str() {
+        SUMMARY_PLAYBOOK_KEY => vec![
+            "Scan markdown files in the selected workspace".to_owned(),
+            "Draft a concise summary with key takeaways".to_owned(),
+            "Write the final summary artifact to output/summary.md".to_owned(),
+        ],
+        DISCOVER_TOPICS_PLAYBOOK_KEY => vec![
+            "Scan markdown files in the selected workspace".to_owned(),
+            "Cluster notes into themes and open questions".to_owned(),
+            "Write the discovery artifact to output/discovery.md".to_owned(),
+        ],
+        _ => vec![
+            "Inspect the selected workspace".to_owned(),
+            "Produce the final result artifact".to_owned(),
+        ],
+    };
+
+    TaskPlanDto {
+        steps,
+        current_step_index: 0,
+        status: match task.status.as_str() {
+            "accepted" => "ready".to_owned(),
+            other => other.to_owned(),
+        },
+    }
+}
+
+fn playbook_to_dto(playbook: decacan_runtime::playbook::entity::Playbook) -> PlaybookDto {
+    let (summary, expected_output_label, expected_output_path) = match playbook.key.as_str() {
+        SUMMARY_PLAYBOOK_KEY => (
+            "Create a concise summary from markdown notes in the selected workspace.",
+            "Summary document",
+            "output/summary.md",
+        ),
+        DISCOVER_TOPICS_PLAYBOOK_KEY => (
+            "Cluster markdown notes into themes and open questions for follow-up work.",
+            "Discovery report",
+            "output/discovery.md",
+        ),
+        _ => (
+            "Run a workspace task with a formal artifact output.",
+            "Result document",
+            "output/result.md",
+        ),
+    };
+
+    PlaybookDto {
+        key: playbook.key,
+        title: playbook.title,
+        summary: summary.to_owned(),
+        mode_label: match playbook.mode {
+            PlaybookMode::Standard => "标准模式".to_owned(),
+            PlaybookMode::Discovery => "发现模式".to_owned(),
+        },
+        expected_output_label: expected_output_label.to_owned(),
+        expected_output_path: expected_output_path.to_owned(),
     }
 }
 
