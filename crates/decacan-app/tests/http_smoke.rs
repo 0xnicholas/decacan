@@ -165,6 +165,60 @@ async fn task_detail_endpoint_returns_runtime_backed_plan_artifacts_and_timeline
 }
 
 #[tokio::test]
+async fn deliverables_routes_return_first_class_review_objects() {
+    let app = decacan_app::app::wiring::router_for_test();
+    let (task_id, artifact_id) = create_task(&app, "总结资料", "alpha\nbeta\ngamma").await;
+    let _ = wait_for_terminal_task(&app, &task_id).await;
+
+    let list_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/api/workspaces/workspace-1/deliverables")
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("deliverables list route should respond");
+    assert_eq!(list_response.status(), StatusCode::OK);
+
+    let list_body = axum::body::to_bytes(list_response.into_body(), usize::MAX)
+        .await
+        .expect("deliverables list body should be readable");
+    let list_json: Value =
+        serde_json::from_slice(&list_body).expect("deliverables list should be json");
+    let first = list_json
+        .as_array()
+        .and_then(|items| items.first())
+        .expect("deliverables list should contain at least one item");
+    assert_eq!(first["id"], artifact_id);
+    assert_eq!(first["status"], "needs_review");
+
+    let detail_response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri(format!(
+                    "/api/workspaces/workspace-1/deliverables/{artifact_id}"
+                ))
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("deliverable detail route should respond");
+    assert_eq!(detail_response.status(), StatusCode::OK);
+
+    let detail_body = axum::body::to_bytes(detail_response.into_body(), usize::MAX)
+        .await
+        .expect("deliverable detail body should be readable");
+    let detail_json: Value =
+        serde_json::from_slice(&detail_body).expect("deliverable detail should be json");
+    assert_eq!(detail_json["deliverable"]["status"], "needs_review");
+    assert_eq!(detail_json["deliverable"]["task_id"], task_id);
+}
+
+#[tokio::test]
 async fn approval_retry_and_artifact_content_routes_work_with_runtime_execution() {
     let app = decacan_app::app::wiring::router_for_test();
     let (task_id, artifact_id) = create_task(&app, "总结资料", "alpha\nbeta\ngamma").await;

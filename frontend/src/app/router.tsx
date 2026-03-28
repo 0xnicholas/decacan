@@ -5,6 +5,8 @@ import {
   parseWorkspaceRoute,
   type WorkspaceSection,
 } from "../entities/workspace/routeModel";
+import { DeliverableDetailPage } from "../features/deliverables/DeliverableDetailPage";
+import { DeliverablesPage } from "../features/deliverables/DeliverablesPage";
 import { LaunchPage } from "../features/launch/LaunchPage";
 import { TaskPage } from "../features/task-detail/TaskPage";
 import { WorkspaceHomePage } from "../features/workspace-home/WorkspaceHomePage";
@@ -40,6 +42,9 @@ function WorkspaceSectionPlaceholder({ section }: { section: WorkspaceSection })
 
 export function AppRouter() {
   const pathname = usePathname();
+  const workspaceDeliverableRoute = pathname.match(
+    /^\/workspaces\/([^/]+)\/deliverables\/([^/]+)\/?$/,
+  );
   const workspaceTaskRoute = pathname.match(/^\/workspaces\/([^/]+)\/tasks\/([^/]+)\/?$/);
   const workspaceRoute = parseWorkspaceRoute(pathname);
 
@@ -63,10 +68,22 @@ export function AppRouter() {
     );
   }
 
+  if (workspaceDeliverableRoute) {
+    const [, workspaceId, deliverableId] = workspaceDeliverableRoute;
+
+    return (
+      <WorkspaceShell currentSection="deliverables" workspaceId={workspaceId}>
+        <DeliverableDetailPage workspaceId={workspaceId} deliverableId={deliverableId} />
+      </WorkspaceShell>
+    );
+  }
+
   if (workspaceRoute) {
     const workspaceSectionContent =
       workspaceRoute.section === "home" ? (
         <WorkspaceHomePage workspaceId={workspaceRoute.workspaceId} />
+      ) : workspaceRoute.section === "deliverables" ? (
+        <DeliverablesPage workspaceId={workspaceRoute.workspaceId} />
       ) : (
         <WorkspaceSectionPlaceholder section={workspaceRoute.section} />
       );

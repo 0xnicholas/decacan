@@ -1,5 +1,6 @@
 mod approvals;
 mod artifacts;
+mod deliverables;
 mod playbooks;
 mod tasks;
 mod workspace_home_builder;
@@ -14,6 +15,7 @@ pub fn router() -> Router<AppState> {
         .merge(workspaces::router())
         .merge(playbooks::router())
         .merge(tasks::router())
+        .merge(deliverables::router())
         .merge(approvals::router())
         .merge(artifacts::router())
 }
