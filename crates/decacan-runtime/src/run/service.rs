@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use time::OffsetDateTime;
 
 use crate::artifact::entity::Artifact;
@@ -21,6 +23,7 @@ pub struct RunService;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SummaryPlaybookE2eResult {
+    pub workspace_root: PathBuf,
     pub task: Task,
     pub run: Run,
     pub primary_artifact: Artifact,
@@ -43,6 +46,11 @@ where
     C: ClockPort,
 {
     RunService::execute_standard_summary_playbook(task, run, filesystem, storage, clock)
+}
+
+#[doc(hidden)]
+pub fn execute_summary_playbook_e2e_for_test() -> SummaryPlaybookE2eResult {
+    super::test_support::execute_summary_playbook_e2e_for_test()
 }
 
 #[derive(Debug)]
@@ -157,6 +165,7 @@ impl RunService {
         mark_succeeded(task, run)?;
 
         Ok(SummaryPlaybookE2eResult {
+            workspace_root: PathBuf::from(&run.workspace_snapshot.root_path),
             task: task.clone(),
             run: run.clone(),
             primary_artifact: routine_result.primary_artifact,
