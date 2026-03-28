@@ -7,5 +7,8 @@ mod workspace;
 pub use approval::{ApprovalDto, ApprovalRequestDto};
 pub use artifact::ArtifactDto;
 pub use playbook::PlaybookDto;
-pub use task::{CreateTaskAcceptedResponse, CreateTaskRequest, TaskDto, TaskEventDto};
+pub use task::{
+    CreateTaskAcceptedResponse, CreateTaskRequest, TaskDto, TaskEventDto, TaskPreviewDto,
+    TaskPreviewRequest,
+};
 pub use workspace::WorkspaceDto;

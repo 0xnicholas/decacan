@@ -6,11 +6,15 @@ use axum::routing::get;
 use axum::{Json, Router};
 
 use crate::app::state::{pending_artifact_for_task, AppState};
-use crate::dto::{CreateTaskAcceptedResponse, CreateTaskRequest, TaskDto, TaskEventDto};
+use crate::dto::{
+    CreateTaskAcceptedResponse, CreateTaskRequest, TaskDto, TaskEventDto, TaskPreviewDto,
+    TaskPreviewRequest,
+};
 use crate::streams::task_events::task_event_sse;
 
 pub(super) fn router() -> Router<AppState> {
     Router::new()
+        .route("/api/task-previews", axum::routing::post(create_task_preview))
         .route("/api/tasks", get(list_tasks).post(create_task))
         .route("/api/tasks/:task_id", get(get_task))
         .route("/api/tasks/:task_id/events", get(list_task_events))
@@ -68,6 +72,56 @@ async fn create_task(
             stream_url: format!("/api/tasks/{task_id}/events/stream"),
         }),
     ))
+}
+
+async fn create_task_preview(
+    State(state): State<AppState>,
+    Json(request): Json<TaskPreviewRequest>,
+) -> Result<Json<TaskPreviewDto>, StatusCode> {
+    if !state.is_known_workspace(&request.workspace_id) {
+        return Err(StatusCode::NOT_FOUND);
+    }
+    if !state.is_known_playbook(&request.playbook_key) {
+        return Err(StatusCode::UNPROCESSABLE_ENTITY);
+    }
+
+    let (plan_steps, expected_artifact_label, expected_artifact_path) =
+        match request.playbook_key.as_str() {
+            "总结资料" => (
+                vec![
+                    "Scan markdown files in the selected workspace".to_owned(),
+                    "Draft a concise summary with key takeaways".to_owned(),
+                    "Write the final summary artifact to output/summary.md".to_owned(),
+                ],
+                "Summary document".to_owned(),
+                "output/summary.md".to_owned(),
+            ),
+            "发现资料主题" => (
+                vec![
+                    "Scan markdown files in the selected workspace".to_owned(),
+                    "Cluster notes into themes and unanswered questions".to_owned(),
+                    "Write the discovery artifact to output/discovery.md".to_owned(),
+                ],
+                "Discovery report".to_owned(),
+                "output/discovery.md".to_owned(),
+            ),
+            _ => (
+                vec![
+                    "Inspect the selected workspace".to_owned(),
+                    "Produce a result artifact".to_owned(),
+                ],
+                "Result document".to_owned(),
+                "output/result.md".to_owned(),
+            ),
+        };
+
+    Ok(Json(TaskPreviewDto {
+        preview_id: state.next_id("preview"),
+        plan_steps,
+        expected_artifact_label,
+        expected_artifact_path,
+        will_auto_start: true,
+    }))
 }
 
 async fn list_task_events(

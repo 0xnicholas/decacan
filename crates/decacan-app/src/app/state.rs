@@ -33,14 +33,7 @@ impl AppState {
         let (task_event_bus, _) = broadcast::channel(64);
         let playbooks = list_registered_playbooks()
             .into_iter()
-            .map(|playbook| PlaybookDto {
-                key: playbook.key,
-                title: playbook.title,
-                mode: match playbook.mode {
-                    PlaybookMode::Standard => "standard".to_owned(),
-                    PlaybookMode::Discovery => "discovery".to_owned(),
-                },
-            })
+            .map(playbook_to_dto)
             .collect();
 
         Self {
@@ -174,6 +167,38 @@ impl AppState {
 
     pub fn is_known_playbook(&self, playbook_key: &str) -> bool {
         self.inner.playbooks.iter().any(|playbook| playbook.key == playbook_key)
+    }
+}
+
+fn playbook_to_dto(playbook: decacan_runtime::playbook::entity::Playbook) -> PlaybookDto {
+    let (summary, expected_output_label, expected_output_path) = match playbook.key.as_str() {
+        SUMMARY_PLAYBOOK_KEY => (
+            "Create a concise summary from markdown notes in the selected workspace.",
+            "Summary document",
+            "output/summary.md",
+        ),
+        DISCOVER_TOPICS_PLAYBOOK_KEY => (
+            "Cluster markdown notes into themes and open questions for follow-up work.",
+            "Discovery report",
+            "output/discovery.md",
+        ),
+        _ => (
+            "Run a workspace task with a formal artifact output.",
+            "Result document",
+            "output/result.md",
+        ),
+    };
+
+    PlaybookDto {
+        key: playbook.key,
+        title: playbook.title,
+        summary: summary.to_owned(),
+        mode_label: match playbook.mode {
+            PlaybookMode::Standard => "标准模式".to_owned(),
+            PlaybookMode::Discovery => "发现模式".to_owned(),
+        },
+        expected_output_label: expected_output_label.to_owned(),
+        expected_output_path: expected_output_path.to_owned(),
     }
 }
 

@@ -4,5 +4,8 @@ use serde::{Deserialize, Serialize};
 pub struct PlaybookDto {
     pub key: String,
     pub title: String,
-    pub mode: String,
+    pub summary: String,
+    pub mode_label: String,
+    pub expected_output_label: String,
+    pub expected_output_path: String,
 }
