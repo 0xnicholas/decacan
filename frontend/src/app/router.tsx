@@ -1,14 +1,37 @@
+import { useEffect, useState } from "react";
+
+import { LaunchPage } from "../features/launch/LaunchPage";
+
+function usePathname() {
+  const [pathname, setPathname] = useState(window.location.pathname);
+
+  useEffect(() => {
+    const handleNavigation = () => {
+      setPathname(window.location.pathname);
+    };
+
+    window.addEventListener("popstate", handleNavigation);
+
+    return () => {
+      window.removeEventListener("popstate", handleNavigation);
+    };
+  }, []);
+
+  return pathname;
+}
+
 export function AppRouter() {
-  return (
-    <div className="workspace-shell">
-      <aside className="sidebar">
-        <p className="sidebar-label">Workspace</p>
-      </aside>
-      <main className="main-panel">
+  const pathname = usePathname();
+
+  if (pathname.startsWith("/tasks/")) {
+    return (
+      <main className="task-route-placeholder">
         <p className="eyebrow">Decacan</p>
-        <h1>Choose a playbook</h1>
-        <p className="subcopy">Launch a task-oriented workstation flow.</p>
+        <h1>Task workspace</h1>
+        <p className="subcopy">Task detail UI lands in the next slice.</p>
       </main>
-    </div>
-  );
+    );
+  }
+
+  return <LaunchPage />;
 }
