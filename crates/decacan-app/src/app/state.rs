@@ -808,6 +808,7 @@ fn task_to_dto(task: &StoredTask) -> TaskDto {
         playbook_key: task.playbook_key.clone(),
         input: task.input.clone(),
         status: task.status.clone(),
+        status_summary: task.status_summary.clone(),
         artifact_id: task.artifact_id.clone(),
     }
 }

@@ -7,6 +7,7 @@ pub struct TaskDto {
     pub playbook_key: String,
     pub input: String,
     pub status: String,
+    pub status_summary: String,
     pub artifact_id: Option<String>,
 }
 

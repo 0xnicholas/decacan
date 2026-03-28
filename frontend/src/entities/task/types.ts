@@ -47,6 +47,7 @@ export interface TaskListItem {
   playbook_key: string;
   input: string;
   status: string;
+  status_summary?: string;
   artifact_id: string | null;
 }
 

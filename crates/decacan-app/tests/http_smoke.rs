@@ -671,6 +671,35 @@ async fn every_advertised_instruction_action_is_accepted() {
 }
 
 #[tokio::test]
+async fn my_tasks_route_returns_task_pool_with_status_summary() {
+    let app = decacan_app::app::wiring::router_for_test();
+    let (_task_a, _artifact_a) = create_task(&app, "总结资料", "alpha").await;
+    let (_task_b, _artifact_b) = create_task(&app, "总结资料", "beta").await;
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/api/me/tasks")
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("my tasks route should respond");
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("my tasks body should be readable");
+    let json: Value = serde_json::from_slice(&body).expect("my tasks should be json");
+    let tasks = json.as_array().expect("my tasks should be array");
+
+    assert!(!tasks.is_empty());
+    assert!(tasks[0].get("status_summary").is_some());
+}
+
+#[tokio::test]
 async fn workspace_scoped_instruction_route_accepts_matching_workspace_and_rejects_mismatch() {
     let app = decacan_app::app::wiring::router_for_test();
     let (task_id, _artifact_id) = create_task(&app, "总结资料", "alpha\nbeta\ngamma").await;

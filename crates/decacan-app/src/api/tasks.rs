@@ -20,6 +20,7 @@ pub(super) fn router() -> Router<AppState> {
             axum::routing::post(create_task_preview),
         )
         .route("/api/tasks", get(list_tasks).post(create_task))
+        .route("/api/me/tasks", get(list_my_tasks))
         .route("/api/tasks/:task_id/retry", axum::routing::post(retry_task))
         .route(
             "/api/tasks/:task_id/instructions",
@@ -47,6 +48,10 @@ pub(super) fn router() -> Router<AppState> {
 }
 
 async fn list_tasks(State(state): State<AppState>) -> Json<Vec<TaskDto>> {
+    Json(state.list_tasks())
+}
+
+async fn list_my_tasks(State(state): State<AppState>) -> Json<Vec<TaskDto>> {
     Json(state.list_tasks())
 }
 

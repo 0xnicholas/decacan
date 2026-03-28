@@ -10,7 +10,9 @@ import { DeliverableDetailPage } from "../features/deliverables/DeliverableDetai
 import { DeliverablesPage } from "../features/deliverables/DeliverablesPage";
 import { InboxPage } from "../features/inbox/InboxPage";
 import { LaunchPage } from "../features/launch/LaunchPage";
+import { MyWorkPage } from "../features/my-work/MyWorkPage";
 import { TaskPage } from "../features/task-detail/TaskPage";
+import { TasksPage } from "../features/tasks/TasksPage";
 import { WorkspaceHomePage } from "../features/workspace-home/WorkspaceHomePage";
 import { WorkspaceShell } from "../shared/layout/WorkspaceShell";
 
@@ -54,6 +56,10 @@ export function AppRouter() {
     return <InboxPage />;
   }
 
+  if (pathname === "/me/tasks" || pathname === "/me/tasks/") {
+    return <MyWorkPage />;
+  }
+
   if (pathname.startsWith("/tasks/")) {
     const taskId = pathname.split("/").at(-1);
 
@@ -88,6 +94,8 @@ export function AppRouter() {
     const workspaceSectionContent =
       workspaceRoute.section === "home" ? (
         <WorkspaceHomePage workspaceId={workspaceRoute.workspaceId} />
+      ) : workspaceRoute.section === "tasks" ? (
+        <TasksPage workspaceId={workspaceRoute.workspaceId} />
       ) : workspaceRoute.section === "deliverables" ? (
         <DeliverablesPage workspaceId={workspaceRoute.workspaceId} />
       ) : workspaceRoute.section === "approvals" ? (

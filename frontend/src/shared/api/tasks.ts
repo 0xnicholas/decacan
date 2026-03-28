@@ -28,6 +28,7 @@ export interface CreateTaskResponse {
     playbook_key: string;
     input: string;
     status: string;
+    status_summary?: string;
     artifact_id: string | null;
   };
   events_url: string;
@@ -67,6 +68,10 @@ export function createTask(request: CreateTaskRequest) {
 
 export function listTasks() {
   return getJson<TaskListItem[]>("/api/tasks");
+}
+
+export function listMyTasks() {
+  return getJson<TaskListItem[]>("/api/me/tasks");
 }
 
 export function listWorkspaceTasks(workspaceId: string) {
