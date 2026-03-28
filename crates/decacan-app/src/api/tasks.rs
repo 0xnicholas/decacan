@@ -58,50 +58,14 @@ async fn create_task_preview(
     State(state): State<AppState>,
     Json(request): Json<TaskPreviewRequest>,
 ) -> Result<Json<TaskPreviewDto>, StatusCode> {
-    if !state.is_known_workspace(&request.workspace_id) {
-        return Err(StatusCode::NOT_FOUND);
-    }
-    if !state.is_known_playbook(&request.playbook_key) {
-        return Err(StatusCode::UNPROCESSABLE_ENTITY);
-    }
+    let preview = state
+        .create_task_preview(request)
+        .map_err(|error| match error {
+            CreateTaskError::WorkspaceNotFound => StatusCode::NOT_FOUND,
+            CreateTaskError::UnknownPlaybook => StatusCode::UNPROCESSABLE_ENTITY,
+        })?;
 
-    let (plan_steps, expected_artifact_label, expected_artifact_path) =
-        match request.playbook_key.as_str() {
-            "总结资料" => (
-                vec![
-                    "Scan markdown files in the selected workspace".to_owned(),
-                    "Draft a concise summary with key takeaways".to_owned(),
-                    "Write the final summary artifact to output/summary.md".to_owned(),
-                ],
-                "Summary document".to_owned(),
-                "output/summary.md".to_owned(),
-            ),
-            "发现资料主题" => (
-                vec![
-                    "Scan markdown files in the selected workspace".to_owned(),
-                    "Cluster notes into themes and unanswered questions".to_owned(),
-                    "Write the discovery artifact to output/discovery.md".to_owned(),
-                ],
-                "Discovery report".to_owned(),
-                "output/discovery.md".to_owned(),
-            ),
-            _ => (
-                vec![
-                    "Inspect the selected workspace".to_owned(),
-                    "Produce a result artifact".to_owned(),
-                ],
-                "Result document".to_owned(),
-                "output/result.md".to_owned(),
-            ),
-        };
-
-    Ok(Json(TaskPreviewDto {
-        preview_id: state.next_id("preview"),
-        plan_steps,
-        expected_artifact_label,
-        expected_artifact_path,
-        will_auto_start: true,
-    }))
+    Ok(Json(preview))
 }
 
 async fn list_task_events(

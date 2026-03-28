@@ -29,7 +29,7 @@ use tokio::sync::broadcast;
 use crate::dto::{
     ApprovalDto, ArtifactContentDto, ArtifactDto, CreateTaskAcceptedResponse, CreateTaskRequest,
     PlaybookDto, RetryTaskRequest, TaskDetailDto, TaskDto, TaskEventEnvelopeDto, TaskPlanDto,
-    TaskSummaryDto, WorkspaceDto,
+    TaskPreviewDto, TaskPreviewRequest, TaskSummaryDto, WorkspaceDto,
 };
 
 #[derive(Clone)]
@@ -260,6 +260,31 @@ impl AppState {
                 .expect("newly created task should exist"),
             events_url: format!("/api/tasks/{task_id}/events"),
             stream_url: format!("/api/tasks/{task_id}/events/stream"),
+        })
+    }
+
+    pub fn create_task_preview(
+        &self,
+        request: TaskPreviewRequest,
+    ) -> Result<TaskPreviewDto, CreateTaskError> {
+        if !self.is_known_workspace(&request.workspace_id) {
+            return Err(CreateTaskError::WorkspaceNotFound);
+        }
+
+        let playbook =
+            get_registered_playbook(&request.playbook_key).ok_or(CreateTaskError::UnknownPlaybook)?;
+        let workflow = compile_playbook(&playbook).ok_or(CreateTaskError::UnknownPlaybook)?;
+
+        Ok(TaskPreviewDto {
+            preview_id: self.next_id("preview"),
+            plan_steps: workflow
+                .steps
+                .iter()
+                .map(|step| step.purpose.clone())
+                .collect(),
+            expected_artifact_label: expected_output_label(&request.playbook_key).to_owned(),
+            expected_artifact_path: expected_output_path(&request.playbook_key).to_owned(),
+            will_auto_start: true,
         })
     }
 
@@ -506,6 +531,7 @@ impl AppState {
         let state = self.clone();
         let fallback_task = prepared.runtime_task.clone();
         let fallback_run = prepared.runtime_run.clone();
+        let run_id = prepared.runtime_run.id.clone();
         tokio::spawn(async move {
             state.append_task_event(state.new_task_event(
                 &prepared.task_id,
@@ -530,11 +556,15 @@ impl AppState {
                     result: Err(format!("background execution join failed for {playbook_key}: {error}")),
                 });
 
-            state.finish_execution(task_id, outcome);
+            state.finish_execution(task_id, &run_id, outcome);
         });
     }
 
-    fn finish_execution(&self, task_id: String, outcome: ExecutionOutcome) {
+    fn finish_execution(&self, task_id: String, run_id: &str, outcome: ExecutionOutcome) {
+        if !self.is_current_run(&task_id, run_id) {
+            return;
+        }
+
         match outcome.result {
             Ok(result) => {
                 self.update_task_status(
@@ -652,6 +682,16 @@ impl AppState {
             message,
         }
     }
+
+    fn is_current_run(&self, task_id: &str, run_id: &str) -> bool {
+        self.inner
+            .tasks
+            .lock()
+            .expect("task lock should not be poisoned")
+            .get(task_id)
+            .map(|task| task.runtime_run.id == run_id)
+            .unwrap_or(false)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -661,22 +701,13 @@ pub enum CreateTaskError {
 }
 
 fn plan_for_task(task: &StoredTask) -> TaskPlanDto {
-    let steps = match task.playbook_key.as_str() {
-        SUMMARY_PLAYBOOK_KEY => vec![
-            "Scan markdown files in the selected workspace".to_owned(),
-            "Draft a concise summary with key takeaways".to_owned(),
-            "Write the final summary artifact to output/summary.md".to_owned(),
-        ],
-        DISCOVER_TOPICS_PLAYBOOK_KEY => vec![
-            "Scan markdown files in the selected workspace".to_owned(),
-            "Cluster notes into themes and open questions".to_owned(),
-            "Write the discovery artifact to output/discovery.md".to_owned(),
-        ],
-        _ => vec![
-            "Inspect the selected workspace".to_owned(),
-            "Produce the final result artifact".to_owned(),
-        ],
-    };
+    let steps = task
+        .runtime_run
+        .workflow_snapshot
+        .steps
+        .iter()
+        .map(|step| step.purpose.clone())
+        .collect::<Vec<_>>();
 
     let current_step_index = if task.status == "succeeded" || task.status == "failed" {
         steps.len().saturating_sub(1)
@@ -824,5 +855,69 @@ fn summary_execution_error_to_string(error: SummaryPlaybookExecutionError) -> St
     match error {
         SummaryPlaybookExecutionError::Task(error) => format!("task transition failed: {error:?}"),
         SummaryPlaybookExecutionError::Routine(error) => error,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn finish_execution_ignores_stale_run_results() {
+        let state = AppState::new_for_test();
+        let request = CreateTaskRequest {
+            workspace_id: "workspace-1".to_owned(),
+            playbook_key: SUMMARY_PLAYBOOK_KEY.to_owned(),
+            input: "alpha\nbeta".to_owned(),
+        };
+
+        let first = state
+            .prepare_execution_with_task_id("task-stale".to_owned(), &request)
+            .expect("first execution should prepare");
+        let second = state
+            .prepare_execution_with_task_id("task-stale".to_owned(), &request)
+            .expect("second execution should prepare");
+
+        state
+            .inner
+            .tasks
+            .lock()
+            .expect("task lock should not be poisoned")
+            .insert(
+                "task-stale".to_owned(),
+                StoredTask {
+                    id: "task-stale".to_owned(),
+                    workspace_id: "workspace-1".to_owned(),
+                    playbook_key: SUMMARY_PLAYBOOK_KEY.to_owned(),
+                    input: "alpha\nbeta".to_owned(),
+                    artifact_id: None,
+                    status: "running".to_owned(),
+                    status_summary: "running".to_owned(),
+                    runtime_task: second.runtime_task.clone(),
+                    runtime_run: second.runtime_run.clone(),
+                },
+            );
+
+        state.finish_execution(
+            "task-stale".to_owned(),
+            &first.runtime_run.id,
+            ExecutionOutcome {
+                task: first.runtime_task.clone(),
+                run: first.runtime_run.clone(),
+                result: Err("stale run".to_owned()),
+            },
+        );
+
+        let stored = state
+            .inner
+            .tasks
+            .lock()
+            .expect("task lock should not be poisoned")
+            .get("task-stale")
+            .cloned()
+            .expect("stored task should exist");
+
+        assert_eq!(stored.runtime_run.id, second.runtime_run.id);
+        assert_eq!(stored.status, "running");
     }
 }

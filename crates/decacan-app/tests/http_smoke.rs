@@ -123,6 +123,18 @@ async fn task_detail_endpoint_returns_runtime_backed_plan_artifacts_and_timeline
             .iter()
             .any(|event| event["event_type"] == "artifact.ready")
     );
+    let plan_steps = detail_json["plan"]["steps"]
+        .as_array()
+        .expect("plan steps should be an array");
+    assert_eq!(plan_steps.len(), 7);
+    assert_eq!(
+        plan_steps[0].as_str(),
+        Some("Scan the workspace for markdown files that can be summarized.")
+    );
+    assert_eq!(
+        plan_steps[6].as_str(),
+        Some("Register the written summary as the workflow output artifact.")
+    );
 }
 
 #[tokio::test]
