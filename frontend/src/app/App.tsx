@@ -6,7 +6,9 @@ import { AppRouter } from "./router";
 export function App() {
   return (
     <AppProviders>
-      <AppRouter />
+      <div className="app-root">
+        <AppRouter />
+      </div>
     </AppProviders>
   );
 }
