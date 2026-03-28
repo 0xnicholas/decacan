@@ -58,6 +58,12 @@ body {
   font-size: 1.15rem;
 }
 
+.sidebar-copy {
+  margin: 8px 0 0;
+  color: rgba(24, 19, 17, 0.72);
+  line-height: 1.5;
+}
+
 .main-panel {
   padding: 48px;
 }
@@ -221,6 +227,21 @@ body {
   padding: 48px;
 }
 
+.task-workspace-shell {
+  align-items: stretch;
+}
+
+.task-context-sidebar {
+  display: flex;
+  flex-direction: column;
+}
+
+.task-main-column {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
 .task-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(280px, 1fr));
@@ -303,5 +324,12 @@ body {
 
   .task-grid {
     grid-template-columns: 1fr;
+  }
+
+  .sidebar,
+  .main-panel,
+  .task-route-placeholder,
+  .task-page {
+    padding: 28px 20px;
   }
 }

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, vi } from "vitest";
 
@@ -114,5 +114,74 @@ describe("TaskPage", () => {
     await user.click(screen.getByRole("button", { name: "Preview output/summary.md" }));
 
     expect(await screen.findByText("## Summary preview")).toBeInTheDocument();
+  });
+
+  it("renders a summary-first task context sidebar", async () => {
+    fetchMock.mockImplementation(async (input, init) => {
+      const url = typeof input === "string" ? input : input.toString();
+      const method = init?.method ?? "GET";
+
+      if (url.endsWith("/api/tasks/task-1") && method === "GET") {
+        return new Response(
+          JSON.stringify({
+            task: {
+              id: "task-1",
+              workspace_id: "workspace-1",
+              playbook_key: "总结资料",
+              input: "Summarize notes",
+              status: "waiting_approval",
+              status_summary: "Need your approval before writing the final artifact",
+              artifact_id: "artifact-1"
+            },
+            plan: {
+              steps: [
+                "Scan markdown files in the selected workspace",
+                "Draft a concise summary with key takeaways",
+                "Write the final summary artifact to output/summary.md"
+              ],
+              current_step_index: 1,
+              status: "waiting_approval"
+            },
+            approvals: [],
+            artifacts: [
+              {
+                id: "artifact-1",
+                task_id: "task-1",
+                label: "primary-output",
+                canonical_path: "output/summary.md",
+                status: "pending"
+              }
+            ],
+            timeline: [
+              {
+                event_id: "event-2",
+                task_id: "task-1",
+                sequence: 2,
+                event_type: "task.waiting_approval",
+                snapshot_version: 2,
+                message: "Approval requested before final write"
+              }
+            ]
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      throw new Error(`Unhandled request: ${url}`);
+    });
+
+    render(<App />);
+
+    const sidebar = await screen.findByRole("complementary", { name: "Task context" });
+
+    expect(within(sidebar).getByText("Workspace")).toBeInTheDocument();
+    expect(within(sidebar).getByText("workspace-1")).toBeInTheDocument();
+    expect(within(sidebar).getByText("Playbook")).toBeInTheDocument();
+    expect(within(sidebar).getByText("Status")).toBeInTheDocument();
+    expect(
+      within(sidebar).getByText("Need your approval before writing the final artifact"),
+    ).toBeInTheDocument();
+    expect(within(sidebar).getByText("Step 2 of 3")).toBeInTheDocument();
+    expect(within(sidebar).getByRole("button", { name: "Open output/summary.md" })).toBeInTheDocument();
   });
 });

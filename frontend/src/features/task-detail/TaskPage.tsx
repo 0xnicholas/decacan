@@ -5,6 +5,7 @@ import { fetchArtifactContent } from "../../shared/api/artifacts";
 import { decideApproval } from "../../shared/api/tasks";
 import { ApprovalPanel } from "./ApprovalPanel";
 import { ArtifactPanel } from "./ArtifactPanel";
+import { ContextSidebar } from "./ContextSidebar";
 import { PlanProgressPanel } from "./PlanProgressPanel";
 import { TaskHeader } from "./TaskHeader";
 import { TimelinePanel } from "./TimelinePanel";
@@ -41,19 +42,22 @@ export function TaskPage({ taskId }: TaskPageProps) {
   }
 
   return (
-    <main className="task-page">
-      <p className="eyebrow">Decacan</p>
-      <TaskHeader task={taskDetail.task} />
-      <div className="task-grid">
-        <PlanProgressPanel plan={taskDetail.plan} />
-        <ApprovalPanel approvals={taskDetail.approvals} onApprove={handleApprove} />
-        <ArtifactPanel
-          artifacts={taskDetail.artifacts}
-          preview={preview}
-          onPreview={handlePreview}
-        />
-        <TimelinePanel timeline={taskDetail.timeline} />
-      </div>
+    <main className="workspace-shell task-workspace-shell">
+      <ContextSidebar taskDetail={taskDetail} onOpenArtifact={handlePreview} />
+      <section className="main-panel task-main-column">
+        <p className="eyebrow">Decacan</p>
+        <TaskHeader task={taskDetail.task} />
+        <div className="task-grid">
+          <PlanProgressPanel plan={taskDetail.plan} />
+          <ApprovalPanel approvals={taskDetail.approvals} onApprove={handleApprove} />
+          <ArtifactPanel
+            artifacts={taskDetail.artifacts}
+            preview={preview}
+            onPreview={handlePreview}
+          />
+          <TimelinePanel timeline={taskDetail.timeline} />
+        </div>
+      </section>
     </main>
   );
 }
