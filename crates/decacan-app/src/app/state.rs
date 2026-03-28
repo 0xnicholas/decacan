@@ -10,20 +10,17 @@ use decacan_infra::storage::memory::MemoryStorage;
 use decacan_runtime::artifact::entity::Artifact as RuntimeArtifact;
 use decacan_runtime::events::{TaskEvent, TaskEventPayload};
 use decacan_runtime::playbook::modes::PlaybookMode;
-use decacan_runtime::playbook::registry::{
-    get_registered_playbook, list_registered_playbooks, DISCOVER_TOPICS_PLAYBOOK_KEY,
-    SUMMARY_PLAYBOOK_KEY,
+use decacan_runtime::playbook::execution::{
+    execute_registered_playbook_run, prepare_registered_playbook_run, preview_registered_playbook,
+    RegisteredPlaybookError, RegisteredPlaybookExecutionRequest,
 };
-use decacan_runtime::policy::entity::PolicyProfile;
+use decacan_runtime::playbook::registry::{
+    list_registered_playbooks, DISCOVER_TOPICS_PLAYBOOK_KEY, SUMMARY_PLAYBOOK_KEY,
+};
 use decacan_runtime::ports::filesystem::FilesystemPort;
 use decacan_runtime::run::entity::Run;
-use decacan_runtime::run::service::{
-    execute_discovery_playbook, execute_standard_summary_playbook, SummaryPlaybookE2eResult,
-    SummaryPlaybookExecutionError,
-};
+use decacan_runtime::run::service::{SummaryPlaybookE2eResult, SummaryPlaybookExecutionError};
 use decacan_runtime::task::entity::{Task, TaskStatus};
-use decacan_runtime::workflow::compiler::compile_playbook;
-use decacan_runtime::workspace::entity::Workspace;
 use tokio::sync::broadcast;
 
 use crate::dto::{
@@ -71,10 +68,10 @@ struct StoredArtifact {
 #[derive(Debug, Clone)]
 struct PreparedExecution {
     task_id: String,
-    playbook_key: String,
     workspace_root: PathBuf,
     input_path: PathBuf,
     input_contents: String,
+    pending_artifact: ArtifactDto,
     runtime_task: Task,
     runtime_run: Run,
 }
@@ -210,7 +207,7 @@ impl AppState {
         }
 
         let prepared = self.prepare_execution(&request)?;
-        let artifact = pending_artifact_for_task(&prepared.task_id, &prepared.playbook_key);
+        let artifact = prepared.pending_artifact.clone();
         let artifact_id = artifact.id.clone();
         let event = self.new_task_event(
             &prepared.task_id,
@@ -228,7 +225,7 @@ impl AppState {
                     dto: artifact,
                     physical_path: prepared
                         .workspace_root
-                        .join(expected_output_path(&prepared.playbook_key)),
+                        .join(&prepared.pending_artifact.canonical_path),
                 },
             );
 
@@ -241,7 +238,7 @@ impl AppState {
                 StoredTask {
                     id: prepared.task_id.clone(),
                     workspace_id: "workspace-1".to_owned(),
-                    playbook_key: prepared.playbook_key.clone(),
+                    playbook_key: request.playbook_key.clone(),
                     input: request.input,
                     artifact_id: Some(artifact_id),
                     status: "accepted".to_owned(),
@@ -271,19 +268,14 @@ impl AppState {
             return Err(CreateTaskError::WorkspaceNotFound);
         }
 
-        let playbook =
-            get_registered_playbook(&request.playbook_key).ok_or(CreateTaskError::UnknownPlaybook)?;
-        let workflow = compile_playbook(&playbook).ok_or(CreateTaskError::UnknownPlaybook)?;
+        let preview =
+            preview_registered_playbook(&request.playbook_key).map_err(map_registered_playbook_error)?;
 
         Ok(TaskPreviewDto {
             preview_id: self.next_id("preview"),
-            plan_steps: workflow
-                .steps
-                .iter()
-                .map(|step| step.purpose.clone())
-                .collect(),
-            expected_artifact_label: expected_output_label(&request.playbook_key).to_owned(),
-            expected_artifact_path: expected_output_path(&request.playbook_key).to_owned(),
+            plan_steps: preview.plan_steps,
+            expected_artifact_label: preview.expected_artifact_label,
+            expected_artifact_path: preview.expected_artifact_path,
             will_auto_start: true,
         })
     }
@@ -436,7 +428,7 @@ impl AppState {
                     workspace_id: existing.workspace_id.clone(),
                     playbook_key: existing.playbook_key.clone(),
                     input: existing.input.clone(),
-                    artifact_id: Some(expected_primary_artifact_id(task_id, &existing.playbook_key)),
+                    artifact_id: Some(prepared.pending_artifact.id.clone()),
                     status: "accepted".to_owned(),
                     status_summary: format!("Task retry requested: {}", request.note),
                     runtime_task: prepared.runtime_task.clone(),
@@ -449,7 +441,7 @@ impl AppState {
             .lock()
             .expect("artifact lock should not be poisoned")
             .retain(|_, artifact| artifact.dto.task_id != task_id);
-        let pending = pending_artifact_for_task(task_id, &existing.playbook_key);
+        let pending = prepared.pending_artifact.clone();
         self.inner
             .artifacts
             .lock()
@@ -459,7 +451,7 @@ impl AppState {
                 StoredArtifact {
                     physical_path: prepared
                         .workspace_root
-                        .join(expected_output_path(&existing.playbook_key)),
+                        .join(&pending.canonical_path),
                     dto: pending,
                 },
             );
@@ -486,44 +478,37 @@ impl AppState {
         task_id: String,
         request: &CreateTaskRequest,
     ) -> Result<PreparedExecution, CreateTaskError> {
-        let playbook =
-            get_registered_playbook(&request.playbook_key).ok_or(CreateTaskError::UnknownPlaybook)?;
-        let workflow = compile_playbook(&playbook).ok_or(CreateTaskError::UnknownPlaybook)?;
         let run_id = self.next_id("run");
         let workspace_root = self
             .inner
             .default_workspace_root
             .join("tasks")
             .join(&task_id);
-        let workspace = Workspace::new(
-            request.workspace_id.clone(),
-            "Default Workspace",
-            workspace_root.display().to_string(),
-        );
-        let policy = PolicyProfile::new_default(self.next_id("policy"), &workspace.id, "default");
-        let runtime_task = Task::new(
-            task_id.clone(),
-            workspace.id.clone(),
-            playbook.id.clone(),
-            workflow.version_id,
-        );
-        let runtime_run = Run::new(
-            run_id.clone(),
-            task_id.clone(),
-            workflow,
-            policy,
-            workspace,
-            playbook,
-        );
+        let prepared_run = prepare_registered_playbook_run(RegisteredPlaybookExecutionRequest {
+            task_id: task_id.clone(),
+            run_id,
+            policy_id: self.next_id("policy"),
+            workspace_id: request.workspace_id.clone(),
+            workspace_name: "Default Workspace".to_owned(),
+            workspace_root: workspace_root.display().to_string(),
+            playbook_key: request.playbook_key.clone(),
+        })
+        .map_err(map_registered_playbook_error)?;
 
         Ok(PreparedExecution {
             task_id,
-            playbook_key: request.playbook_key.clone(),
             workspace_root: workspace_root.clone(),
             input_path: workspace_root.join("notes.md"),
             input_contents: request.input.clone(),
-            runtime_task,
-            runtime_run,
+            pending_artifact: ArtifactDto {
+                id: prepared_run.pending_artifact.id,
+                task_id: prepared_run.task.id.clone(),
+                label: prepared_run.pending_artifact.label,
+                canonical_path: prepared_run.pending_artifact.canonical_path,
+                status: "pending".to_owned(),
+            },
+            runtime_task: prepared_run.task,
+            runtime_run: prepared_run.run,
         })
     }
 
@@ -546,14 +531,13 @@ impl AppState {
                 prepared.runtime_run.clone(),
             );
 
-            let playbook_key = prepared.playbook_key.clone();
             let task_id = prepared.task_id.clone();
             let outcome = tokio::task::spawn_blocking(move || run_runtime_execution(prepared))
                 .await
                 .unwrap_or_else(|error| ExecutionOutcome {
                     task: fallback_task,
                     run: fallback_run,
-                    result: Err(format!("background execution join failed for {playbook_key}: {error}")),
+                    result: Err(format!("background execution join failed: {error}")),
                 });
 
             state.finish_execution(task_id, &run_id, outcome);
@@ -737,23 +721,24 @@ fn task_to_dto(task: &StoredTask) -> TaskDto {
 }
 
 fn playbook_to_dto(playbook: decacan_runtime::playbook::entity::Playbook) -> PlaybookDto {
-    let (summary, expected_output_label, expected_output_path) = match playbook.key.as_str() {
-        SUMMARY_PLAYBOOK_KEY => (
-            "Create a concise summary from markdown notes in the selected workspace.",
-            "Summary document",
-            "output/summary.md",
-        ),
-        DISCOVER_TOPICS_PLAYBOOK_KEY => (
-            "Cluster markdown notes into themes and open questions for follow-up work.",
-            "Discovery report",
-            "output/discovery.md",
-        ),
-        _ => (
-            "Run a workspace task with a formal artifact output.",
-            "Result document",
-            "output/result.md",
-        ),
+    let summary = match playbook.key.as_str() {
+        SUMMARY_PLAYBOOK_KEY => {
+            "Create a concise summary from markdown notes in the selected workspace."
+        }
+        DISCOVER_TOPICS_PLAYBOOK_KEY => {
+            "Cluster markdown notes into themes and open questions for follow-up work."
+        }
+        _ => "Run a workspace task with a formal artifact output.",
     };
+    let preview = preview_registered_playbook(&playbook.key).ok();
+    let expected_output_label = preview
+        .as_ref()
+        .map(|preview| preview.expected_artifact_label.as_str())
+        .unwrap_or("Result document");
+    let expected_output_path = preview
+        .as_ref()
+        .map(|preview| preview.expected_artifact_path.as_str())
+        .unwrap_or("output/result.md");
 
     PlaybookDto {
         key: playbook.key,
@@ -765,40 +750,6 @@ fn playbook_to_dto(playbook: decacan_runtime::playbook::entity::Playbook) -> Pla
         },
         expected_output_label: expected_output_label.to_owned(),
         expected_output_path: expected_output_path.to_owned(),
-    }
-}
-
-pub fn pending_artifact_for_task(task_id: &str, playbook_key: &str) -> ArtifactDto {
-    ArtifactDto {
-        id: expected_primary_artifact_id(task_id, playbook_key),
-        task_id: task_id.to_owned(),
-        label: expected_output_label(playbook_key).to_owned(),
-        canonical_path: expected_output_path(playbook_key).to_owned(),
-        status: "pending".to_owned(),
-    }
-}
-
-fn expected_primary_artifact_id(task_id: &str, playbook_key: &str) -> String {
-    match playbook_key {
-        SUMMARY_PLAYBOOK_KEY => format!("artifact-{task_id}-summary-primary"),
-        DISCOVER_TOPICS_PLAYBOOK_KEY => format!("artifact-{task_id}-discovery-primary"),
-        _ => format!("artifact-{task_id}-result-primary"),
-    }
-}
-
-fn expected_output_path(playbook_key: &str) -> &'static str {
-    match playbook_key {
-        SUMMARY_PLAYBOOK_KEY => "output/summary.md",
-        DISCOVER_TOPICS_PLAYBOOK_KEY => "output/discovery.md",
-        _ => "output/result.md",
-    }
-}
-
-fn expected_output_label(playbook_key: &str) -> &'static str {
-    match playbook_key {
-        SUMMARY_PLAYBOOK_KEY => "Summary document",
-        DISCOVER_TOPICS_PLAYBOOK_KEY => "Discovery report",
-        _ => "Result document",
     }
 }
 
@@ -827,25 +778,8 @@ fn run_runtime_execution(prepared: PreparedExecution) -> ExecutionOutcome {
             .write_string(&prepared.input_path, &prepared.input_contents)
             .map_err(|error| error.to_string())?;
 
-        match prepared.playbook_key.as_str() {
-            SUMMARY_PLAYBOOK_KEY => execute_standard_summary_playbook(
-                &mut task,
-                &mut run,
-                &filesystem,
-                &storage,
-                &clock,
-            )
-            .map_err(summary_execution_error_to_string),
-            DISCOVER_TOPICS_PLAYBOOK_KEY => execute_discovery_playbook(
-                &mut task,
-                &mut run,
-                &filesystem,
-                &storage,
-                &clock,
-            )
-            .map_err(summary_execution_error_to_string),
-            _ => Err(format!("unsupported playbook {}", prepared.playbook_key)),
-        }
+        execute_registered_playbook_run(&mut task, &mut run, &filesystem, &storage, &clock)
+            .map_err(summary_execution_error_to_string)
     })();
 
     ExecutionOutcome { task, run, result }
@@ -855,6 +789,14 @@ fn summary_execution_error_to_string(error: SummaryPlaybookExecutionError) -> St
     match error {
         SummaryPlaybookExecutionError::Task(error) => format!("task transition failed: {error:?}"),
         SummaryPlaybookExecutionError::Routine(error) => error,
+    }
+}
+
+fn map_registered_playbook_error(error: RegisteredPlaybookError) -> CreateTaskError {
+    match error {
+        RegisteredPlaybookError::UnknownPlaybook | RegisteredPlaybookError::UnsupportedPlaybook => {
+            CreateTaskError::UnknownPlaybook
+        }
     }
 }
 
