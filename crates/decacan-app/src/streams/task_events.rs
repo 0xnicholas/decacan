@@ -5,11 +5,11 @@ use tokio::sync::broadcast;
 use tokio_stream::wrappers::BroadcastStream;
 use tokio_stream::StreamExt;
 
-use crate::dto::TaskEventDto;
+use crate::dto::TaskEventEnvelopeDto;
 
 pub fn task_event_sse(
     task_id: String,
-    receiver: broadcast::Receiver<TaskEventDto>,
+    receiver: broadcast::Receiver<TaskEventEnvelopeDto>,
 ) -> Sse<impl tokio_stream::Stream<Item = Result<Event, Infallible>>> {
     let stream = BroadcastStream::new(receiver).filter_map(move |message| {
         let task_id = task_id.clone();
@@ -17,7 +17,7 @@ pub fn task_event_sse(
             Ok(event) if event.task_id == task_id => Some(Ok(
                 Event::default()
                     .event("task.event")
-                    .id(event.id.clone())
+                    .id(event.event_id.clone())
                     .json_data(event)
                     .expect("task event should serialize"),
             )),

@@ -110,3 +110,59 @@ async fn playbooks_endpoint_returns_card_metadata_and_preview_endpoint_returns_s
     assert!(preview_json.get("plan_steps").is_some());
     assert!(preview_json.get("expected_artifact_label").is_some());
 }
+
+#[tokio::test]
+async fn task_detail_endpoint_returns_plan_approvals_artifacts_and_timeline() {
+    let app = decacan_app::app::wiring::router_for_test();
+
+    let create_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/tasks")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"workspace_id":"workspace-1","playbook_key":"总结资料","input":"notes.md"}"#,
+                ))
+                .expect("request should build"),
+        )
+        .await
+        .expect("create route should respond");
+
+    assert_eq!(create_response.status(), StatusCode::ACCEPTED);
+
+    let create_body = axum::body::to_bytes(create_response.into_body(), usize::MAX)
+        .await
+        .expect("create body should be readable");
+    let create_json: Value =
+        serde_json::from_slice(&create_body).expect("create response should be json");
+    let task_id = create_json["task"]["id"]
+        .as_str()
+        .expect("create response should include a task id");
+
+    let detail_response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri(format!("/api/tasks/{task_id}"))
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("task detail route should respond");
+
+    assert_eq!(detail_response.status(), StatusCode::OK);
+
+    let detail_body = axum::body::to_bytes(detail_response.into_body(), usize::MAX)
+        .await
+        .expect("detail body should be readable");
+    let detail_json: Value =
+        serde_json::from_slice(&detail_body).expect("detail response should be json");
+
+    assert!(detail_json.get("task").is_some());
+    assert!(detail_json.get("plan").is_some());
+    assert!(detail_json.get("approvals").is_some());
+    assert!(detail_json.get("artifacts").is_some());
+    assert!(detail_json.get("timeline").is_some());
+}

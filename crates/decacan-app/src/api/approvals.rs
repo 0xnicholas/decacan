@@ -4,7 +4,7 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 
 use crate::app::state::AppState;
-use crate::dto::{ApprovalDto, ApprovalRequestDto, TaskEventDto};
+use crate::dto::{ApprovalDto, ApprovalRequestDto, TaskEventEnvelopeDto};
 
 pub(super) fn router() -> Router<AppState> {
     Router::new()
@@ -28,10 +28,13 @@ async fn create_approval(
         comment: request.comment,
         status: "recorded".to_owned(),
     };
-    let event = TaskEventDto {
-        id: state.next_id("event"),
+    let sequence = state.list_task_events(&task_id).len() as u64 + 1;
+    let event = TaskEventEnvelopeDto {
+        event_id: state.next_id("event"),
         task_id,
+        sequence,
         event_type: "approval.recorded".to_owned(),
+        snapshot_version: sequence,
         message: "Approval decision recorded".to_owned(),
     };
 

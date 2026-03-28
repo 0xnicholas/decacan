@@ -11,6 +11,33 @@ pub struct TaskDto {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TaskSummaryDto {
+    pub id: String,
+    pub workspace_id: String,
+    pub playbook_key: String,
+    pub input: String,
+    pub status: String,
+    pub status_summary: String,
+    pub artifact_id: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TaskPlanDto {
+    pub steps: Vec<String>,
+    pub current_step_index: usize,
+    pub status: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TaskDetailDto {
+    pub task: TaskSummaryDto,
+    pub plan: TaskPlanDto,
+    pub approvals: Vec<crate::dto::ApprovalDto>,
+    pub artifacts: Vec<crate::dto::ArtifactDto>,
+    pub timeline: Vec<TaskEventEnvelopeDto>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CreateTaskRequest {
     pub workspace_id: String,
     pub playbook_key: String,
@@ -41,9 +68,11 @@ pub struct CreateTaskAcceptedResponse {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct TaskEventDto {
-    pub id: String,
+pub struct TaskEventEnvelopeDto {
+    pub event_id: String,
     pub task_id: String,
+    pub sequence: u64,
     pub event_type: String,
+    pub snapshot_version: u64,
     pub message: String,
 }

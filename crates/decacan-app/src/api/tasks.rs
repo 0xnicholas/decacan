@@ -5,10 +5,10 @@ use axum::response::IntoResponse;
 use axum::routing::get;
 use axum::{Json, Router};
 
-use crate::app::state::{pending_artifact_for_task, AppState};
+use crate::app::state::{pending_artifact_for_task, plan_for_task, AppState};
 use crate::dto::{
-    CreateTaskAcceptedResponse, CreateTaskRequest, TaskDto, TaskEventDto, TaskPreviewDto,
-    TaskPreviewRequest,
+    CreateTaskAcceptedResponse, CreateTaskRequest, TaskDetailDto, TaskDto, TaskEventEnvelopeDto,
+    TaskPreviewDto, TaskPreviewRequest, TaskSummaryDto,
 };
 use crate::streams::task_events::task_event_sse;
 
@@ -28,8 +28,28 @@ async fn list_tasks(State(state): State<AppState>) -> Json<Vec<TaskDto>> {
 async fn get_task(
     State(state): State<AppState>,
     Path(task_id): Path<String>,
-) -> Result<Json<TaskDto>, StatusCode> {
-    state.get_task(&task_id).map(Json).ok_or(StatusCode::NOT_FOUND)
+) -> Result<Json<TaskDetailDto>, StatusCode> {
+    let task = state.get_task(&task_id).ok_or(StatusCode::NOT_FOUND)?;
+    let plan = plan_for_task(&task);
+    let approvals = state.list_approvals_for_task(&task_id);
+    let artifacts = state.list_artifacts_for_task(&task_id);
+    let timeline = state.list_task_events(&task_id);
+
+    Ok(Json(TaskDetailDto {
+        task: TaskSummaryDto {
+            id: task.id,
+            workspace_id: task.workspace_id,
+            playbook_key: task.playbook_key,
+            input: task.input,
+            status: task.status,
+            status_summary: "Task accepted and ready to run".to_owned(),
+            artifact_id: task.artifact_id,
+        },
+        plan,
+        approvals,
+        artifacts,
+        timeline,
+    }))
 }
 
 async fn create_task(
@@ -53,10 +73,12 @@ async fn create_task(
         status: "accepted".to_owned(),
         artifact_id: Some(artifact.id.clone()),
     };
-    let event = TaskEventDto {
-        id: state.next_id("event"),
+    let event = TaskEventEnvelopeDto {
+        event_id: state.next_id("event"),
         task_id: task_id.clone(),
+        sequence: 1,
         event_type: "task.accepted".to_owned(),
+        snapshot_version: 1,
         message: "Task accepted by API".to_owned(),
     };
 
@@ -127,7 +149,7 @@ async fn create_task_preview(
 async fn list_task_events(
     State(state): State<AppState>,
     Path(task_id): Path<String>,
-) -> Result<Json<Vec<TaskEventDto>>, StatusCode> {
+) -> Result<Json<Vec<TaskEventEnvelopeDto>>, StatusCode> {
     if !state.has_task(&task_id) {
         return Err(StatusCode::NOT_FOUND);
     }
