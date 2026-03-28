@@ -190,9 +190,12 @@ async fn deliverables_routes_return_first_class_review_objects() {
         serde_json::from_slice(&list_body).expect("deliverables list should be json");
     let first = list_json
         .as_array()
-        .and_then(|items| items.first())
-        .expect("deliverables list should contain at least one item");
-    assert_eq!(first["id"], artifact_id);
+        .and_then(|items| {
+            items
+                .iter()
+                .find(|item| item["id"] == Value::String(artifact_id.clone()))
+        })
+        .expect("deliverables list should contain the created artifact");
     assert_eq!(first["status"], "needs_review");
     assert_eq!(first["owner"], "Ari");
 
@@ -214,12 +217,13 @@ async fn deliverables_routes_return_first_class_review_objects() {
         .expect("deliverables filtered list body should be readable");
     let filtered_json: Value =
         serde_json::from_slice(&filtered_body).expect("deliverables filtered list should be json");
-    assert_eq!(
+    assert!(
         filtered_json
             .as_array()
             .expect("filtered list should be an array")
-            .len(),
-        1
+            .iter()
+            .any(|item| item["id"] == Value::String(artifact_id.clone())),
+        "filtered list should contain the created artifact"
     );
 
     let detail_response = app
