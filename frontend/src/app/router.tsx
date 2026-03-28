@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { LaunchPage } from "../features/launch/LaunchPage";
+import { TaskPage } from "../features/task-detail/TaskPage";
 
 function usePathname() {
   const [pathname, setPathname] = useState(window.location.pathname);
@@ -24,13 +25,13 @@ export function AppRouter() {
   const pathname = usePathname();
 
   if (pathname.startsWith("/tasks/")) {
-    return (
-      <main className="task-route-placeholder">
-        <p className="eyebrow">Decacan</p>
-        <h1>Task workspace</h1>
-        <p className="subcopy">Task detail UI lands in the next slice.</p>
-      </main>
-    );
+    const taskId = pathname.split("/").at(-1);
+
+    if (!taskId) {
+      return null;
+    }
+
+    return <TaskPage taskId={taskId} />;
   }
 
   return <LaunchPage />;
