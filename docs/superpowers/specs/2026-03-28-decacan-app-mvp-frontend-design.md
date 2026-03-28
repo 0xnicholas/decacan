@@ -1,8 +1,10 @@
-# Decacan App Frontend Design
+# Decacan App MVP Frontend Design
 
 Date: 2026-03-28
-Stage: Frontend design
+Stage: MVP frontend design
 Status: Approved for planning
+
+Note: This document defines the MVP workstation frontend. The full team-product extension is defined separately in `2026-03-28-decacan-app-full-product-frontend-design.md`.
 
 ## Goal
 
