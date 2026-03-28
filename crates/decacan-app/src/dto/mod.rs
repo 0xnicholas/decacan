@@ -10,7 +10,10 @@ mod workspace;
 pub use activity::ActivityDto;
 pub use approval::{ApprovalDto, ApprovalRequestDto};
 pub use artifact::{ArtifactContentDto, ArtifactDto};
-pub use deliverable::{DeliverableDetailDto, DeliverableDto};
+pub use deliverable::{
+    DeliverableDetailDto, DeliverableDto, DeliverableLinkedTaskDto, DeliverableReviewHistoryEntryDto,
+    DeliverableReviewRequestDto,
+};
 pub use member::MemberDto;
 pub use playbook::PlaybookDto;
 pub use task::{

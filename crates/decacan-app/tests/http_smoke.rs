@@ -194,8 +194,36 @@ async fn deliverables_routes_return_first_class_review_objects() {
         .expect("deliverables list should contain at least one item");
     assert_eq!(first["id"], artifact_id);
     assert_eq!(first["status"], "needs_review");
+    assert_eq!(first["owner"], "Ari");
+
+    let filtered_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/api/workspaces/workspace-1/deliverables?status=needs_review")
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("deliverables filtered list route should respond");
+    assert_eq!(filtered_response.status(), StatusCode::OK);
+
+    let filtered_body = axum::body::to_bytes(filtered_response.into_body(), usize::MAX)
+        .await
+        .expect("deliverables filtered list body should be readable");
+    let filtered_json: Value =
+        serde_json::from_slice(&filtered_body).expect("deliverables filtered list should be json");
+    assert_eq!(
+        filtered_json
+            .as_array()
+            .expect("filtered list should be an array")
+            .len(),
+        1
+    );
 
     let detail_response = app
+        .clone()
         .oneshot(
             Request::builder()
                 .method("GET")
@@ -216,6 +244,54 @@ async fn deliverables_routes_return_first_class_review_objects() {
         serde_json::from_slice(&detail_body).expect("deliverable detail should be json");
     assert_eq!(detail_json["deliverable"]["status"], "needs_review");
     assert_eq!(detail_json["deliverable"]["task_id"], task_id);
+    assert!(detail_json["review_actions"].is_array());
+    assert!(detail_json["review_history"].is_array());
+    assert!(detail_json["linked_task"].is_object());
+    assert!(detail_json["deliverable"].get("owner").is_some());
+    assert_eq!(detail_json["review_actions"][0], "approve");
+    assert_eq!(detail_json["review_actions"][1], "request_revision");
+
+    let review_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!(
+                    "/api/workspaces/workspace-1/deliverables/{artifact_id}/review"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"action":"approve","note":"looks good"}"#))
+                .expect("request should build"),
+        )
+        .await
+        .expect("review route should respond");
+    assert_eq!(review_response.status(), StatusCode::ACCEPTED);
+
+    let reviewed_detail_response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri(format!(
+                    "/api/workspaces/workspace-1/deliverables/{artifact_id}"
+                ))
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("reviewed detail route should respond");
+    assert_eq!(reviewed_detail_response.status(), StatusCode::OK);
+
+    let reviewed_detail_body = axum::body::to_bytes(reviewed_detail_response.into_body(), usize::MAX)
+        .await
+        .expect("reviewed detail body should be readable");
+    let reviewed_detail_json: Value = serde_json::from_slice(&reviewed_detail_body)
+        .expect("reviewed deliverable detail should be json");
+    assert_eq!(reviewed_detail_json["deliverable"]["status"], "approved");
+    assert!(reviewed_detail_json["review_history"]
+        .as_array()
+        .expect("review history should be an array")
+        .iter()
+        .any(|item| item["action"] == "approve"));
 }
 
 #[tokio::test]
