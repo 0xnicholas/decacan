@@ -19,9 +19,7 @@ use super::registry::{
 pub struct RegisteredPlaybookExecutionRequest {
     pub task_id: String,
     pub run_id: String,
-    pub policy_id: String,
     pub workspace_id: String,
-    pub workspace_name: String,
     pub workspace_root: String,
     pub playbook_key: String,
 }
@@ -76,10 +74,14 @@ pub fn prepare_registered_playbook_run(
     let workflow = compile_playbook(&playbook).ok_or(RegisteredPlaybookError::UnsupportedPlaybook)?;
     let workspace = Workspace::new(
         request.workspace_id,
-        request.workspace_name,
+        "Workspace",
         request.workspace_root,
     );
-    let policy = PolicyProfile::new_default(request.policy_id, &workspace.id, "default");
+    let policy = PolicyProfile::new_default(
+        format!("policy-{}", request.run_id),
+        &workspace.id,
+        "default",
+    );
     let task = Task::new(
         request.task_id.clone(),
         workspace.id.clone(),

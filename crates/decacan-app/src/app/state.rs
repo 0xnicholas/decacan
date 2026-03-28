@@ -487,9 +487,7 @@ impl AppState {
         let prepared_run = prepare_registered_playbook_run(RegisteredPlaybookExecutionRequest {
             task_id: task_id.clone(),
             run_id,
-            policy_id: self.next_id("policy"),
             workspace_id: request.workspace_id.clone(),
-            workspace_name: "Default Workspace".to_owned(),
             workspace_root: workspace_root.display().to_string(),
             playbook_key: request.playbook_key.clone(),
         })

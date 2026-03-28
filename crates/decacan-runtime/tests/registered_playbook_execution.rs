@@ -35,9 +35,7 @@ fn prepare_registered_discovery_playbook_run_builds_runtime_task_run_and_pending
     let prepared = prepare_registered_playbook_run(RegisteredPlaybookExecutionRequest {
         task_id: "task-42".to_owned(),
         run_id: "run-42".to_owned(),
-        policy_id: "policy-42".to_owned(),
         workspace_id: "workspace-1".to_owned(),
-        workspace_name: "Default Workspace".to_owned(),
         workspace_root: workspace_root.display().to_string(),
         playbook_key: DISCOVER_TOPICS_PLAYBOOK_KEY.to_owned(),
     })
@@ -61,9 +59,7 @@ fn execute_registered_playbook_run_dispatches_from_run_snapshot() {
     let prepared = prepare_registered_playbook_run(RegisteredPlaybookExecutionRequest {
         task_id: "task-discovery".to_owned(),
         run_id: "run-discovery".to_owned(),
-        policy_id: "policy-discovery".to_owned(),
         workspace_id: "workspace-1".to_owned(),
-        workspace_name: "Default Workspace".to_owned(),
         workspace_root: workspace_root.display().to_string(),
         playbook_key: DISCOVER_TOPICS_PLAYBOOK_KEY.to_owned(),
     })

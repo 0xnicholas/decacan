@@ -1,6 +1,6 @@
 use decacan_runtime::gateway::{SemanticGatewayAdapter, ToolGateway};
 use decacan_runtime::policy::entity::PolicyProfile;
-use decacan_runtime::{
+use decacan_runtime::unstable_semantic::{
     resume_summary_invocation, start_summary_invocation, BlockedReason, ContinuationState,
     InvocationContext, InvocationOutcome, InvocationState, ModelContext, OutputCandidate,
     PendingAction, ResumeAction, SemanticModel, ToolCall, ToolCallResult, ToolProtocol,
