@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 
+import {
+  getWorkspaceSectionMeta,
+  parseWorkspaceRoute,
+  type WorkspaceSection,
+} from "../entities/workspace/routeModel";
 import { LaunchPage } from "../features/launch/LaunchPage";
 import { TaskPage } from "../features/task-detail/TaskPage";
-import {
-  type WorkspaceSection,
-  WorkspaceShell,
-} from "../shared/layout/WorkspaceShell";
+import { WorkspaceShell } from "../shared/layout/WorkspaceShell";
 
 function usePathname() {
   const [pathname, setPathname] = useState(window.location.pathname);
@@ -25,44 +27,11 @@ function usePathname() {
   return pathname;
 }
 
-interface WorkspaceRoute {
-  section: WorkspaceSection;
-  workspaceId: string;
-}
-
-function parseWorkspaceRoute(pathname: string): WorkspaceRoute | null {
-  const match = pathname.match(
-    /^\/workspaces\/([^/]+)(?:\/(tasks|deliverables|approvals|activity|members))?\/?$/,
-  );
-
-  if (!match) {
-    return null;
-  }
-
-  const workspaceId = match[1];
-  const maybeSection = match[2] as WorkspaceSection | undefined;
-  const section: WorkspaceSection = maybeSection ?? "home";
-
-  return {
-    section,
-    workspaceId,
-  };
-}
-
 function WorkspaceSectionPlaceholder({ section }: { section: WorkspaceSection }) {
-  const titles: Record<WorkspaceSection, string> = {
-    activity: "Activity",
-    approvals: "Approvals",
-    deliverables: "Deliverables",
-    home: "Workspace Overview",
-    members: "Members",
-    tasks: "Tasks",
-  };
-
   return (
     <section className="workspace-route-placeholder">
       <p className="eyebrow">Workspace</p>
-      <h1>{titles[section]}</h1>
+      <h1>{getWorkspaceSectionMeta(section).placeholderTitle}</h1>
       <p className="subcopy">Content for this route will be implemented in later tasks.</p>
     </section>
   );

@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, vi } from "vitest";
 
 import { App } from "../app/App";
@@ -15,10 +16,24 @@ describe("WorkspaceShell", () => {
       const method = init?.method ?? "GET";
 
       if (url.endsWith("/api/workspaces") && method === "GET") {
-        return new Response(JSON.stringify([]), {
-          status: 200,
-          headers: { "content-type": "application/json" },
-        });
+        return new Response(
+          JSON.stringify([
+            {
+              id: "workspace-1",
+              title: "Workspace 1",
+              root_path: "/workspace-1",
+            },
+            {
+              id: "workspace-2",
+              title: "Workspace 2",
+              root_path: "/workspace-2",
+            },
+          ]),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        );
       }
 
       if (url.endsWith("/api/playbooks") && method === "GET") {
@@ -60,5 +75,32 @@ describe("WorkspaceShell", () => {
 
     expect(await screen.findByText("Choose a playbook")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "New Task" })).not.toBeInTheDocument();
+  });
+
+  it("updates the URL when section nav buttons are clicked", async () => {
+    const user = userEvent.setup();
+    window.history.replaceState({}, "", "/workspaces/workspace-1");
+
+    render(<App />);
+
+    await screen.findByRole("button", { name: "Home" });
+
+    await user.click(screen.getByRole("button", { name: "Tasks" }));
+    expect(window.location.pathname).toBe("/workspaces/workspace-1/tasks");
+
+    await user.click(screen.getByRole("button", { name: "Deliverables" }));
+    expect(window.location.pathname).toBe("/workspaces/workspace-1/deliverables");
+  });
+
+  it("updates the URL when switching workspaces and preserves the current section", async () => {
+    const user = userEvent.setup();
+    window.history.replaceState({}, "", "/workspaces/workspace-1/tasks");
+
+    render(<App />);
+
+    await screen.findByRole("button", { name: "Tasks" });
+    await user.selectOptions(screen.getByLabelText("Workspace switcher"), "workspace-2");
+
+    expect(window.location.pathname).toBe("/workspaces/workspace-2/tasks");
   });
 });

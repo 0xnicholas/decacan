@@ -1,4 +1,4 @@
-import type { Workspace } from "../../entities/workspace/types";
+import type { Workspace } from "../../entities/playbook/types";
 
 interface TopBarProps {
   onNewTask: () => void;
