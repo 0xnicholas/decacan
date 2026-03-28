@@ -27,22 +27,31 @@ pub struct Task {
 }
 
 impl Task {
-    pub fn new_for_test(
-        id: &str,
-        workspace_id: &str,
-        playbook_id: &str,
+    pub fn new(
+        id: impl Into<String>,
+        workspace_id: impl Into<String>,
+        playbook_id: impl Into<String>,
         playbook_version_id: Uuid,
     ) -> Self {
         let now = OffsetDateTime::now_utc();
         Self {
-            id: id.to_owned(),
-            workspace_id: workspace_id.to_owned(),
-            playbook_id: playbook_id.to_owned(),
+            id: id.into(),
+            workspace_id: workspace_id.into(),
+            playbook_id: playbook_id.into(),
             playbook_version_id,
             status: TaskStatus::Created,
             created_at: now,
             updated_at: now,
             trace_id: Uuid::new_v4(),
         }
+    }
+
+    pub fn new_for_test(
+        id: &str,
+        workspace_id: &str,
+        playbook_id: &str,
+        playbook_version_id: Uuid,
+    ) -> Self {
+        Self::new(id, workspace_id, playbook_id, playbook_version_id)
     }
 }

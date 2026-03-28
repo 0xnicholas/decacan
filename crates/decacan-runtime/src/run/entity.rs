@@ -41,9 +41,9 @@ pub struct Run {
 }
 
 impl Run {
-    pub fn new_for_test(
-        id: &str,
-        task_id: &str,
+    pub fn new(
+        id: impl Into<String>,
+        task_id: impl Into<String>,
         workflow_snapshot: Workflow,
         policy_snapshot: PolicyProfile,
         workspace_snapshot: Workspace,
@@ -51,8 +51,8 @@ impl Run {
     ) -> Self {
         let current_step_id = workflow_snapshot.steps.first().map(|step| step.id.clone());
         Self {
-            id: id.to_owned(),
-            task_id: task_id.to_owned(),
+            id: id.into(),
+            task_id: task_id.into(),
             attempt_index: 0,
             created_at: OffsetDateTime::now_utc(),
             workflow_snapshot,
@@ -71,5 +71,23 @@ impl Run {
             write_operations: Vec::new(),
             error_details: None,
         }
+    }
+
+    pub fn new_for_test(
+        id: &str,
+        task_id: &str,
+        workflow_snapshot: Workflow,
+        policy_snapshot: PolicyProfile,
+        workspace_snapshot: Workspace,
+        playbook_snapshot: Playbook,
+    ) -> Self {
+        Self::new(
+            id,
+            task_id,
+            workflow_snapshot,
+            policy_snapshot,
+            workspace_snapshot,
+            playbook_snapshot,
+        )
     }
 }

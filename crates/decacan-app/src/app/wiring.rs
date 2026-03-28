@@ -10,10 +10,15 @@ use crate::api;
 use super::state::AppState;
 
 const FRONTEND_DIST_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../frontend/dist");
-const FRONTEND_ASSETS_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../frontend/dist/assets");
+const FRONTEND_ASSETS_DIR: &str =
+    concat!(env!("CARGO_MANIFEST_DIR"), "/../../frontend/dist/assets");
 
 pub fn router_for_test() -> Router {
     router_with_state(AppState::new_for_test())
+}
+
+pub fn router_for_local() -> std::io::Result<Router> {
+    Ok(router_with_state(AppState::new_local()?))
 }
 
 pub fn router_with_state(state: AppState) -> Router {

@@ -16,12 +16,16 @@ pub struct PolicyProfile {
 }
 
 impl PolicyProfile {
-    pub fn new_for_test(id: &str, workspace_id: &str, name: &str) -> Self {
+    pub fn new_default(
+        id: impl Into<String>,
+        workspace_id: impl Into<String>,
+        name: impl Into<String>,
+    ) -> Self {
         let now = OffsetDateTime::now_utc();
         Self {
-            id: id.to_owned(),
-            workspace_id: workspace_id.to_owned(),
-            name: name.to_owned(),
+            id: id.into(),
+            workspace_id: workspace_id.into(),
+            name: name.into(),
             created_at: now,
             updated_at: now,
             version_id: Uuid::new_v4(),
@@ -29,5 +33,9 @@ impl PolicyProfile {
             approval_required_tools: vec!["shell.exec".to_owned()],
             denied_tools: vec!["network.egress".to_owned()],
         }
+    }
+
+    pub fn new_for_test(id: &str, workspace_id: &str, name: &str) -> Self {
+        Self::new_default(id, workspace_id, name)
     }
 }

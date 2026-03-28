@@ -24,6 +24,25 @@ pub struct WorkflowStep {
 }
 
 impl WorkflowStep {
+    pub fn new(
+        id: impl Into<String>,
+        name: impl Into<String>,
+        step_type: WorkflowStepType,
+        purpose: impl Into<String>,
+        transition: Option<String>,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            name: name.into(),
+            r#type: step_type,
+            purpose: purpose.into(),
+            input_contract: "input.contract".to_owned(),
+            output_contract: "output.contract".to_owned(),
+            execution_profile: "default".to_owned(),
+            transition,
+        }
+    }
+
     pub fn new_for_test(
         id: &str,
         name: &str,
@@ -31,15 +50,6 @@ impl WorkflowStep {
         purpose: &str,
         transition: Option<&str>,
     ) -> Self {
-        Self {
-            id: id.to_owned(),
-            name: name.to_owned(),
-            r#type: step_type,
-            purpose: purpose.to_owned(),
-            input_contract: "input.contract".to_owned(),
-            output_contract: "output.contract".to_owned(),
-            execution_profile: "default".to_owned(),
-            transition: transition.map(str::to_owned),
-        }
+        Self::new(id, name, step_type, purpose, transition.map(str::to_owned))
     }
 }

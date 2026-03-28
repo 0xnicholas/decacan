@@ -109,6 +109,7 @@ name = "decacan-app"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "decacan-infra",
  "decacan-runtime",
  "http",
  "serde",

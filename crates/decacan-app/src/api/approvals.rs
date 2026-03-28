@@ -9,7 +9,10 @@ use crate::dto::{ApprovalDto, ApprovalRequestDto, TaskEventEnvelopeDto};
 pub(super) fn router() -> Router<AppState> {
     Router::new()
         .route("/api/tasks/:task_id/approvals", post(create_approval))
-        .route("/api/approvals/:approval_id/decision", post(decide_approval))
+        .route(
+            "/api/approvals/:approval_id/decision",
+            post(decide_approval),
+        )
         .route("/api/approvals/:approval_id", get(get_approval))
 }
 
@@ -40,9 +43,6 @@ async fn create_approval(
     };
 
     state.put_approval(approval.clone());
-    let _ = state.update_task(&task_id, |task| {
-        task.status = "waiting_approval".to_owned();
-    });
     state.append_task_event(event);
 
     Ok((StatusCode::ACCEPTED, Json(approval)))
@@ -53,7 +53,9 @@ async fn decide_approval(
     Path(approval_id): Path<String>,
     Json(request): Json<ApprovalRequestDto>,
 ) -> Result<(StatusCode, Json<ApprovalDto>), StatusCode> {
-    let existing = state.get_approval(&approval_id).ok_or(StatusCode::NOT_FOUND)?;
+    let existing = state
+        .get_approval(&approval_id)
+        .ok_or(StatusCode::NOT_FOUND)?;
     let task_id = existing.task_id.clone();
 
     let status = match request.decision.as_str() {
@@ -68,14 +70,6 @@ async fn decide_approval(
             approval.status = status.to_owned();
         })
         .ok_or(StatusCode::NOT_FOUND)?;
-
-    let _ = state.update_task(&task_id, |task| {
-        task.status = if status == "approved" {
-            "running".to_owned()
-        } else {
-            "failed".to_owned()
-        };
-    });
 
     let sequence = state.next_task_sequence(&task_id);
     state.append_task_event(TaskEventEnvelopeDto {

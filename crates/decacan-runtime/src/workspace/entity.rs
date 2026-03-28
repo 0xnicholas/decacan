@@ -22,16 +22,20 @@ pub struct Workspace {
 }
 
 impl Workspace {
-    pub fn new_for_test(id: &str, name: &str, root_path: &str) -> Self {
+    pub fn new(id: impl Into<String>, name: impl Into<String>, root_path: impl Into<String>) -> Self {
         let now = OffsetDateTime::now_utc();
         Self {
-            id: id.to_owned(),
-            name: name.to_owned(),
-            root_path: root_path.to_owned(),
+            id: id.into(),
+            name: name.into(),
+            root_path: root_path.into(),
             status: WorkspaceStatus::Active,
             created_at: now,
             updated_at: now,
             version_id: Uuid::new_v4(),
         }
+    }
+
+    pub fn new_for_test(id: &str, name: &str, root_path: &str) -> Self {
+        Self::new(id, name, root_path)
     }
 }
