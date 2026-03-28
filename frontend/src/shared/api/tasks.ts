@@ -1,4 +1,4 @@
-import type { TaskListItem } from "../../entities/task/types";
+import type { TaskDetail, TaskListItem } from "../../entities/task/types";
 import { getJson, postJson } from "./client";
 
 export interface TaskPreviewRequest {
@@ -67,6 +67,19 @@ export function createTask(request: CreateTaskRequest) {
 
 export function listTasks() {
   return getJson<TaskListItem[]>("/api/tasks");
+}
+
+export function getTaskDetail(taskId: string, workspaceId?: string) {
+  const path = workspaceId
+    ? `/api/workspaces/${workspaceId}/tasks/${taskId}`
+    : `/api/tasks/${taskId}`;
+  return getJson<TaskDetail>(path);
+}
+
+export function taskEventsStreamPath(taskId: string, workspaceId?: string) {
+  return workspaceId
+    ? `/api/workspaces/${workspaceId}/tasks/${taskId}/events/stream`
+    : `/api/tasks/${taskId}/events/stream`;
 }
 
 export function decideApproval(approvalId: string, request: ApprovalDecisionRequest) {

@@ -6,30 +6,54 @@ import type {
   TaskEventEnvelope,
   TaskListItem,
 } from "../../entities/task/types";
-import { getJson } from "../../shared/api/client";
-import { listTasks } from "../../shared/api/tasks";
+import { getTaskDetail, listTasks, taskEventsStreamPath } from "../../shared/api/tasks";
+
+type TaskLoadState = "loading" | "ready" | "not_found";
 
 export function useTaskDetail(taskId: string, workspaceId?: string) {
   const [taskDetail, setTaskDetail] = useState<TaskDetail | null>(null);
   const [latestEvent, setLatestEvent] = useState<TaskEventEnvelope | null>(null);
   const [recentTasks, setRecentTasks] = useState<TaskListItem[]>([]);
   const [connectionState, setConnectionState] = useState<TaskConnectionState>("offline");
+  const [loadState, setLoadState] = useState<TaskLoadState>("loading");
   const [revision, setRevision] = useState(0);
 
   useEffect(() => {
     let active = true;
 
     async function loadTask() {
-      const [response, tasks] = await Promise.all([
-        getJson<TaskDetail>(`/api/tasks/${taskId}`),
-        listTasks(),
-      ]);
-      const normalizedTask = normalizeTaskDetail(response);
+      try {
+        const [response, tasks] = await Promise.all([
+          getTaskDetail(taskId, workspaceId),
+          listTasks(),
+        ]);
+        const normalizedTask = normalizeTaskDetail(response);
 
-      if (active) {
-        setTaskDetail(normalizedTask);
-        setLatestEvent(normalizedTask.timeline.at(-1) ?? null);
-        setRecentTasks(filterRecentTasks(tasks, taskId, workspaceId ?? normalizedTask.task.workspace_id));
+        if (active) {
+          setTaskDetail(normalizedTask);
+          setLoadState("ready");
+          setLatestEvent(normalizedTask.timeline.at(-1) ?? null);
+          setRecentTasks(
+            filterRecentTasks(tasks, taskId, workspaceId ?? normalizedTask.task.workspace_id),
+          );
+        }
+      } catch (error) {
+        if (!active) {
+          return;
+        }
+
+        const message = error instanceof Error ? error.message : "";
+        if (message.includes(" 404")) {
+          setTaskDetail(null);
+          setLatestEvent(null);
+          setRecentTasks([]);
+          setLoadState("not_found");
+          setConnectionState("offline");
+          return;
+        }
+
+        setTaskDetail(null);
+        setLoadState("loading");
       }
     }
 
@@ -41,12 +65,12 @@ export function useTaskDetail(taskId: string, workspaceId?: string) {
   }, [taskId, revision, workspaceId]);
 
   useEffect(() => {
-    if (typeof EventSource === "undefined") {
+    if (typeof EventSource === "undefined" || loadState !== "ready") {
       setConnectionState("offline");
       return;
     }
 
-    const stream = new EventSource(`/api/tasks/${taskId}/events/stream`);
+    const stream = new EventSource(taskEventsStreamPath(taskId, workspaceId));
     setConnectionState("live");
 
     const handleStreamEvent = (event: MessageEvent<string>) => {
@@ -67,11 +91,12 @@ export function useTaskDetail(taskId: string, workspaceId?: string) {
     return () => {
       stream.close();
     };
-  }, [taskId]);
+  }, [loadState, taskId, workspaceId]);
 
   return {
     connectionState,
     latestEvent,
+    loadState,
     recentTasks,
     taskDetail,
     reload() {

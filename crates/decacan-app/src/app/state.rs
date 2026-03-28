@@ -193,12 +193,34 @@ impl AppState {
         })
     }
 
+    pub fn get_task_detail_in_workspace(
+        &self,
+        workspace_id: &str,
+        task_id: &str,
+    ) -> Option<TaskDetailDto> {
+        let detail = self.get_task_detail(task_id)?;
+        if detail.task.workspace_id != workspace_id {
+            return None;
+        }
+        Some(detail)
+    }
+
     pub fn has_task(&self, task_id: &str) -> bool {
         self.inner
             .tasks
             .lock()
             .expect("task lock should not be poisoned")
             .contains_key(task_id)
+    }
+
+    pub fn has_task_in_workspace(&self, workspace_id: &str, task_id: &str) -> bool {
+        self.inner
+            .tasks
+            .lock()
+            .expect("task lock should not be poisoned")
+            .get(task_id)
+            .map(|task| task.workspace_id == workspace_id)
+            .unwrap_or(false)
     }
 
     pub async fn create_task_execution(
@@ -420,13 +442,13 @@ impl AppState {
         task_id: &str,
         instruction_key: &str,
     ) -> Option<TaskAgentMessageDto> {
-        let (summary, detail) = instruction_message_for_key(instruction_key)?;
+        let definition = find_instruction_definition(instruction_key)?;
         let message = TaskAgentMessageDto {
             id: self.next_id("agent-message"),
             task_id: task_id.to_owned(),
             role: "agent".to_owned(),
-            summary: summary.to_owned(),
-            detail: detail.to_owned(),
+            summary: definition.summary.to_owned(),
+            detail: definition.detail.to_owned(),
         };
 
         let mut tasks = self
@@ -819,41 +841,55 @@ fn task_status_to_dto(status: TaskStatus) -> &'static str {
 }
 
 fn instruction_actions() -> Vec<TaskInstructionActionDto> {
+    instruction_definitions()
+        .iter()
+        .map(|definition| definition.action.clone())
+        .collect()
+}
+
+struct InstructionDefinition {
+    action: TaskInstructionActionDto,
+    summary: &'static str,
+    detail: &'static str,
+}
+
+fn instruction_definitions() -> Vec<InstructionDefinition> {
     vec![
-        TaskInstructionActionDto {
-            key: "status-brief".to_owned(),
-            label: "Status brief".to_owned(),
-            instruction: "Provide a concise status update for this task.".to_owned(),
+        InstructionDefinition {
+            action: TaskInstructionActionDto {
+                key: "status-brief".to_owned(),
+                label: "Status brief".to_owned(),
+                instruction: "Provide a concise status update for this task.".to_owned(),
+            },
+            summary: "Status brief ready",
+            detail: "Task remains on track. Continue current execution and monitor pending approvals.",
         },
-        TaskInstructionActionDto {
-            key: "risk-check".to_owned(),
-            label: "Risk check".to_owned(),
-            instruction: "List blockers or risks that could delay completion.".to_owned(),
+        InstructionDefinition {
+            action: TaskInstructionActionDto {
+                key: "risk-check".to_owned(),
+                label: "Risk check".to_owned(),
+                instruction: "List blockers or risks that could delay completion.".to_owned(),
+            },
+            summary: "Risk check ready",
+            detail: "Watch for pending approvals and unresolved artifact validation before final completion.",
         },
-        TaskInstructionActionDto {
-            key: "next-step-options".to_owned(),
-            label: "Next-step options".to_owned(),
-            instruction: "Suggest the next structured actions for this task.".to_owned(),
+        InstructionDefinition {
+            action: TaskInstructionActionDto {
+                key: "next-step-options".to_owned(),
+                label: "Next-step options".to_owned(),
+                instruction: "Suggest the next structured actions for this task.".to_owned(),
+            },
+            summary: "Next-step options ready",
+            detail:
+                "1) Confirm latest approval status. 2) Review output artifact. 3) Close with final timeline check.",
         },
     ]
 }
 
-fn instruction_message_for_key(instruction_key: &str) -> Option<(&'static str, &'static str)> {
-    match instruction_key {
-        "status-brief" => Some((
-            "Status brief ready",
-            "Task remains on track. Continue current execution and monitor pending approvals.",
-        )),
-        "risk-check" => Some((
-            "Risk check ready",
-            "Watch for pending approvals and unresolved artifact validation before final completion.",
-        )),
-        "next-step-options" => Some((
-            "Next-step options ready",
-            "1) Confirm latest approval status. 2) Review output artifact. 3) Close with final timeline check.",
-        )),
-        _ => None,
-    }
+fn find_instruction_definition(instruction_key: &str) -> Option<InstructionDefinition> {
+    instruction_definitions()
+        .into_iter()
+        .find(|definition| definition.action.key == instruction_key)
 }
 
 fn run_runtime_execution(prepared: PreparedExecution) -> ExecutionOutcome {

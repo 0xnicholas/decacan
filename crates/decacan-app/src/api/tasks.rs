@@ -25,6 +25,14 @@ pub(super) fn router() -> Router<AppState> {
             "/api/tasks/:task_id/instructions",
             axum::routing::post(post_task_instruction),
         )
+        .route(
+            "/api/workspaces/:workspace_id/tasks/:task_id",
+            get(get_workspace_task),
+        )
+        .route(
+            "/api/workspaces/:workspace_id/tasks/:task_id/events/stream",
+            get(stream_workspace_task_events),
+        )
         .route("/api/tasks/:task_id", get(get_task))
         .route("/api/tasks/:task_id/events", get(list_task_events))
         .route("/api/tasks/:task_id/events/stream", get(stream_task_events))
@@ -40,6 +48,16 @@ async fn get_task(
 ) -> Result<Json<TaskDetailDto>, StatusCode> {
     state
         .get_task_detail(&task_id)
+        .map(Json)
+        .ok_or(StatusCode::NOT_FOUND)
+}
+
+async fn get_workspace_task(
+    State(state): State<AppState>,
+    Path((workspace_id, task_id)): Path<(String, String)>,
+) -> Result<Json<TaskDetailDto>, StatusCode> {
+    state
+        .get_task_detail_in_workspace(&workspace_id, &task_id)
         .map(Json)
         .ok_or(StatusCode::NOT_FOUND)
 }
@@ -94,6 +112,22 @@ async fn stream_task_events(
     StatusCode,
 > {
     if !state.has_task(&task_id) {
+        return Err(StatusCode::NOT_FOUND);
+    }
+
+    Ok(task_event_sse(task_id, state.subscribe_task_events()))
+}
+
+async fn stream_workspace_task_events(
+    State(state): State<AppState>,
+    Path((workspace_id, task_id)): Path<(String, String)>,
+) -> Result<
+    Sse<
+        impl tokio_stream::Stream<Item = Result<axum::response::sse::Event, std::convert::Infallible>>,
+    >,
+    StatusCode,
+> {
+    if !state.has_task_in_workspace(&workspace_id, &task_id) {
         return Err(StatusCode::NOT_FOUND);
     }
 

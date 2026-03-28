@@ -34,6 +34,7 @@ async fn missing_task_event_routes_return_404() {
         .expect("events route should respond");
 
     let stream_response = app
+        .clone()
         .oneshot(
             Request::builder()
                 .method("GET")
@@ -44,8 +45,33 @@ async fn missing_task_event_routes_return_404() {
         .await
         .expect("stream route should respond");
 
+    let scoped_detail_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/api/workspaces/workspace-1/tasks/task-missing")
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("scoped detail route should respond");
+
+    let scoped_stream_response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/api/workspaces/workspace-1/tasks/task-missing/events/stream")
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("scoped stream route should respond");
+
     assert_eq!(events_response.status(), StatusCode::NOT_FOUND);
     assert_eq!(stream_response.status(), StatusCode::NOT_FOUND);
+    assert_eq!(scoped_detail_response.status(), StatusCode::NOT_FOUND);
+    assert_eq!(scoped_stream_response.status(), StatusCode::NOT_FOUND);
 }
 
 #[tokio::test]
@@ -293,6 +319,87 @@ async fn instruction_route_rejects_unknown_instruction_keys() {
         .expect("instruction route should respond");
 
     assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+}
+
+#[tokio::test]
+async fn workspace_scoped_task_routes_enforce_task_ownership() {
+    let app = decacan_app::app::wiring::router_for_test();
+    let (task_id, _artifact_id) = create_task(&app, "总结资料", "alpha\nbeta\ngamma").await;
+    let _ = wait_for_terminal_task(&app, &task_id).await;
+
+    let matching_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri(format!("/api/workspaces/workspace-1/tasks/{task_id}"))
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("scoped detail route should respond");
+
+    let mismatched_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri(format!("/api/workspaces/workspace-2/tasks/{task_id}"))
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("scoped detail route should respond");
+
+    let mismatched_stream_response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri(format!(
+                    "/api/workspaces/workspace-2/tasks/{task_id}/events/stream"
+                ))
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("scoped stream route should respond");
+
+    assert_eq!(matching_response.status(), StatusCode::OK);
+    assert_eq!(mismatched_response.status(), StatusCode::NOT_FOUND);
+    assert_eq!(mismatched_stream_response.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn every_advertised_instruction_action_is_accepted() {
+    let app = decacan_app::app::wiring::router_for_test();
+    let (task_id, _artifact_id) = create_task(&app, "总结资料", "alpha\nbeta\ngamma").await;
+    let detail = wait_for_terminal_task(&app, &task_id).await;
+    let actions = detail["collaboration"]["instruction_actions"]
+        .as_array()
+        .expect("instruction actions should be an array");
+    assert!(
+        !actions.is_empty(),
+        "instruction actions should not be empty"
+    );
+
+    for action in actions {
+        let key = action["key"]
+            .as_str()
+            .expect("instruction action key should be present");
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!("/api/tasks/{task_id}/instructions"))
+                    .header("content-type", "application/json")
+                    .body(Body::from(format!(r#"{{"instruction_key":"{key}"}}"#)))
+                    .expect("request should build"),
+            )
+            .await
+            .expect("instruction route should respond");
+        assert_eq!(response.status(), StatusCode::ACCEPTED);
+    }
 }
 
 #[tokio::test]

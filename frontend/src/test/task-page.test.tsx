@@ -65,7 +65,7 @@ describe("TaskPage", () => {
       const url = typeof input === "string" ? input : input.toString();
       const method = init?.method ?? "GET";
 
-      if (url.endsWith("/api/tasks/task-1") && method === "GET") {
+      if (url.endsWith("/api/workspaces/workspace-1/tasks/task-1") && method === "GET") {
         return new Response(
           JSON.stringify({
             task: {
@@ -127,6 +127,9 @@ describe("TaskPage", () => {
     expect(await screen.findByRole("tab", { name: "Agent" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Context" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "History" })).toBeInTheDocument();
+    expect(FakeEventSource.instances[0]?.url).toBe(
+      "/api/workspaces/workspace-1/tasks/task-1/events/stream",
+    );
   });
 
   it("shows a workspace-scoped not-found state when task does not belong to route workspace", async () => {
@@ -134,28 +137,22 @@ describe("TaskPage", () => {
       const url = typeof input === "string" ? input : input.toString();
       const method = init?.method ?? "GET";
 
+      if (url.endsWith("/api/workspaces/workspace-2/tasks/task-1") && method === "GET") {
+        return new Response(null, { status: 404 });
+      }
+
       if (url.endsWith("/api/tasks/task-1") && method === "GET") {
+        throw new Error("Unscoped task detail endpoint should not be called for workspace routes");
+      }
+
+      if (url.endsWith("/api/tasks/task-1/events/stream")) {
+        throw new Error("Unscoped task stream should not be used for workspace routes");
+      }
+
+      if (url.endsWith("/api/workspaces/workspace-2/tasks/task-1/events/stream")) {
         return new Response(
-          JSON.stringify({
-            task: {
-              id: "task-1",
-              workspace_id: "workspace-1",
-              playbook_key: "总结资料",
-              input: "Summarize notes",
-              status: "running",
-              status_summary: "Task is running",
-              artifact_id: "artifact-1"
-            },
-            plan: { steps: ["a"], current_step_index: 0, status: "running" },
-            approvals: [],
-            artifacts: [],
-            timeline: [],
-            collaboration: {
-              agent_messages: [],
-              instruction_actions: []
-            }
-          }),
-          { status: 200, headers: { "content-type": "application/json" } },
+          JSON.stringify({ error: "not found" }),
+          { status: 404, headers: { "content-type": "application/json" } },
         );
       }
 
@@ -183,6 +180,7 @@ describe("TaskPage", () => {
     expect(
       await screen.findByText("Task not found in workspace workspace-2"),
     ).toBeInTheDocument();
+    expect(FakeEventSource.instances).toHaveLength(0);
   });
 
   it("refreshes collaboration from named SSE events and keeps persisted agent messages visible", async () => {

@@ -23,7 +23,7 @@ interface TaskPageProps {
 type RailTab = "agent" | "context" | "history";
 
 export function TaskPage({ taskId, workspaceId }: TaskPageProps) {
-  const { connectionState, latestEvent, recentTasks, taskDetail, reload } = useTaskDetail(
+  const { connectionState, latestEvent, loadState, recentTasks, taskDetail, reload } = useTaskDetail(
     taskId,
     workspaceId,
   );
@@ -35,20 +35,24 @@ export function TaskPage({ taskId, workspaceId }: TaskPageProps) {
   const [activeRailTab, setActiveRailTab] = useState<RailTab>("context");
   const [pendingInstructionKey, setPendingInstructionKey] = useState<string | null>(null);
 
+  if (loadState === "not_found") {
+    return (
+      <main className="task-route-placeholder">
+        <p className="eyebrow">Decacan</p>
+        <h1>
+          {workspaceId
+            ? `Task not found in workspace ${workspaceId}`
+            : `Task ${taskId} was not found`}
+        </h1>
+      </main>
+    );
+  }
+
   if (!taskDetail) {
     return (
       <main className="task-route-placeholder">
         <p className="eyebrow">Decacan</p>
         <h1>Loading task</h1>
-      </main>
-    );
-  }
-
-  if (workspaceId && taskDetail.task.workspace_id !== workspaceId) {
-    return (
-      <main className="task-route-placeholder">
-        <p className="eyebrow">Decacan</p>
-        <h1>Task not found in workspace {workspaceId}</h1>
       </main>
     );
   }
