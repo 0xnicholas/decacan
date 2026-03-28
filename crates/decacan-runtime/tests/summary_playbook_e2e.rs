@@ -22,5 +22,24 @@ fn execute_summary_playbook_e2e_for_test_completes_and_reports_primary_summary_a
         }
     );
 
+    let summary_contents = fs::read_to_string(&result.primary_artifact.physical_path)
+        .expect("summary artifact should be readable");
+    for section in [
+        "## 总览",
+        "## 主题分组",
+        "## 关键结论",
+        "## 信息缺口 / 待确认事项",
+        "## 建议下一步",
+    ] {
+        assert!(
+            summary_contents.contains(section),
+            "summary artifact should contain section {section:?}, got:\n{summary_contents}"
+        );
+    }
+    assert!(
+        summary_contents.contains("`notes.md`"),
+        "summary artifact should preserve the workspace-relative source path, got:\n{summary_contents}"
+    );
+
     fs::remove_dir_all(result.workspace_root).expect("test workspace cleanup should succeed");
 }

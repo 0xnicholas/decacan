@@ -1,5 +1,5 @@
 use std::fmt::Debug;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::artifact::entity::Artifact;
 use crate::artifact::service::{ArtifactService, SummaryArtifactWriteResult};
@@ -19,7 +19,7 @@ use crate::run::entity::Run;
 use crate::semantic::executor::{
     InvocationContext, InvocationOutcome, InvocationState, ResumeAction,
 };
-use crate::semantic::model::{ModelContext, OutputCandidate, SemanticModel};
+use crate::semantic::local_models::{DiscoverySemanticModel, SummarySemanticModel};
 use crate::workflow::entity::Workflow;
 
 #[derive(Debug, Clone)]
@@ -134,9 +134,10 @@ where
         run.current_step_id = Some(step.id.clone());
         run.step_cursor = step_index;
 
-        let routine = get_routine(&step.name).ok_or_else(|| RoutineExecutionError::MissingRoutine {
-            step_name: step.name.clone(),
-        })?;
+        let routine =
+            get_routine(&step.name).ok_or_else(|| RoutineExecutionError::MissingRoutine {
+                step_name: step.name.clone(),
+            })?;
 
         match routine.kind {
             RoutineKind::ScanMarkdownFiles => {
@@ -155,10 +156,9 @@ where
                 context.selected_markdown_path = Some(selected);
             }
             RoutineKind::ReadMarkdownContents => {
-                let path = context
-                    .selected_markdown_path
-                    .clone()
-                    .ok_or(RoutineExecutionError::MissingState("selected markdown path"))?;
+                let path = context.selected_markdown_path.clone().ok_or(
+                    RoutineExecutionError::MissingState("selected markdown path"),
+                )?;
                 let contents = filesystem
                     .read_to_string(&path)
                     .map_err(|error| RoutineExecutionError::Filesystem(format!("{error:?}")))?;
@@ -172,13 +172,18 @@ where
                         .clone()
                         .ok_or(RoutineExecutionError::MissingState("source material"))?,
                     read_target_path: context.selected_markdown_path.clone(),
+                    source_path: context.selected_markdown_path.as_ref().map(|path| {
+                        workspace_relative_markdown_path(&context.workspace_root, path)
+                    }),
                 };
                 let invocation = match execution_profile {
-                    ExecutionProfile::Summary => crate::semantic::executor::start_summary_invocation(
-                        &invocation_context,
-                        &tool_gateway,
-                        &SummarySemanticModel,
-                    ),
+                    ExecutionProfile::Summary => {
+                        crate::semantic::executor::start_summary_invocation(
+                            &invocation_context,
+                            &tool_gateway,
+                            &SummarySemanticModel,
+                        )
+                    }
                     ExecutionProfile::Discovery => {
                         crate::semantic::executor::start_summary_invocation(
                             &invocation_context,
@@ -209,19 +214,27 @@ where
                         .clone()
                         .ok_or(RoutineExecutionError::MissingState("source material"))?,
                     read_target_path: context.selected_markdown_path.clone(),
+                    source_path: context.selected_markdown_path.as_ref().map(|path| {
+                        workspace_relative_markdown_path(&context.workspace_root, path)
+                    }),
                 };
-                let invocation_state = context
-                    .semantic_state
-                    .clone()
-                    .ok_or(RoutineExecutionError::MissingState("semantic invocation state"))?;
+                let invocation_state =
+                    context
+                        .semantic_state
+                        .clone()
+                        .ok_or(RoutineExecutionError::MissingState(
+                            "semantic invocation state",
+                        ))?;
                 let invocation = match execution_profile {
-                    ExecutionProfile::Summary => crate::semantic::executor::resume_summary_invocation(
-                        invocation_state,
-                        &invocation_context,
-                        ResumeAction::ToolCompleted,
-                        &tool_gateway,
-                        &SummarySemanticModel,
-                    ),
+                    ExecutionProfile::Summary => {
+                        crate::semantic::executor::resume_summary_invocation(
+                            invocation_state,
+                            &invocation_context,
+                            ResumeAction::ToolCompleted,
+                            &tool_gateway,
+                            &SummarySemanticModel,
+                        )
+                    }
                     ExecutionProfile::Discovery => {
                         crate::semantic::executor::resume_summary_invocation(
                             invocation_state,
@@ -234,19 +247,17 @@ where
                 };
                 match invocation.outcome {
                     InvocationOutcome::Completed => {
-                        let candidate = invocation
-                            .output_candidates
-                            .last()
-                            .cloned()
-                            .ok_or(RoutineExecutionError::MissingState(
-                                "semantic output candidate",
-                            ))?;
+                        let candidate = invocation.output_candidates.last().cloned().ok_or(
+                            RoutineExecutionError::MissingState("semantic output candidate"),
+                        )?;
                         run.output_candidates.push(candidate.canonical_path.clone());
                         context.generated_content = Some(candidate.content);
                         context.semantic_state = Some(invocation.state);
                     }
                     InvocationOutcome::Blocked(reason) => {
-                        return Err(RoutineExecutionError::SemanticBlocked(format!("{reason:?}")));
+                        return Err(RoutineExecutionError::SemanticBlocked(format!(
+                            "{reason:?}"
+                        )));
                     }
                     InvocationOutcome::Failed { reason } => {
                         return Err(RoutineExecutionError::SemanticFailed(reason));
@@ -256,9 +267,7 @@ where
             RoutineKind::BackupExistingSummary => {
                 context.backup_result =
                     backup_from_existing_summary(filesystem, clock, &context.workspace_root)
-                        .map_err(|error| {
-                            RoutineExecutionError::Filesystem(format!("{error:?}"))
-                        })?;
+                        .map_err(|error| RoutineExecutionError::Filesystem(format!("{error:?}")))?;
             }
             RoutineKind::WriteSummary => {
                 let written_path = write_summary_output(
@@ -318,7 +327,8 @@ where
                         occurred_at,
                     },
                 ));
-                run.event_ids.push(format!("task-event-artifact-ready-{occurred_at}"));
+                run.event_ids
+                    .push(format!("task-event-artifact-ready-{occurred_at}"));
                 context.artifact_result = Some(artifact_result);
                 context.projected_task_event = Some(task_event);
             }
@@ -339,67 +349,9 @@ where
     })
 }
 
-#[derive(Debug, Clone, Copy)]
-struct SummarySemanticModel;
-
-impl SemanticModel for SummarySemanticModel {
-    type Error = core::convert::Infallible;
-
-    fn produce_output_candidate(
-        &self,
-        context: &ModelContext,
-    ) -> Result<OutputCandidate, Self::Error> {
-        Ok(OutputCandidate {
-            artifact_id: "semantic-output-summary".to_owned(),
-            logical_name: "workspace.summary.primary".to_owned(),
-            canonical_path: "output/summary.md".to_owned(),
-            physical_path: "/tmp/runtime-summary.md".to_owned(),
-            content: summarize_source_material(&context.source_material),
-        })
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-struct DiscoverySemanticModel;
-
-impl SemanticModel for DiscoverySemanticModel {
-    type Error = core::convert::Infallible;
-
-    fn produce_output_candidate(
-        &self,
-        context: &ModelContext,
-    ) -> Result<OutputCandidate, Self::Error> {
-        Ok(OutputCandidate {
-            artifact_id: "semantic-output-discovery".to_owned(),
-            logical_name: "workspace.discovery.primary".to_owned(),
-            canonical_path: "output/discovery.md".to_owned(),
-            physical_path: "/tmp/runtime-discovery.md".to_owned(),
-            content: discover_source_themes(&context.source_material),
-        })
-    }
-}
-
-fn summarize_source_material(source_material: &str) -> String {
-    let trimmed = source_material.trim();
-    if trimmed.is_empty() {
-        "Summary: no source material".to_owned()
-    } else {
-        format!("Summary: {trimmed}")
-    }
-}
-
-fn discover_source_themes(source_material: &str) -> String {
-    let themes = source_material
-        .lines()
-        .map(str::trim)
-        .filter(|line| !line.is_empty())
-        .take(3)
-        .map(|line| format!("- {line}"))
-        .collect::<Vec<_>>();
-
-    if themes.is_empty() {
-        "Discovered themes:\n- no source material".to_owned()
-    } else {
-        format!("Discovered themes:\n{}", themes.join("\n"))
-    }
+fn workspace_relative_markdown_path(workspace_root: &Path, path: &Path) -> String {
+    path.strip_prefix(workspace_root)
+        .unwrap_or(path)
+        .to_string_lossy()
+        .replace('\\', "/")
 }

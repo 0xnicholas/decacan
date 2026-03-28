@@ -42,7 +42,10 @@ pub(crate) fn execute_summary_playbook_e2e_for_test() -> SummaryPlaybookE2eResul
     let mut run = Run::new_for_test("run-1", &task.id, workflow, policy, workspace, playbook);
 
     filesystem
-        .write_string(&workspace_root.join("notes.md"), "project notes for summary")
+        .write_string(
+            &workspace_root.join("notes.md"),
+            "# Project Notes\nCurrent status: summary pipeline works.\nRisk: output contract is too weak.\nNext step: harden artifact structure.",
+        )
         .expect("notes fixture should be written");
     filesystem
         .write_string(&workspace_root.join("output/summary.md"), "old summary")
@@ -80,14 +83,8 @@ pub(crate) fn execute_discovery_playbook_e2e_for_test() -> SummaryPlaybookE2eRes
         )
         .expect("notes fixture should be written");
 
-    let mut result = execute_discovery_playbook(
-        &mut task,
-        &mut run,
-        &filesystem,
-        &storage,
-        &clock,
-    )
-    .expect("discovery playbook should execute");
+    let mut result = execute_discovery_playbook(&mut task, &mut run, &filesystem, &storage, &clock)
+        .expect("discovery playbook should execute");
     result.workspace_root = workspace_root;
     result
 }

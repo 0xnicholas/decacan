@@ -1,10 +1,9 @@
 use decacan_runtime::gateway::{SemanticGatewayAdapter, ToolGateway};
 use decacan_runtime::policy::entity::PolicyProfile;
 use decacan_runtime::{
-    start_summary_invocation, resume_summary_invocation, BlockedReason,
-    ContinuationState, InvocationContext, InvocationOutcome, InvocationState, PendingAction,
-    ResumeAction, ModelContext, OutputCandidate, SemanticModel, ToolCall, ToolCallResult,
-    ToolProtocol,
+    resume_summary_invocation, start_summary_invocation, BlockedReason, ContinuationState,
+    InvocationContext, InvocationOutcome, InvocationState, ModelContext, OutputCandidate,
+    PendingAction, ResumeAction, SemanticModel, ToolCall, ToolCallResult, ToolProtocol,
 };
 use serde_json::{from_str, to_string};
 
@@ -19,6 +18,7 @@ fn semantic_invocation_requests_tool_and_returns_output_candidate() {
     let context = InvocationContext {
         source_material: "source material collected outside semantic".to_owned(),
         read_target_path: Some("/workspace/notes.md".into()),
+        source_path: Some("notes.md".to_owned()),
     };
     let blocked = start_summary_invocation(&context, &tool_protocol, &model);
 
@@ -262,7 +262,9 @@ impl StubToolProtocol {
     }
 
     fn error(reason: &'static str) -> Self {
-        Self { outcome: Err(reason) }
+        Self {
+            outcome: Err(reason),
+        }
     }
 }
 
@@ -278,5 +280,6 @@ fn invocation_context() -> InvocationContext {
     InvocationContext {
         source_material: "source material collected outside semantic".to_owned(),
         read_target_path: Some("/workspace/notes.md".into()),
+        source_path: Some("notes.md".to_owned()),
     }
 }

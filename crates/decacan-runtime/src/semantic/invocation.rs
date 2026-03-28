@@ -11,6 +11,7 @@ use crate::semantic::tool_protocol::ToolCall;
 pub struct InvocationContext {
     pub source_material: String,
     pub read_target_path: Option<PathBuf>,
+    pub source_path: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

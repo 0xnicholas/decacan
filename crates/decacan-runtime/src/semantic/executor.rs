@@ -6,9 +6,7 @@ use crate::semantic::planner::SemanticPlanStep;
 use crate::semantic::tool_protocol::{ToolCallResult, ToolProtocol};
 
 pub use crate::semantic::events::ContinuationState;
-pub use crate::semantic::invocation::{
-    InvocationContext, InvocationState, ResumeAction,
-};
+pub use crate::semantic::invocation::{InvocationContext, InvocationState, ResumeAction};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InvocationResult {
@@ -29,7 +27,9 @@ pub enum InvocationOutcome {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum PendingAction {
-    ToolRequest { request: crate::semantic::tool_protocol::ToolCall },
+    ToolRequest {
+        request: crate::semantic::tool_protocol::ToolCall,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -49,7 +49,13 @@ where
     T: ToolProtocol,
     M: SemanticModel,
 {
-    execute_summary_invocation(InvocationState::new(context), context, None, tool_protocol, model)
+    execute_summary_invocation(
+        InvocationState::new(context),
+        context,
+        None,
+        tool_protocol,
+        model,
+    )
 }
 
 pub fn resume_summary_invocation<T, M>(
@@ -93,18 +99,21 @@ where
                 if state.continuation == ContinuationState::AwaitingTool {
                     match resume_action.take() {
                         Some(ResumeAction::ToolCompleted) => {
-                            state.events.push(SemanticInvocationEvent::ContinuationAdvanced {
-                                state: ContinuationState::Ready,
-                            });
+                            state
+                                .events
+                                .push(SemanticInvocationEvent::ContinuationAdvanced {
+                                    state: ContinuationState::Ready,
+                                });
                             state.advance();
                             continue;
                         }
                         None => {
                             return InvocationResult {
                                 output_candidates: state.output_candidates.clone(),
-                                pending_action: state.pending_tool_call.clone().map(|request| {
-                                    PendingAction::ToolRequest { request }
-                                }),
+                                pending_action: state
+                                    .pending_tool_call
+                                    .clone()
+                                    .map(|request| PendingAction::ToolRequest { request }),
                                 outcome: blocked_outcome_for_pending(&state),
                                 state,
                             };
@@ -136,9 +145,9 @@ where
                         return InvocationResult {
                             output_candidates: state.output_candidates.clone(),
                             pending_action: Some(PendingAction::ToolRequest { request: tool_call }),
-                            outcome: InvocationOutcome::Blocked(
-                                BlockedReason::ApprovalRequired { detail: reason },
-                            ),
+                            outcome: InvocationOutcome::Blocked(BlockedReason::ApprovalRequired {
+                                detail: reason,
+                            }),
                             state,
                         };
                     }
@@ -170,13 +179,16 @@ where
             SemanticPlanStep::ProduceOutputCandidate => {
                 let context = ModelContext {
                     source_material: context.source_material.clone(),
+                    source_path: context.source_path.clone(),
                 };
 
                 match model.produce_output_candidate(&context) {
                     Ok(output_candidate) => {
-                        state.events.push(SemanticInvocationEvent::OutputCandidateReturned {
-                            logical_name: output_candidate.logical_name.clone(),
-                        });
+                        state
+                            .events
+                            .push(SemanticInvocationEvent::OutputCandidateReturned {
+                                logical_name: output_candidate.logical_name.clone(),
+                            });
                         state.output_candidates.push(output_candidate);
                         state.advance();
                     }
