@@ -279,3 +279,29 @@ async fn approval_decision_and_retry_routes_update_task_snapshot() {
         .expect("artifact content route should respond");
     assert_eq!(content_response.status(), StatusCode::OK);
 }
+
+#[tokio::test]
+async fn root_route_serves_frontend_html_shell() {
+    let app = decacan_app::app::wiring::router_for_test();
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/")
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("root route should respond");
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("root body should be readable");
+    let html = String::from_utf8(body.to_vec()).expect("root response should be utf8");
+
+    assert!(html.contains("<!doctype html>") || html.contains("<!DOCTYPE html>"));
+    assert!(html.contains("id=\"root\""));
+}
