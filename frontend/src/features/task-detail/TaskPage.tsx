@@ -6,6 +6,7 @@ import { decideApproval } from "../../shared/api/tasks";
 import { ApprovalPanel } from "./ApprovalPanel";
 import { ArtifactPanel } from "./ArtifactPanel";
 import { ContextSidebar } from "./ContextSidebar";
+import { LiveActivityStrip } from "./LiveActivityStrip";
 import { PlanProgressPanel } from "./PlanProgressPanel";
 import { TaskHeader } from "./TaskHeader";
 import { TimelinePanel } from "./TimelinePanel";
@@ -16,7 +17,7 @@ interface TaskPageProps {
 }
 
 export function TaskPage({ taskId }: TaskPageProps) {
-  const { taskDetail, reload } = useTaskDetail(taskId);
+  const { connectionState, latestEvent, taskDetail, reload } = useTaskDetail(taskId);
   const [preview, setPreview] = useState<ArtifactContent | null>(null);
 
   if (!taskDetail) {
@@ -47,6 +48,7 @@ export function TaskPage({ taskId }: TaskPageProps) {
       <section className="main-panel task-main-column">
         <p className="eyebrow">Decacan</p>
         <TaskHeader task={taskDetail.task} />
+        <LiveActivityStrip latestEvent={latestEvent} connectionState={connectionState} />
         <div className="task-grid">
           <PlanProgressPanel plan={taskDetail.plan} />
           <ApprovalPanel approvals={taskDetail.approvals} onApprove={handleApprove} />

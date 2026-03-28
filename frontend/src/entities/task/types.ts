@@ -10,6 +10,8 @@ export interface TaskEventEnvelope {
   message: string;
 }
 
+export type TaskConnectionState = "live" | "reconnecting" | "offline";
+
 export interface TaskSummary {
   id: string;
   workspace_id: string;

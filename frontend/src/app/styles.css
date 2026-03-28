@@ -242,6 +242,43 @@ body {
   gap: 24px;
 }
 
+.live-activity-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 18px;
+  padding-bottom: 18px;
+}
+
+.live-activity-copy {
+  margin: 0;
+  color: rgba(24, 19, 17, 0.78);
+}
+
+.live-connection-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.84rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: rgba(24, 19, 17, 0.08);
+}
+
+.live-connection-pill.is-live {
+  background: rgba(45, 94, 62, 0.12);
+}
+
+.live-connection-pill.is-reconnecting {
+  background: rgba(168, 111, 41, 0.16);
+}
+
+.live-connection-pill.is-offline {
+  background: rgba(119, 50, 43, 0.14);
+}
+
 .task-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(280px, 1fr));
@@ -324,6 +361,11 @@ body {
 
   .task-grid {
     grid-template-columns: 1fr;
+  }
+
+  .live-activity-strip {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .sidebar,
