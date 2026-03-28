@@ -13,8 +13,9 @@ pub use member::MemberDto;
 pub use playbook::PlaybookDto;
 pub use task::{
     CreateTaskAcceptedResponse, CreateTaskRequest, RetryTaskRequest, TaskAgentMessageDto,
-    TaskDetailDto, TaskDto, TaskEventEnvelopeDto, TaskInstructionRequest, TaskInstructionResponse,
-    TaskPlanDto, TaskPreviewDto, TaskPreviewRequest, TaskSummaryDto,
+    TaskCollaborationDto, TaskDetailDto, TaskDto, TaskEventEnvelopeDto, TaskInstructionActionDto,
+    TaskInstructionRequest, TaskInstructionResponse, TaskPlanDto, TaskPreviewDto,
+    TaskPreviewRequest, TaskSummaryDto,
 };
 pub use workspace::{
     WorkspaceDeliverableDto, WorkspaceDto, WorkspaceHomeAttentionItemDto, WorkspaceHomeDto,

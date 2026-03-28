@@ -35,6 +35,7 @@ pub struct TaskDetailDto {
     pub approvals: Vec<crate::dto::ApprovalDto>,
     pub artifacts: Vec<crate::dto::ArtifactDto>,
     pub timeline: Vec<TaskEventEnvelopeDto>,
+    pub collaboration: TaskCollaborationDto,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -61,6 +62,19 @@ pub struct TaskAgentMessageDto {
     pub role: String,
     pub summary: String,
     pub detail: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TaskInstructionActionDto {
+    pub key: String,
+    pub label: String,
+    pub instruction: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TaskCollaborationDto {
+    pub agent_messages: Vec<TaskAgentMessageDto>,
+    pub instruction_actions: Vec<TaskInstructionActionDto>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

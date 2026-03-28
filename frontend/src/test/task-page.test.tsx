@@ -9,6 +9,7 @@ const writeTextMock = vi.fn();
 
 class FakeEventSource {
   static instances: FakeEventSource[] = [];
+  private listeners = new Map<string, Array<(event: MessageEvent<string>) => void>>();
 
   onmessage: ((event: MessageEvent<string>) => void) | null = null;
   onerror: ((event: Event) => void) | null = null;
@@ -21,8 +22,20 @@ class FakeEventSource {
 
   close() {}
 
+  addEventListener(type: string, listener: (event: MessageEvent<string>) => void) {
+    const existing = this.listeners.get(type) ?? [];
+    this.listeners.set(type, [...existing, listener]);
+  }
+
   emitMessage(data: unknown) {
     this.onmessage?.(new MessageEvent("message", { data: JSON.stringify(data) }));
+  }
+
+  emitNamedMessage(type: string, data: unknown) {
+    const event = new MessageEvent(type, { data: JSON.stringify(data) });
+    for (const listener of this.listeners.get(type) ?? []) {
+      listener(event);
+    }
   }
 
   emitError() {
@@ -114,6 +127,192 @@ describe("TaskPage", () => {
     expect(await screen.findByRole("tab", { name: "Agent" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Context" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "History" })).toBeInTheDocument();
+  });
+
+  it("shows a workspace-scoped not-found state when task does not belong to route workspace", async () => {
+    fetchMock.mockImplementation(async (input, init) => {
+      const url = typeof input === "string" ? input : input.toString();
+      const method = init?.method ?? "GET";
+
+      if (url.endsWith("/api/tasks/task-1") && method === "GET") {
+        return new Response(
+          JSON.stringify({
+            task: {
+              id: "task-1",
+              workspace_id: "workspace-1",
+              playbook_key: "总结资料",
+              input: "Summarize notes",
+              status: "running",
+              status_summary: "Task is running",
+              artifact_id: "artifact-1"
+            },
+            plan: { steps: ["a"], current_step_index: 0, status: "running" },
+            approvals: [],
+            artifacts: [],
+            timeline: [],
+            collaboration: {
+              agent_messages: [],
+              instruction_actions: []
+            }
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      if (url.endsWith("/api/tasks") && method === "GET") {
+        return new Response(JSON.stringify([]), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+
+      if (url.endsWith("/api/workspaces") && method === "GET") {
+        return new Response(
+          JSON.stringify([{ id: "workspace-2", title: "Workspace 2", root_path: "/tmp/workspace-2" }]),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      throw new Error(`Unhandled request: ${url}`);
+    });
+
+    window.history.replaceState({}, "", "/workspaces/workspace-2/tasks/task-1");
+
+    render(<App />);
+
+    expect(
+      await screen.findByText("Task not found in workspace workspace-2"),
+    ).toBeInTheDocument();
+  });
+
+  it("refreshes collaboration from named SSE events and keeps persisted agent messages visible", async () => {
+    let detailRequestCount = 0;
+    let persistedMessages = [
+      {
+        id: "agent-initial",
+        task_id: "task-1",
+        role: "agent",
+        summary: "Current task status",
+        detail: "Task is running"
+      }
+    ];
+
+    fetchMock.mockImplementation(async (input, init) => {
+      const url = typeof input === "string" ? input : input.toString();
+      const method = init?.method ?? "GET";
+
+      if (url.endsWith("/api/tasks/task-1") && method === "GET") {
+        detailRequestCount += 1;
+        return new Response(
+          JSON.stringify({
+            task: {
+              id: "task-1",
+              workspace_id: "workspace-1",
+              playbook_key: "总结资料",
+              input: "Summarize notes",
+              status: "running",
+              status_summary: "Task is running",
+              artifact_id: "artifact-1"
+            },
+            plan: {
+              steps: ["Scan markdown files"],
+              current_step_index: 0,
+              status: "running"
+            },
+            approvals: [],
+            artifacts: [],
+            timeline: [
+              {
+                event_id: "event-1",
+                task_id: "task-1",
+                sequence: detailRequestCount,
+                event_type: "task.running",
+                snapshot_version: detailRequestCount,
+                message: "Task running"
+              }
+            ],
+            collaboration: {
+              agent_messages: persistedMessages,
+              instruction_actions: [
+                {
+                  key: "status-brief",
+                  label: "Status brief",
+                  instruction: "Provide a concise status update for this task."
+                }
+              ]
+            }
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      if (url.endsWith("/api/tasks/task-1/instructions") && method === "POST") {
+        return new Response(
+          JSON.stringify({
+            message: {
+              id: "agent-queued",
+              task_id: "task-1",
+              role: "agent",
+              summary: "Queued local instruction",
+              detail: "Queued"
+            }
+          }),
+          { status: 202, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      if (url.endsWith("/api/tasks") && method === "GET") {
+        return new Response(
+          JSON.stringify([
+            {
+              id: "task-1",
+              workspace_id: "workspace-1",
+              playbook_key: "总结资料",
+              input: "Summarize notes",
+              status: "running",
+              artifact_id: "artifact-1"
+            }
+          ]),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      throw new Error(`Unhandled request: ${url}`);
+    });
+
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole("tab", { name: "Agent" }));
+    await user.click(screen.getByRole("button", { name: "Status brief" }));
+
+    expect(screen.queryByText("Server persisted instruction")).not.toBeInTheDocument();
+
+    persistedMessages = [
+      ...persistedMessages,
+      {
+        id: "agent-persisted",
+        task_id: "task-1",
+        role: "agent",
+        summary: "Server persisted instruction",
+        detail: "Persisted collaboration message from backend"
+      }
+    ];
+
+    await act(async () => {
+      FakeEventSource.instances[0]?.emitNamedMessage("task.collaboration", {
+        event_id: "event-2",
+        task_id: "task-1",
+        sequence: 2,
+        event_type: "task.collaboration.instruction",
+        snapshot_version: 2,
+        message: "Instruction persisted"
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Server persisted instruction")).toBeInTheDocument();
+    });
   });
 
   it("submits an approval decision and opens the primary artifact preview", async () => {

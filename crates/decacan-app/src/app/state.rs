@@ -9,11 +9,11 @@ use decacan_infra::filesystem::local::LocalFilesystem;
 use decacan_infra::storage::memory::MemoryStorage;
 use decacan_runtime::artifact::entity::Artifact as RuntimeArtifact;
 use decacan_runtime::events::{TaskEvent, TaskEventPayload};
-use decacan_runtime::playbook::modes::PlaybookMode;
 use decacan_runtime::playbook::execution::{
     execute_registered_playbook_run, prepare_registered_playbook_run, preview_registered_playbook,
     RegisteredPlaybookError, RegisteredPlaybookExecutionRequest,
 };
+use decacan_runtime::playbook::modes::PlaybookMode;
 use decacan_runtime::playbook::registry::{
     list_registered_playbooks, DISCOVER_TOPICS_PLAYBOOK_KEY, SUMMARY_PLAYBOOK_KEY,
 };
@@ -25,8 +25,9 @@ use tokio::sync::broadcast;
 
 use crate::dto::{
     ApprovalDto, ArtifactContentDto, ArtifactDto, CreateTaskAcceptedResponse, CreateTaskRequest,
-    PlaybookDto, RetryTaskRequest, TaskDetailDto, TaskDto, TaskEventEnvelopeDto, TaskPlanDto,
-    TaskPreviewDto, TaskPreviewRequest, TaskSummaryDto, WorkspaceDto,
+    PlaybookDto, RetryTaskRequest, TaskAgentMessageDto, TaskCollaborationDto, TaskDetailDto,
+    TaskDto, TaskEventEnvelopeDto, TaskInstructionActionDto, TaskPlanDto, TaskPreviewDto,
+    TaskPreviewRequest, TaskSummaryDto, WorkspaceDto,
 };
 
 #[derive(Clone)]
@@ -55,6 +56,7 @@ struct StoredTask {
     artifact_id: Option<String>,
     status: String,
     status_summary: String,
+    agent_messages: Vec<TaskAgentMessageDto>,
     runtime_task: Task,
     runtime_run: Run,
 }
@@ -184,6 +186,10 @@ impl AppState {
             approvals: self.list_approvals_for_task(task_id),
             artifacts: self.list_artifacts_for_task(task_id),
             timeline: self.list_task_events(task_id),
+            collaboration: TaskCollaborationDto {
+                agent_messages: task.agent_messages.clone(),
+                instruction_actions: instruction_actions(),
+            },
         })
     }
 
@@ -243,6 +249,13 @@ impl AppState {
                     artifact_id: Some(artifact_id),
                     status: "accepted".to_owned(),
                     status_summary: "Task accepted and queued for runtime execution".to_owned(),
+                    agent_messages: vec![TaskAgentMessageDto {
+                        id: self.next_id("agent-message"),
+                        task_id: prepared.task_id.clone(),
+                        role: "agent".to_owned(),
+                        summary: "Current task status".to_owned(),
+                        detail: "Task accepted and queued for runtime execution".to_owned(),
+                    }],
                     runtime_task: prepared.runtime_task.clone(),
                     runtime_run: prepared.runtime_run.clone(),
                 },
@@ -268,8 +281,8 @@ impl AppState {
             return Err(CreateTaskError::WorkspaceNotFound);
         }
 
-        let preview =
-            preview_registered_playbook(&request.playbook_key).map_err(map_registered_playbook_error)?;
+        let preview = preview_registered_playbook(&request.playbook_key)
+            .map_err(map_registered_playbook_error)?;
 
         Ok(TaskPreviewDto {
             preview_id: self.next_id("preview"),
@@ -402,7 +415,36 @@ impl AppState {
         self.list_task_events(task_id).len() as u64 + 1
     }
 
-    pub async fn retry_task(&self, task_id: &str, request: RetryTaskRequest) -> Option<TaskSummaryDto> {
+    pub fn append_instruction_message(
+        &self,
+        task_id: &str,
+        instruction_key: &str,
+    ) -> Option<TaskAgentMessageDto> {
+        let (summary, detail) = instruction_message_for_key(instruction_key)?;
+        let message = TaskAgentMessageDto {
+            id: self.next_id("agent-message"),
+            task_id: task_id.to_owned(),
+            role: "agent".to_owned(),
+            summary: summary.to_owned(),
+            detail: detail.to_owned(),
+        };
+
+        let mut tasks = self
+            .inner
+            .tasks
+            .lock()
+            .expect("task lock should not be poisoned");
+        let task = tasks.get_mut(task_id)?;
+        task.agent_messages.push(message.clone());
+
+        Some(message)
+    }
+
+    pub async fn retry_task(
+        &self,
+        task_id: &str,
+        request: RetryTaskRequest,
+    ) -> Option<TaskSummaryDto> {
         let existing = self
             .inner
             .tasks
@@ -415,7 +457,9 @@ impl AppState {
             playbook_key: existing.playbook_key.clone(),
             input: existing.input.clone(),
         };
-        let prepared = self.prepare_execution_with_task_id(task_id.to_owned(), &create_request).ok()?;
+        let prepared = self
+            .prepare_execution_with_task_id(task_id.to_owned(), &create_request)
+            .ok()?;
 
         self.inner
             .tasks
@@ -431,6 +475,17 @@ impl AppState {
                     artifact_id: Some(prepared.pending_artifact.id.clone()),
                     status: "accepted".to_owned(),
                     status_summary: format!("Task retry requested: {}", request.note),
+                    agent_messages: {
+                        let mut messages = existing.agent_messages.clone();
+                        messages.push(TaskAgentMessageDto {
+                            id: self.next_id("agent-message"),
+                            task_id: task_id.to_owned(),
+                            role: "agent".to_owned(),
+                            summary: "Task retried".to_owned(),
+                            detail: format!("Task retry requested: {}", request.note),
+                        });
+                        messages
+                    },
                     runtime_task: prepared.runtime_task.clone(),
                     runtime_run: prepared.runtime_run.clone(),
                 },
@@ -449,9 +504,7 @@ impl AppState {
             .insert(
                 pending.id.clone(),
                 StoredArtifact {
-                    physical_path: prepared
-                        .workspace_root
-                        .join(&pending.canonical_path),
+                    physical_path: prepared.workspace_root.join(&pending.canonical_path),
                     dto: pending,
                 },
             );
@@ -694,7 +747,9 @@ fn plan_for_task(task: &StoredTask) -> TaskPlanDto {
     let current_step_index = if task.status == "succeeded" || task.status == "failed" {
         steps.len().saturating_sub(1)
     } else {
-        task.runtime_run.step_cursor.min(steps.len().saturating_sub(1))
+        task.runtime_run
+            .step_cursor
+            .min(steps.len().saturating_sub(1))
     };
 
     TaskPlanDto {
@@ -760,6 +815,44 @@ fn task_status_to_dto(status: TaskStatus) -> &'static str {
         TaskStatus::Succeeded => "succeeded",
         TaskStatus::Failed => "failed",
         TaskStatus::Cancelled => "cancelled",
+    }
+}
+
+fn instruction_actions() -> Vec<TaskInstructionActionDto> {
+    vec![
+        TaskInstructionActionDto {
+            key: "status-brief".to_owned(),
+            label: "Status brief".to_owned(),
+            instruction: "Provide a concise status update for this task.".to_owned(),
+        },
+        TaskInstructionActionDto {
+            key: "risk-check".to_owned(),
+            label: "Risk check".to_owned(),
+            instruction: "List blockers or risks that could delay completion.".to_owned(),
+        },
+        TaskInstructionActionDto {
+            key: "next-step-options".to_owned(),
+            label: "Next-step options".to_owned(),
+            instruction: "Suggest the next structured actions for this task.".to_owned(),
+        },
+    ]
+}
+
+fn instruction_message_for_key(instruction_key: &str) -> Option<(&'static str, &'static str)> {
+    match instruction_key {
+        "status-brief" => Some((
+            "Status brief ready",
+            "Task remains on track. Continue current execution and monitor pending approvals.",
+        )),
+        "risk-check" => Some((
+            "Risk check ready",
+            "Watch for pending approvals and unresolved artifact validation before final completion.",
+        )),
+        "next-step-options" => Some((
+            "Next-step options ready",
+            "1) Confirm latest approval status. 2) Review output artifact. 3) Close with final timeline check.",
+        )),
+        _ => None,
     }
 }
 
@@ -833,6 +926,7 @@ mod tests {
                     artifact_id: None,
                     status: "running".to_owned(),
                     status_summary: "running".to_owned(),
+                    agent_messages: vec![],
                     runtime_task: second.runtime_task.clone(),
                     runtime_run: second.runtime_run.clone(),
                 },

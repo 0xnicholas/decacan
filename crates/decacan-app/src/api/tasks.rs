@@ -7,9 +7,9 @@ use axum::{Json, Router};
 
 use crate::app::state::{AppState, CreateTaskError};
 use crate::dto::{
-    CreateTaskRequest, RetryTaskRequest, TaskAgentMessageDto, TaskDetailDto, TaskDto,
-    TaskEventEnvelopeDto, TaskInstructionRequest, TaskInstructionResponse, TaskPreviewDto,
-    TaskPreviewRequest, TaskSummaryDto,
+    CreateTaskRequest, RetryTaskRequest, TaskDetailDto, TaskDto, TaskEventEnvelopeDto,
+    TaskInstructionRequest, TaskInstructionResponse, TaskPreviewDto, TaskPreviewRequest,
+    TaskSummaryDto,
 };
 use crate::streams::task_events::task_event_sse;
 
@@ -122,7 +122,9 @@ async fn post_task_instruction(
         return Err(StatusCode::NOT_FOUND);
     }
 
-    let message = instruction_to_message(&state, &task_id, &request.instruction_key);
+    let message = state
+        .append_instruction_message(&task_id, &request.instruction_key)
+        .ok_or(StatusCode::UNPROCESSABLE_ENTITY)?;
     let sequence = state.list_task_events(&task_id).len() as u64 + 1;
     state.append_task_event(TaskEventEnvelopeDto {
         event_id: state.next_id("event"),
@@ -137,37 +139,4 @@ async fn post_task_instruction(
         StatusCode::ACCEPTED,
         Json(TaskInstructionResponse { message }),
     ))
-}
-
-fn instruction_to_message(
-    state: &AppState,
-    task_id: &str,
-    instruction_key: &str,
-) -> TaskAgentMessageDto {
-    let (summary, detail) = match instruction_key {
-        "status-brief" => (
-            "Status brief ready",
-            "Task remains on track. Continue current execution and monitor pending approvals.",
-        ),
-        "risk-check" => (
-            "Risk check ready",
-            "Watch for pending approvals and unresolved artifact validation before final completion.",
-        ),
-        "next-step-options" => (
-            "Next-step options ready",
-            "1) Confirm latest approval status. 2) Review output artifact. 3) Close with final timeline check.",
-        ),
-        _ => (
-            "Instruction received",
-            "The requested instruction key is not recognized. Use structured collaboration actions only.",
-        ),
-    };
-
-    TaskAgentMessageDto {
-        id: state.next_id("agent-message"),
-        task_id: task_id.to_owned(),
-        role: "agent".to_owned(),
-        summary: summary.to_owned(),
-        detail: detail.to_owned(),
-    }
 }

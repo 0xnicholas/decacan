@@ -1,8 +1,7 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import type { ArtifactContent } from "../../entities/artifact/types";
 import { fetchArtifactContent } from "../../shared/api/artifacts";
-import type { TaskAgentMessage } from "../../entities/task/types";
 import { decideApproval, sendTaskInstruction } from "../../shared/api/tasks";
 import { AgentRail } from "./AgentRail";
 import { ApprovalPanel } from "./ApprovalPanel";
@@ -34,22 +33,22 @@ export function TaskPage({ taskId, workspaceId }: TaskPageProps) {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [preview, setPreview] = useState<ArtifactContent | null>(null);
   const [activeRailTab, setActiveRailTab] = useState<RailTab>("context");
-  const [agentMessages, setAgentMessages] = useState<TaskAgentMessage[]>([]);
   const [pendingInstructionKey, setPendingInstructionKey] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!taskDetail) {
-      return;
-    }
-
-    setAgentMessages(taskDetail.collaboration?.agent_messages ?? []);
-  }, [taskDetail]);
 
   if (!taskDetail) {
     return (
       <main className="task-route-placeholder">
         <p className="eyebrow">Decacan</p>
         <h1>Loading task</h1>
+      </main>
+    );
+  }
+
+  if (workspaceId && taskDetail.task.workspace_id !== workspaceId) {
+    return (
+      <main className="task-route-placeholder">
+        <p className="eyebrow">Decacan</p>
+        <h1>Task not found in workspace {workspaceId}</h1>
       </main>
     );
   }
@@ -101,20 +100,10 @@ export function TaskPage({ taskId, workspaceId }: TaskPageProps) {
   async function handleInstruction(instructionKey: string) {
     setPendingInstructionKey(instructionKey);
     try {
-      const response = await sendTaskInstruction(taskId, { instruction_key: instructionKey });
-      setAgentMessages((current) => [...current, response.message]);
+      await sendTaskInstruction(taskId, { instruction_key: instructionKey });
       reload();
-    } catch (error) {
-      setAgentMessages((current) => [
-        ...current,
-        {
-          id: `agent-error-${Date.now()}`,
-          task_id: taskId,
-          role: "agent",
-          summary: "Instruction could not be processed",
-          detail: error instanceof Error ? error.message : "Unknown instruction error",
-        },
-      ]);
+    } catch {
+      // Keep the current rail content unchanged when instruction submission fails.
     } finally {
       setPendingInstructionKey(null);
     }
@@ -126,7 +115,7 @@ export function TaskPage({ taskId, workspaceId }: TaskPageProps) {
         <AgentRail
           instructionActions={taskDetail.collaboration?.instruction_actions ?? []}
           isSubmittingKey={pendingInstructionKey}
-          messages={agentMessages}
+          messages={taskDetail.collaboration?.agent_messages ?? []}
           onRunInstruction={handleInstruction}
         />
       );

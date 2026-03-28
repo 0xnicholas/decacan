@@ -133,6 +133,9 @@ async fn task_detail_endpoint_returns_runtime_backed_plan_artifacts_and_timeline
         plan_steps[6].as_str(),
         Some("Register the written summary as the workflow output artifact.")
     );
+    assert!(detail_json.get("collaboration").is_some());
+    assert!(detail_json["collaboration"]["agent_messages"].is_array());
+    assert!(detail_json["collaboration"]["instruction_actions"].is_array());
 }
 
 #[tokio::test]
@@ -240,6 +243,11 @@ async fn approval_retry_and_artifact_content_routes_work_with_runtime_execution(
 
     let retried_detail = wait_for_terminal_task(&app, &task_id).await;
     assert_eq!(retried_detail["task"]["status"], "succeeded");
+    assert!(retried_detail["collaboration"]["agent_messages"]
+        .as_array()
+        .expect("agent messages should be an array")
+        .iter()
+        .any(|message| message["summary"] == "Risk check ready"));
 
     let content_response = app
         .oneshot(
@@ -264,6 +272,27 @@ async fn approval_retry_and_artifact_content_routes_work_with_runtime_execution(
 
     assert!(content.contains("## 总览"));
     assert!(content.contains("`notes.md`"));
+}
+
+#[tokio::test]
+async fn instruction_route_rejects_unknown_instruction_keys() {
+    let app = decacan_app::app::wiring::router_for_test();
+    let (task_id, _artifact_id) = create_task(&app, "总结资料", "alpha\nbeta\ngamma").await;
+    let _ = wait_for_terminal_task(&app, &task_id).await;
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/tasks/{task_id}/instructions"))
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"instruction_key":"not-a-real-key"}"#))
+                .expect("request should build"),
+        )
+        .await
+        .expect("instruction route should respond");
+
+    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
 }
 
 #[tokio::test]
