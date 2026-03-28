@@ -435,6 +435,101 @@ async fn approval_retry_and_artifact_content_routes_work_with_runtime_execution(
 }
 
 #[tokio::test]
+async fn approvals_center_and_inbox_routes_return_waiting_on_me_items() {
+    let app = decacan_app::app::wiring::router_for_test();
+    let (task_id, _artifact_id) = create_task(&app, "总结资料", "alpha\nbeta\ngamma").await;
+    let _ = wait_for_terminal_task(&app, &task_id).await;
+
+    let create_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/tasks/{task_id}/approvals"))
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"decision":"pending","comment":"Need review"}"#))
+                .expect("request should build"),
+        )
+        .await
+        .expect("approval create route should respond");
+    assert_eq!(create_response.status(), StatusCode::ACCEPTED);
+
+    let create_body = axum::body::to_bytes(create_response.into_body(), usize::MAX)
+        .await
+        .expect("approval create body should be readable");
+    let create_json: Value =
+        serde_json::from_slice(&create_body).expect("approval create response should be json");
+    let approval_id = create_json["id"]
+        .as_str()
+        .expect("approval id should be present")
+        .to_owned();
+
+    let approvals_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/api/workspaces/workspace-1/approvals")
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("approvals center route should respond");
+    assert_eq!(approvals_response.status(), StatusCode::OK);
+
+    let approvals_body = axum::body::to_bytes(approvals_response.into_body(), usize::MAX)
+        .await
+        .expect("approvals body should be readable");
+    let approvals_json: Value =
+        serde_json::from_slice(&approvals_body).expect("approvals response should be json");
+    assert!(approvals_json
+        .as_array()
+        .expect("approvals should be an array")
+        .iter()
+        .any(|approval| approval["id"] == approval_id && approval["status"] == "pending"));
+
+    let inbox_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/api/inbox")
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("inbox route should respond");
+    assert_eq!(inbox_response.status(), StatusCode::OK);
+
+    let inbox_body = axum::body::to_bytes(inbox_response.into_body(), usize::MAX)
+        .await
+        .expect("inbox body should be readable");
+    let inbox_json: Value =
+        serde_json::from_slice(&inbox_body).expect("inbox response should be json");
+    assert!(inbox_json["waiting_on_me"]
+        .as_array()
+        .expect("waiting_on_me should be an array")
+        .iter()
+        .any(|item| item["id"] == approval_id && item["kind"] == "approval"));
+
+    let resolve_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!(
+                    "/api/workspaces/workspace-1/approvals/{approval_id}/decision"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"decision":"approved","comment":"ship it"}"#))
+                .expect("request should build"),
+        )
+        .await
+        .expect("scoped approval decision route should respond");
+    assert_eq!(resolve_response.status(), StatusCode::ACCEPTED);
+}
+
+#[tokio::test]
 async fn instruction_route_rejects_unknown_instruction_keys() {
     let app = decacan_app::app::wiring::router_for_test();
     let (task_id, _artifact_id) = create_task(&app, "总结资料", "alpha\nbeta\ngamma").await;

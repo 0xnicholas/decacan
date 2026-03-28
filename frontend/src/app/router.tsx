@@ -5,8 +5,10 @@ import {
   parseWorkspaceRoute,
   type WorkspaceSection,
 } from "../entities/workspace/routeModel";
+import { ApprovalsPage } from "../features/approvals/ApprovalsPage";
 import { DeliverableDetailPage } from "../features/deliverables/DeliverableDetailPage";
 import { DeliverablesPage } from "../features/deliverables/DeliverablesPage";
+import { InboxPage } from "../features/inbox/InboxPage";
 import { LaunchPage } from "../features/launch/LaunchPage";
 import { TaskPage } from "../features/task-detail/TaskPage";
 import { WorkspaceHomePage } from "../features/workspace-home/WorkspaceHomePage";
@@ -48,6 +50,10 @@ export function AppRouter() {
   const workspaceTaskRoute = pathname.match(/^\/workspaces\/([^/]+)\/tasks\/([^/]+)\/?$/);
   const workspaceRoute = parseWorkspaceRoute(pathname);
 
+  if (pathname === "/inbox" || pathname === "/inbox/") {
+    return <InboxPage />;
+  }
+
   if (pathname.startsWith("/tasks/")) {
     const taskId = pathname.split("/").at(-1);
 
@@ -84,6 +90,8 @@ export function AppRouter() {
         <WorkspaceHomePage workspaceId={workspaceRoute.workspaceId} />
       ) : workspaceRoute.section === "deliverables" ? (
         <DeliverablesPage workspaceId={workspaceRoute.workspaceId} />
+      ) : workspaceRoute.section === "approvals" ? (
+        <ApprovalsPage workspaceId={workspaceRoute.workspaceId} />
       ) : (
         <WorkspaceSectionPlaceholder section={workspaceRoute.section} />
       );
