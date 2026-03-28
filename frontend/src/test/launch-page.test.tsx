@@ -83,6 +83,22 @@ describe("App", () => {
         );
       }
 
+      if (url.endsWith("/api/tasks") && method === "GET") {
+        return new Response(
+          JSON.stringify([
+            {
+              id: "task-1",
+              workspace_id: "workspace-1",
+              playbook_key: "总结资料",
+              input: "Summarize notes",
+              status: "running",
+              artifact_id: "artifact-task-1-pending"
+            }
+          ]),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
       if (url.endsWith("/api/tasks/task-1") && method === "GET") {
         return new Response(
           JSON.stringify({
