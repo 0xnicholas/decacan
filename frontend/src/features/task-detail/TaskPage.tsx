@@ -19,7 +19,10 @@ interface TaskPageProps {
 
 export function TaskPage({ taskId }: TaskPageProps) {
   const { connectionState, latestEvent, recentTasks, taskDetail, reload } = useTaskDetail(taskId);
+  const [copyNotice, setCopyNotice] = useState<string | null>(null);
   const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [preview, setPreview] = useState<ArtifactContent | null>(null);
 
   if (!taskDetail) {
@@ -40,15 +43,36 @@ export function TaskPage({ taskId }: TaskPageProps) {
   }
 
   async function handlePreview(artifactId: string) {
+    setCopyNotice(null);
     setSelectedArtifactId(artifactId);
+    setPreviewError(null);
+    setPreviewLoading(true);
     setPreview(null);
-    const nextPreview = await fetchArtifactContent(artifactId);
-    setPreview(nextPreview);
+
+    try {
+      const nextPreview = await fetchArtifactContent(artifactId);
+      setPreview(nextPreview);
+    } catch (error) {
+      setPreviewError(error instanceof Error ? error.message : "preview failed");
+    } finally {
+      setPreviewLoading(false);
+    }
   }
 
   function handleClosePreview() {
+    setCopyNotice(null);
     setSelectedArtifactId(null);
+    setPreviewError(null);
+    setPreviewLoading(false);
     setPreview(null);
+  }
+
+  async function handleRefreshPreview() {
+    if (!selectedArtifactId) {
+      return;
+    }
+
+    await handlePreview(selectedArtifactId);
   }
 
   const selectedArtifact =
@@ -75,8 +99,16 @@ export function TaskPage({ taskId }: TaskPageProps) {
       {selectedArtifact ? (
         <ArtifactPreviewDrawer
           artifact={selectedArtifact}
+          copyNotice={copyNotice}
+          errorMessage={previewError}
+          isLoading={previewLoading}
+          onCopyPath={() => {
+            void navigator.clipboard?.writeText?.(selectedArtifact.canonical_path);
+            setCopyNotice("Path copied.");
+          }}
           preview={preview}
           onClose={handleClosePreview}
+          onRefresh={handleRefreshPreview}
         />
       ) : null}
     </main>

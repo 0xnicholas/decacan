@@ -414,6 +414,17 @@ body {
   margin-top: 24px;
 }
 
+.artifact-drawer-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.artifact-drawer-notice {
+  margin: 14px 0 0;
+  color: rgba(45, 94, 62, 0.92);
+}
+
 @media (max-width: 900px) {
   .workspace-shell {
     grid-template-columns: 1fr;
