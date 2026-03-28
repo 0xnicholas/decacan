@@ -224,6 +224,36 @@ async fn approval_retry_and_artifact_content_routes_work_with_runtime_execution(
 }
 
 #[tokio::test]
+async fn workspace_home_endpoint_returns_attention_activity_deliverables_and_team_snapshot() {
+    let app = decacan_app::app::wiring::router_for_test();
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/api/workspaces/workspace-1/home")
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("workspace home route should respond");
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("workspace home body should be readable");
+    let json: Value =
+        serde_json::from_slice(&body).expect("workspace home response should be json");
+
+    assert!(json.get("attention").is_some());
+    assert!(json.get("task_health").is_some());
+    assert!(json.get("activity").is_some());
+    assert!(json.get("deliverables").is_some());
+    assert!(json.get("team_snapshot").is_some());
+}
+
+#[tokio::test]
 async fn root_route_serves_frontend_html_shell() {
     let app = decacan_app::app::wiring::router_for_test();
 
