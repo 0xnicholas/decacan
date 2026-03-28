@@ -5,6 +5,7 @@ import { fetchArtifactContent } from "../../shared/api/artifacts";
 import { decideApproval } from "../../shared/api/tasks";
 import { ApprovalPanel } from "./ApprovalPanel";
 import { ArtifactPanel } from "./ArtifactPanel";
+import { ArtifactPreviewDrawer } from "./ArtifactPreviewDrawer";
 import { ContextSidebar } from "./ContextSidebar";
 import { LiveActivityStrip } from "./LiveActivityStrip";
 import { PlanProgressPanel } from "./PlanProgressPanel";
@@ -18,6 +19,7 @@ interface TaskPageProps {
 
 export function TaskPage({ taskId }: TaskPageProps) {
   const { connectionState, latestEvent, recentTasks, taskDetail, reload } = useTaskDetail(taskId);
+  const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(null);
   const [preview, setPreview] = useState<ArtifactContent | null>(null);
 
   if (!taskDetail) {
@@ -38,9 +40,19 @@ export function TaskPage({ taskId }: TaskPageProps) {
   }
 
   async function handlePreview(artifactId: string) {
+    setSelectedArtifactId(artifactId);
+    setPreview(null);
     const nextPreview = await fetchArtifactContent(artifactId);
     setPreview(nextPreview);
   }
+
+  function handleClosePreview() {
+    setSelectedArtifactId(null);
+    setPreview(null);
+  }
+
+  const selectedArtifact =
+    taskDetail.artifacts.find((artifact) => artifact.id === selectedArtifactId) ?? null;
 
   return (
     <main className="workspace-shell task-workspace-shell">
@@ -56,14 +68,17 @@ export function TaskPage({ taskId }: TaskPageProps) {
         <div className="task-grid">
           <PlanProgressPanel plan={taskDetail.plan} />
           <ApprovalPanel approvals={taskDetail.approvals} onApprove={handleApprove} />
-          <ArtifactPanel
-            artifacts={taskDetail.artifacts}
-            preview={preview}
-            onPreview={handlePreview}
-          />
+          <ArtifactPanel artifacts={taskDetail.artifacts} onPreview={handlePreview} />
           <TimelinePanel timeline={taskDetail.timeline} />
         </div>
       </section>
+      {selectedArtifact ? (
+        <ArtifactPreviewDrawer
+          artifact={selectedArtifact}
+          preview={preview}
+          onClose={handleClosePreview}
+        />
+      ) : null}
     </main>
   );
 }

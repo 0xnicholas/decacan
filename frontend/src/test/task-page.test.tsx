@@ -475,4 +475,103 @@ describe("TaskPage", () => {
       approvalsHeading.compareDocumentPosition(artifactsHeading) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
   });
+
+  it("opens and closes an artifact preview drawer with artifact metadata", async () => {
+    fetchMock.mockImplementation(async (input, init) => {
+      const url = typeof input === "string" ? input : input.toString();
+      const method = init?.method ?? "GET";
+
+      if (url.endsWith("/api/tasks/task-1") && method === "GET") {
+        return new Response(
+          JSON.stringify({
+            task: {
+              id: "task-1",
+              workspace_id: "workspace-1",
+              playbook_key: "总结资料",
+              input: "Summarize notes",
+              status: "completed",
+              status_summary: "Task completed successfully",
+              artifact_id: "artifact-1"
+            },
+            plan: {
+              steps: [
+                "Scan markdown files in the selected workspace",
+                "Draft a concise summary with key takeaways",
+                "Write the final summary artifact to output/summary.md"
+              ],
+              current_step_index: 2,
+              status: "completed"
+            },
+            approvals: [],
+            artifacts: [
+              {
+                id: "artifact-1",
+                task_id: "task-1",
+                label: "primary-output",
+                canonical_path: "output/summary.md",
+                status: "ready"
+              }
+            ],
+            timeline: [
+              {
+                event_id: "event-4",
+                task_id: "task-1",
+                sequence: 4,
+                event_type: "artifact.ready",
+                snapshot_version: 4,
+                message: "Summary artifact is ready"
+              }
+            ]
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      if (url.endsWith("/api/tasks") && method === "GET") {
+        return new Response(
+          JSON.stringify([
+            {
+              id: "task-1",
+              workspace_id: "workspace-1",
+              playbook_key: "总结资料",
+              input: "Summarize notes",
+              status: "completed",
+              artifact_id: "artifact-1"
+            }
+          ]),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      if (url.endsWith("/api/artifacts/artifact-1/content") && method === "GET") {
+        return new Response(
+          JSON.stringify({
+            artifact_id: "artifact-1",
+            content_type: "text/markdown",
+            content: "## Summary preview"
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      throw new Error(`Unhandled request: ${url}`);
+    });
+
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "Preview output/summary.md" }));
+
+    const drawer = await screen.findByRole("dialog", { name: "Artifact preview" });
+
+    expect(within(drawer).getByText("output/summary.md")).toBeInTheDocument();
+    expect(within(drawer).getByText("ready")).toBeInTheDocument();
+
+    await user.click(within(drawer).getByRole("button", { name: "Close preview" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "Artifact preview" })).not.toBeInTheDocument();
+    });
+  });
 });

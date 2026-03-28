@@ -368,6 +368,52 @@ body {
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
 }
 
+.artifact-drawer {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  justify-content: flex-end;
+  z-index: 20;
+}
+
+.artifact-drawer-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(24, 19, 17, 0.22);
+}
+
+.artifact-drawer-panel {
+  position: relative;
+  width: min(520px, 100%);
+  min-height: 100vh;
+  padding: 28px;
+  background: #fffaf0;
+  border-left: 1px solid rgba(24, 19, 17, 0.1);
+  box-shadow: -12px 0 40px rgba(24, 19, 17, 0.12);
+}
+
+.artifact-drawer-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.artifact-drawer-header h2 {
+  margin: 0;
+  font-size: 1.6rem;
+}
+
+.artifact-drawer-meta {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.artifact-drawer-body {
+  margin-top: 24px;
+}
+
 @media (max-width: 900px) {
   .workspace-shell {
     grid-template-columns: 1fr;
@@ -384,6 +430,10 @@ body {
   .live-activity-strip {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .artifact-drawer-panel {
+    padding: 20px;
   }
 
   .sidebar,

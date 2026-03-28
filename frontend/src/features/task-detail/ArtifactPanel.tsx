@@ -1,13 +1,11 @@
-import type { ArtifactContent } from "../../entities/artifact/types";
 import type { Artifact } from "../../entities/artifact/types";
 
 interface ArtifactPanelProps {
   artifacts: Artifact[];
-  preview: ArtifactContent | null;
   onPreview: (artifactId: string) => void;
 }
 
-export function ArtifactPanel({ artifacts, preview, onPreview }: ArtifactPanelProps) {
+export function ArtifactPanel({ artifacts, onPreview }: ArtifactPanelProps) {
   return (
     <section className="task-panel">
       <div className="section-header">
@@ -30,7 +28,6 @@ export function ArtifactPanel({ artifacts, preview, onPreview }: ArtifactPanelPr
           </li>
         ))}
       </ul>
-      {preview ? <pre className="artifact-preview">{preview.content}</pre> : null}
     </section>
   );
 }
