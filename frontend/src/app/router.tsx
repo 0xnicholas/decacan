@@ -7,6 +7,7 @@ import {
 } from "../entities/workspace/routeModel";
 import { LaunchPage } from "../features/launch/LaunchPage";
 import { TaskPage } from "../features/task-detail/TaskPage";
+import { WorkspaceHomePage } from "../features/workspace-home/WorkspaceHomePage";
 import { WorkspaceShell } from "../shared/layout/WorkspaceShell";
 
 function usePathname() {
@@ -52,12 +53,19 @@ export function AppRouter() {
   }
 
   if (workspaceRoute) {
+    const workspaceSectionContent =
+      workspaceRoute.section === "home" ? (
+        <WorkspaceHomePage workspaceId={workspaceRoute.workspaceId} />
+      ) : (
+        <WorkspaceSectionPlaceholder section={workspaceRoute.section} />
+      );
+
     return (
       <WorkspaceShell
         currentSection={workspaceRoute.section}
         workspaceId={workspaceRoute.workspaceId}
       >
-        <WorkspaceSectionPlaceholder section={workspaceRoute.section} />
+        {workspaceSectionContent}
       </WorkspaceShell>
     );
   }
