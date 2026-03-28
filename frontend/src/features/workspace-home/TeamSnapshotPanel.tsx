@@ -1,10 +1,4 @@
-export interface TeamMember {
-  id: string;
-  name: string;
-  role: string;
-  focus: string;
-  status: string;
-}
+import type { TeamMember } from "../../entities/workspace-home/types";
 
 interface TeamSnapshotPanelProps {
   team: TeamMember[];

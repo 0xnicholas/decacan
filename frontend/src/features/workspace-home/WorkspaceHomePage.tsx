@@ -1,28 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import { getJson } from "../../shared/api/client";
-import {
-  ExecutionOverviewPanel,
-  type ActivityItem,
-  type TaskHealth,
-} from "./ExecutionOverviewPanel";
-import { NeedsAttentionPanel, type AttentionItem } from "./NeedsAttentionPanel";
-import {
-  TeamSnapshotPanel,
-  type TeamMember,
-} from "./TeamSnapshotPanel";
-import {
-  WorkspaceDeliverablesPanel,
-  type DeliverableItem,
-} from "./WorkspaceDeliverablesPanel";
-
-interface WorkspaceHomeData {
-  attention: AttentionItem[];
-  task_health: TaskHealth;
-  activity: ActivityItem[];
-  deliverables: DeliverableItem[];
-  team_snapshot: TeamMember[];
-}
+import type { WorkspaceHomeData } from "../../entities/workspace-home/types";
+import { fetchWorkspaceHome } from "../../shared/api/workspace-home";
+import { ExecutionOverviewPanel } from "./ExecutionOverviewPanel";
+import { NeedsAttentionPanel } from "./NeedsAttentionPanel";
+import { TeamSnapshotPanel } from "./TeamSnapshotPanel";
+import { WorkspaceDeliverablesPanel } from "./WorkspaceDeliverablesPanel";
 
 interface WorkspaceHomePageProps {
   workspaceId: string;
@@ -30,11 +13,35 @@ interface WorkspaceHomePageProps {
 
 export function WorkspaceHomePage({ workspaceId }: WorkspaceHomePageProps) {
   const [homeData, setHomeData] = useState<WorkspaceHomeData | null>(null);
+  const requestSequence = useRef(0);
 
   useEffect(() => {
+    const requestId = requestSequence.current + 1;
+    requestSequence.current = requestId;
+    setHomeData(null);
+
     async function loadWorkspaceHome() {
-      const data = await getJson<WorkspaceHomeData>(`/api/workspaces/${workspaceId}/home`);
-      setHomeData(data);
+      try {
+        const data = await fetchWorkspaceHome(workspaceId);
+        if (requestSequence.current == requestId) {
+          setHomeData(data);
+        }
+      } catch {
+        if (requestSequence.current == requestId) {
+          setHomeData({
+            attention: [],
+            task_health: {
+              running: 0,
+              waiting_approval: 0,
+              blocked: 0,
+              completed_today: 0,
+            },
+            activity: [],
+            deliverables: [],
+            team_snapshot: [],
+          });
+        }
+      }
     }
 
     void loadWorkspaceHome();

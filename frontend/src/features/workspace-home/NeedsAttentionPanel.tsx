@@ -1,9 +1,4 @@
-export interface AttentionItem {
-  id: string;
-  title: string;
-  reason: string;
-  severity: string;
-}
+import type { AttentionItem } from "../../entities/workspace-home/types";
 
 interface NeedsAttentionPanelProps {
   items: AttentionItem[];

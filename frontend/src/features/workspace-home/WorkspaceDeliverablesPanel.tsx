@@ -1,9 +1,4 @@
-export interface DeliverableItem {
-  id: string;
-  label: string;
-  canonical_path: string;
-  status: string;
-}
+import type { DeliverableItem } from "../../entities/workspace-home/types";
 
 interface WorkspaceDeliverablesPanelProps {
   deliverables: DeliverableItem[];

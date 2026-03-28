@@ -1,15 +1,4 @@
-export interface TaskHealth {
-  running: number;
-  waiting_approval: number;
-  blocked: number;
-  completed_today: number;
-}
-
-export interface ActivityItem {
-  id: string;
-  message: string;
-  relative_time: string;
-}
+import type { ActivityItem, TaskHealth } from "../../entities/workspace-home/types";
 
 interface ExecutionOverviewPanelProps {
   taskHealth: TaskHealth;

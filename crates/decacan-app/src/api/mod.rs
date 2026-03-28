@@ -2,6 +2,7 @@ mod approvals;
 mod artifacts;
 mod playbooks;
 mod tasks;
+mod workspace_home_builder;
 mod workspaces;
 
 use axum::Router;

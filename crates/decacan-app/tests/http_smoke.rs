@@ -251,6 +251,11 @@ async fn workspace_home_endpoint_returns_attention_activity_deliverables_and_tea
     assert!(json.get("activity").is_some());
     assert!(json.get("deliverables").is_some());
     assert!(json.get("team_snapshot").is_some());
+    assert_eq!(json["attention"][0]["title"], "Legal copy sign-off pending");
+    assert_eq!(json["task_health"]["running"], 4);
+    assert_eq!(json["activity"][0]["relative_time"], "5m ago");
+    assert_eq!(json["deliverables"][0]["canonical_path"], "output/release-notes.md");
+    assert_eq!(json["team_snapshot"][0]["name"], "Ari");
 }
 
 #[tokio::test]
