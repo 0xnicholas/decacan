@@ -116,13 +116,11 @@ async fn task_detail_endpoint_returns_runtime_backed_plan_artifacts_and_timeline
     assert!(detail_json.get("approvals").is_some());
     assert!(detail_json.get("artifacts").is_some());
     assert!(detail_json.get("timeline").is_some());
-    assert!(
-        detail_json["timeline"]
-            .as_array()
-            .expect("timeline should be an array")
-            .iter()
-            .any(|event| event["event_type"] == "artifact.ready")
-    );
+    assert!(detail_json["timeline"]
+        .as_array()
+        .expect("timeline should be an array")
+        .iter()
+        .any(|event| event["event_type"] == "artifact.ready"));
     let plan_steps = detail_json["plan"]["steps"]
         .as_array()
         .expect("plan steps should be an array");
@@ -195,6 +193,51 @@ async fn approval_retry_and_artifact_content_routes_work_with_runtime_execution(
         .expect("retry route should respond");
     assert_eq!(retry_response.status(), StatusCode::ACCEPTED);
 
+    let instruction_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/tasks/{task_id}/instructions"))
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"instruction_key":"risk-check"}"#))
+                .expect("request should build"),
+        )
+        .await
+        .expect("instruction route should respond");
+    assert_eq!(instruction_response.status(), StatusCode::ACCEPTED);
+
+    let instruction_body = axum::body::to_bytes(instruction_response.into_body(), usize::MAX)
+        .await
+        .expect("instruction body should be readable");
+    let instruction_json: Value =
+        serde_json::from_slice(&instruction_body).expect("instruction response should be json");
+    assert_eq!(instruction_json["message"]["summary"], "Risk check ready");
+
+    let events_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri(format!("/api/tasks/{task_id}/events"))
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("events route should respond");
+    assert_eq!(events_response.status(), StatusCode::OK);
+
+    let events_body = axum::body::to_bytes(events_response.into_body(), usize::MAX)
+        .await
+        .expect("events body should be readable");
+    let events_json: Value =
+        serde_json::from_slice(&events_body).expect("events response should be json");
+    assert!(events_json
+        .as_array()
+        .expect("events response should be an array")
+        .iter()
+        .any(|event| event["event_type"] == "task.collaboration.instruction"));
+
     let retried_detail = wait_for_terminal_task(&app, &task_id).await;
     assert_eq!(retried_detail["task"]["status"], "succeeded");
 
@@ -254,7 +297,10 @@ async fn workspace_home_endpoint_returns_attention_activity_deliverables_and_tea
     assert_eq!(json["attention"][0]["title"], "Legal copy sign-off pending");
     assert_eq!(json["task_health"]["running"], 4);
     assert_eq!(json["activity"][0]["relative_time"], "5m ago");
-    assert_eq!(json["deliverables"][0]["canonical_path"], "output/release-notes.md");
+    assert_eq!(
+        json["deliverables"][0]["canonical_path"],
+        "output/release-notes.md"
+    );
     assert_eq!(json["team_snapshot"][0]["name"], "Ari");
 }
 

@@ -50,6 +50,25 @@ pub struct RetryTaskRequest {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TaskInstructionRequest {
+    pub instruction_key: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TaskAgentMessageDto {
+    pub id: String,
+    pub task_id: String,
+    pub role: String,
+    pub summary: String,
+    pub detail: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TaskInstructionResponse {
+    pub message: TaskAgentMessageDto,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TaskPreviewRequest {
     pub workspace_id: String,
     pub playbook_key: String,

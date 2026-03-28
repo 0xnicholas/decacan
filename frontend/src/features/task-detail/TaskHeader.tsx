@@ -12,6 +12,7 @@ export function TaskHeader({ task }: TaskHeaderProps) {
         <div>
           <h1>{task.playbook_key}</h1>
           <p className="panel-copy">{task.status_summary}</p>
+          <p className="panel-copy">{task.input}</p>
         </div>
         <span className="status-pill">{capitalize(task.status)}</span>
       </div>

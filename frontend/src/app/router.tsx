@@ -40,6 +40,7 @@ function WorkspaceSectionPlaceholder({ section }: { section: WorkspaceSection })
 
 export function AppRouter() {
   const pathname = usePathname();
+  const workspaceTaskRoute = pathname.match(/^\/workspaces\/([^/]+)\/tasks\/([^/]+)\/?$/);
   const workspaceRoute = parseWorkspaceRoute(pathname);
 
   if (pathname.startsWith("/tasks/")) {
@@ -50,6 +51,16 @@ export function AppRouter() {
     }
 
     return <TaskPage taskId={taskId} />;
+  }
+
+  if (workspaceTaskRoute) {
+    const [, workspaceId, taskId] = workspaceTaskRoute;
+
+    return (
+      <WorkspaceShell currentSection="tasks" workspaceId={workspaceId}>
+        <TaskPage taskId={taskId} workspaceId={workspaceId} />
+      </WorkspaceShell>
+    );
   }
 
   if (workspaceRoute) {

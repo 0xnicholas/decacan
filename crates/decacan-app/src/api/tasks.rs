@@ -7,8 +7,9 @@ use axum::{Json, Router};
 
 use crate::app::state::{AppState, CreateTaskError};
 use crate::dto::{
-    CreateTaskRequest, RetryTaskRequest, TaskDetailDto, TaskDto, TaskEventEnvelopeDto,
-    TaskPreviewDto, TaskPreviewRequest, TaskSummaryDto,
+    CreateTaskRequest, RetryTaskRequest, TaskAgentMessageDto, TaskDetailDto, TaskDto,
+    TaskEventEnvelopeDto, TaskInstructionRequest, TaskInstructionResponse, TaskPreviewDto,
+    TaskPreviewRequest, TaskSummaryDto,
 };
 use crate::streams::task_events::task_event_sse;
 
@@ -20,6 +21,10 @@ pub(super) fn router() -> Router<AppState> {
         )
         .route("/api/tasks", get(list_tasks).post(create_task))
         .route("/api/tasks/:task_id/retry", axum::routing::post(retry_task))
+        .route(
+            "/api/tasks/:task_id/instructions",
+            axum::routing::post(post_task_instruction),
+        )
         .route("/api/tasks/:task_id", get(get_task))
         .route("/api/tasks/:task_id/events", get(list_task_events))
         .route("/api/tasks/:task_id/events/stream", get(stream_task_events))
@@ -100,7 +105,69 @@ async fn retry_task(
     Path(task_id): Path<String>,
     Json(request): Json<RetryTaskRequest>,
 ) -> Result<(StatusCode, Json<TaskSummaryDto>), StatusCode> {
-    let task = state.retry_task(&task_id, request).await.ok_or(StatusCode::NOT_FOUND)?;
+    let task = state
+        .retry_task(&task_id, request)
+        .await
+        .ok_or(StatusCode::NOT_FOUND)?;
 
     Ok((StatusCode::ACCEPTED, Json(task)))
+}
+
+async fn post_task_instruction(
+    State(state): State<AppState>,
+    Path(task_id): Path<String>,
+    Json(request): Json<TaskInstructionRequest>,
+) -> Result<(StatusCode, Json<TaskInstructionResponse>), StatusCode> {
+    if !state.has_task(&task_id) {
+        return Err(StatusCode::NOT_FOUND);
+    }
+
+    let message = instruction_to_message(&state, &task_id, &request.instruction_key);
+    let sequence = state.list_task_events(&task_id).len() as u64 + 1;
+    state.append_task_event(TaskEventEnvelopeDto {
+        event_id: state.next_id("event"),
+        task_id: task_id.clone(),
+        sequence,
+        event_type: "task.collaboration.instruction".to_owned(),
+        snapshot_version: sequence,
+        message: format!("Instruction executed: {}", message.summary),
+    });
+
+    Ok((
+        StatusCode::ACCEPTED,
+        Json(TaskInstructionResponse { message }),
+    ))
+}
+
+fn instruction_to_message(
+    state: &AppState,
+    task_id: &str,
+    instruction_key: &str,
+) -> TaskAgentMessageDto {
+    let (summary, detail) = match instruction_key {
+        "status-brief" => (
+            "Status brief ready",
+            "Task remains on track. Continue current execution and monitor pending approvals.",
+        ),
+        "risk-check" => (
+            "Risk check ready",
+            "Watch for pending approvals and unresolved artifact validation before final completion.",
+        ),
+        "next-step-options" => (
+            "Next-step options ready",
+            "1) Confirm latest approval status. 2) Review output artifact. 3) Close with final timeline check.",
+        ),
+        _ => (
+            "Instruction received",
+            "The requested instruction key is not recognized. Use structured collaboration actions only.",
+        ),
+    };
+
+    TaskAgentMessageDto {
+        id: state.next_id("agent-message"),
+        task_id: task_id.to_owned(),
+        role: "agent".to_owned(),
+        summary: summary.to_owned(),
+        detail: detail.to_owned(),
+    }
 }

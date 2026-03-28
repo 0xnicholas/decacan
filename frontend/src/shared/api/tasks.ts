@@ -43,6 +43,20 @@ export interface RetryTaskRequest {
   note: string;
 }
 
+export interface TaskInstructionRequest {
+  instruction_key: string;
+}
+
+export interface TaskInstructionResponse {
+  message: {
+    id: string;
+    task_id: string;
+    role: "agent" | "operator";
+    summary: string;
+    detail: string;
+  };
+}
+
 export function createTaskPreview(request: TaskPreviewRequest) {
   return postJson<TaskPreviewRequest, TaskPreview>("/api/task-previews", request);
 }
@@ -64,4 +78,11 @@ export function decideApproval(approvalId: string, request: ApprovalDecisionRequ
 
 export function retryTask(taskId: string, request: RetryTaskRequest) {
   return postJson<RetryTaskRequest, unknown>(`/api/tasks/${taskId}/retry`, request);
+}
+
+export function sendTaskInstruction(taskId: string, request: TaskInstructionRequest) {
+  return postJson<TaskInstructionRequest, TaskInstructionResponse>(
+    `/api/tasks/${taskId}/instructions`,
+    request,
+  );
 }

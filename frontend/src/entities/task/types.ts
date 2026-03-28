@@ -10,6 +10,25 @@ export interface TaskEventEnvelope {
   message: string;
 }
 
+export interface TaskInstructionAction {
+  key: string;
+  label: string;
+  instruction: string;
+}
+
+export interface TaskAgentMessage {
+  id: string;
+  task_id: string;
+  role: "agent" | "operator";
+  summary: string;
+  detail: string;
+}
+
+export interface TaskCollaboration {
+  agent_messages: TaskAgentMessage[];
+  instruction_actions: TaskInstructionAction[];
+}
+
 export type TaskConnectionState = "live" | "reconnecting" | "offline";
 
 export interface TaskSummary {
@@ -43,4 +62,5 @@ export interface TaskDetail {
   approvals: Approval[];
   artifacts: Artifact[];
   timeline: TaskEventEnvelope[];
+  collaboration?: TaskCollaboration;
 }

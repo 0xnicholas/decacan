@@ -47,6 +47,75 @@ describe("TaskPage", () => {
     window.history.replaceState({}, "", "/tasks/task-1");
   });
 
+  it("renders an agent rail with agent, context, and history tabs on task detail", async () => {
+    fetchMock.mockImplementation(async (input, init) => {
+      const url = typeof input === "string" ? input : input.toString();
+      const method = init?.method ?? "GET";
+
+      if (url.endsWith("/api/tasks/task-1") && method === "GET") {
+        return new Response(
+          JSON.stringify({
+            task: {
+              id: "task-1",
+              workspace_id: "workspace-1",
+              playbook_key: "总结资料",
+              input: "Summarize notes",
+              status: "running",
+              status_summary: "Task is running",
+              artifact_id: "artifact-1"
+            },
+            plan: {
+              steps: [
+                "Scan markdown files in the selected workspace",
+                "Draft a concise summary with key takeaways",
+                "Write the final summary artifact to output/summary.md"
+              ],
+              current_step_index: 1,
+              status: "running"
+            },
+            approvals: [],
+            artifacts: [],
+            timeline: []
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      if (url.endsWith("/api/tasks") && method === "GET") {
+        return new Response(
+          JSON.stringify([
+            {
+              id: "task-1",
+              workspace_id: "workspace-1",
+              playbook_key: "总结资料",
+              input: "Summarize notes",
+              status: "running",
+              artifact_id: "artifact-1"
+            }
+          ]),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      if (url.endsWith("/api/workspaces") && method === "GET") {
+        return new Response(
+          JSON.stringify([{ id: "workspace-1", title: "Workspace 1", root_path: "/tmp/workspace-1" }]),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      throw new Error(`Unhandled request: ${url}`);
+    });
+
+    window.history.replaceState({}, "", "/workspaces/workspace-1/tasks/task-1");
+
+    render(<App />);
+
+    expect(await screen.findByRole("tab", { name: "Agent" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Context" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "History" })).toBeInTheDocument();
+  });
+
   it("submits an approval decision and opens the primary artifact preview", async () => {
     let approvalStatus = "pending";
 

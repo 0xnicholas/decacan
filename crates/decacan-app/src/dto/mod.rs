@@ -12,9 +12,9 @@ pub use artifact::{ArtifactContentDto, ArtifactDto};
 pub use member::MemberDto;
 pub use playbook::PlaybookDto;
 pub use task::{
-    CreateTaskAcceptedResponse, CreateTaskRequest, TaskDetailDto, TaskDto,
-    RetryTaskRequest, TaskEventEnvelopeDto, TaskPlanDto, TaskPreviewDto, TaskPreviewRequest,
-    TaskSummaryDto,
+    CreateTaskAcceptedResponse, CreateTaskRequest, RetryTaskRequest, TaskAgentMessageDto,
+    TaskDetailDto, TaskDto, TaskEventEnvelopeDto, TaskInstructionRequest, TaskInstructionResponse,
+    TaskPlanDto, TaskPreviewDto, TaskPreviewRequest, TaskSummaryDto,
 };
 pub use workspace::{
     WorkspaceDeliverableDto, WorkspaceDto, WorkspaceHomeAttentionItemDto, WorkspaceHomeDto,

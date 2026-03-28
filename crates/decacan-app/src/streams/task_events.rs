@@ -14,19 +14,22 @@ pub fn task_event_sse(
     let stream = BroadcastStream::new(receiver).filter_map(move |message| {
         let task_id = task_id.clone();
         match message {
-            Ok(event) if event.task_id == task_id => Some(Ok(
-                Event::default()
-                    .event("task.event")
+            Ok(event) if event.task_id == task_id => {
+                let event_name = if event.event_type.starts_with("task.collaboration.") {
+                    "task.collaboration"
+                } else {
+                    "task.event"
+                };
+                Some(Ok(Event::default()
+                    .event(event_name)
                     .id(event.event_id.clone())
                     .json_data(event)
-                    .expect("task event should serialize"),
-            )),
+                    .expect("task event should serialize")))
+            }
             Err(tokio_stream::wrappers::errors::BroadcastStreamRecvError::Lagged(skipped)) => {
-                Some(Ok(
-                    Event::default()
-                        .event("task.event.lagged")
-                        .data(format!("lagged by {skipped} messages")),
-                ))
+                Some(Ok(Event::default()
+                    .event("task.event.lagged")
+                    .data(format!("lagged by {skipped} messages"))))
             }
             _ => None,
         }
