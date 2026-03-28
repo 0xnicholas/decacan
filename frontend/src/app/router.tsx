@@ -31,24 +31,17 @@ interface WorkspaceRoute {
 }
 
 function parseWorkspaceRoute(pathname: string): WorkspaceRoute | null {
-  if (!pathname.startsWith("/workspaces/")) {
+  const match = pathname.match(
+    /^\/workspaces\/([^/]+)(?:\/(tasks|deliverables|approvals|activity|members))?\/?$/,
+  );
+
+  if (!match) {
     return null;
   }
 
-  const [, , workspaceId, maybeSection] = pathname.split("/");
-
-  if (!workspaceId) {
-    return null;
-  }
-
-  const section: WorkspaceSection =
-    maybeSection === "tasks" ||
-    maybeSection === "deliverables" ||
-    maybeSection === "approvals" ||
-    maybeSection === "activity" ||
-    maybeSection === "members"
-      ? maybeSection
-      : "home";
+  const workspaceId = match[1];
+  const maybeSection = match[2] as WorkspaceSection | undefined;
+  const section: WorkspaceSection = maybeSection ?? "home";
 
   return {
     section,

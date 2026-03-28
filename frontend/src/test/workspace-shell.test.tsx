@@ -43,4 +43,22 @@ describe("WorkspaceShell", () => {
     expect(screen.getByText("Deliverables")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "New Task" })).toBeInTheDocument();
   });
+
+  it("rejects unknown workspace sections", async () => {
+    window.history.replaceState({}, "", "/workspaces/workspace-1/unknown");
+
+    render(<App />);
+
+    expect(await screen.findByText("Choose a playbook")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "New Task" })).not.toBeInTheDocument();
+  });
+
+  it("rejects workspace sections with extra path segments", async () => {
+    window.history.replaceState({}, "", "/workspaces/workspace-1/tasks/extra");
+
+    render(<App />);
+
+    expect(await screen.findByText("Choose a playbook")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "New Task" })).not.toBeInTheDocument();
+  });
 });
