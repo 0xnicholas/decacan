@@ -23,6 +23,7 @@ pub enum ArtifactStatus {
 #[serde(rename_all = "snake_case")]
 pub enum ArtifactType {
     Summary,
+    Discovery,
     Report,
     Log,
     Dataset,

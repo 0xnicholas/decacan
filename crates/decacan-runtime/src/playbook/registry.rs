@@ -25,6 +25,11 @@ pub fn get_registered_summary_playbook_for_test() -> Playbook {
         .expect("summary playbook should be registered")
 }
 
+pub fn get_registered_discovery_playbook_for_test() -> Playbook {
+    get_registered_playbook(DISCOVER_TOPICS_PLAYBOOK_KEY)
+        .expect("discovery playbook should be registered")
+}
+
 fn registry() -> &'static [Playbook] {
     REGISTERED_PLAYBOOKS.get_or_init(|| {
         vec![

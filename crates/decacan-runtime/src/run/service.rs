@@ -8,7 +8,7 @@ use crate::gateway::{SemanticGatewayAdapter, ToolGateway};
 use crate::ports::clock::ClockPort;
 use crate::ports::filesystem::FilesystemPort;
 use crate::ports::storage::StoragePort;
-use crate::routine::executor::execute_summary_workflow;
+use crate::routine::executor::execute_workflow;
 use crate::task::entity::Task;
 use crate::task::service::{begin_planning, mark_failed, mark_running, mark_succeeded, TaskServiceError};
 
@@ -48,9 +48,31 @@ where
     RunService::execute_standard_summary_playbook(task, run, filesystem, storage, clock)
 }
 
+pub fn execute_discovery_playbook<F, S, C>(
+    task: &mut Task,
+    run: &mut Run,
+    filesystem: &F,
+    storage: &S,
+    clock: &C,
+) -> Result<SummaryPlaybookE2eResult, SummaryPlaybookExecutionError>
+where
+    F: FilesystemPort,
+    F::Error: std::fmt::Debug,
+    S: StoragePort,
+    S::Error: std::fmt::Debug,
+    C: ClockPort,
+{
+    RunService::execute_discovery_playbook(task, run, filesystem, storage, clock)
+}
+
 #[doc(hidden)]
 pub fn execute_summary_playbook_e2e_for_test() -> SummaryPlaybookE2eResult {
     super::test_support::execute_summary_playbook_e2e_for_test()
+}
+
+#[doc(hidden)]
+pub fn execute_discovery_playbook_e2e_for_test() -> SummaryPlaybookE2eResult {
+    super::test_support::execute_discovery_playbook_e2e_for_test()
 }
 
 #[derive(Debug)]
@@ -140,11 +162,45 @@ impl RunService {
         S::Error: std::fmt::Debug,
         C: ClockPort,
     {
+        Self::execute_playbook(task, run, filesystem, storage, clock)
+    }
+
+    pub fn execute_discovery_playbook<F, S, C>(
+        task: &mut Task,
+        run: &mut Run,
+        filesystem: &F,
+        storage: &S,
+        clock: &C,
+    ) -> Result<SummaryPlaybookE2eResult, SummaryPlaybookExecutionError>
+    where
+        F: FilesystemPort,
+        F::Error: std::fmt::Debug,
+        S: StoragePort,
+        S::Error: std::fmt::Debug,
+        C: ClockPort,
+    {
+        Self::execute_playbook(task, run, filesystem, storage, clock)
+    }
+
+    fn execute_playbook<F, S, C>(
+        task: &mut Task,
+        run: &mut Run,
+        filesystem: &F,
+        storage: &S,
+        clock: &C,
+    ) -> Result<SummaryPlaybookE2eResult, SummaryPlaybookExecutionError>
+    where
+        F: FilesystemPort,
+        F::Error: std::fmt::Debug,
+        S: StoragePort,
+        S::Error: std::fmt::Debug,
+        C: ClockPort,
+    {
         if task.status == crate::task::entity::TaskStatus::Created {
             begin_planning(task)?;
         }
         mark_running(task, run)?;
-        let routine_result = execute_summary_workflow(
+        let routine_result = execute_workflow(
             run,
             &run.workflow_snapshot.clone(),
             filesystem,

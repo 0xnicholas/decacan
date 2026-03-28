@@ -6,22 +6,28 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use time::OffsetDateTime;
 
-use crate::playbook::registry::get_registered_summary_playbook_for_test;
+use crate::playbook::registry::{
+    get_registered_discovery_playbook_for_test, get_registered_summary_playbook_for_test,
+};
 use crate::policy::entity::PolicyProfile;
 use crate::ports::clock::ClockPort;
 use crate::ports::filesystem::FilesystemPort;
 use crate::ports::storage::StoragePort;
 use crate::run::entity::Run;
-use crate::run::service::{execute_standard_summary_playbook, SummaryPlaybookE2eResult};
+use crate::run::service::{
+    execute_discovery_playbook, execute_standard_summary_playbook, SummaryPlaybookE2eResult,
+};
 use crate::task::entity::Task;
-use crate::workflow::compiler::compile_summary_playbook_for_test;
+use crate::workflow::compiler::{
+    compile_discovery_playbook_for_test, compile_summary_playbook_for_test,
+};
 use crate::workspace::entity::Workspace;
 
 pub(crate) fn execute_summary_playbook_e2e_for_test() -> SummaryPlaybookE2eResult {
     let filesystem = LocalFilesystemForTest;
     let storage = MemoryStorageForTest::new();
     let clock = FixedClockForTest::new(OffsetDateTime::now_utc());
-    let workspace_root = unique_test_workspace_root();
+    let workspace_root = unique_test_workspace_root("summary-playbook-e2e");
     let workspace = Workspace::new_for_test(
         "workspace-1",
         "workspace",
@@ -45,6 +51,43 @@ pub(crate) fn execute_summary_playbook_e2e_for_test() -> SummaryPlaybookE2eResul
     let mut result =
         execute_standard_summary_playbook(&mut task, &mut run, &filesystem, &storage, &clock)
             .expect("summary playbook should execute");
+    result.workspace_root = workspace_root;
+    result
+}
+
+pub(crate) fn execute_discovery_playbook_e2e_for_test() -> SummaryPlaybookE2eResult {
+    let filesystem = LocalFilesystemForTest;
+    let storage = MemoryStorageForTest::new();
+    let clock = FixedClockForTest::new(OffsetDateTime::now_utc());
+    let workspace_root = unique_test_workspace_root("discovery-playbook-e2e");
+    let workspace = Workspace::new_for_test(
+        "workspace-1",
+        "workspace",
+        workspace_root
+            .to_str()
+            .expect("workspace path should be valid utf-8"),
+    );
+    let playbook = get_registered_discovery_playbook_for_test();
+    let workflow = compile_discovery_playbook_for_test();
+    let policy = PolicyProfile::new_for_test("policy-1", &workspace.id, "default");
+    let mut task = Task::new_for_test("task-1", &workspace.id, &playbook.id, workflow.version_id);
+    let mut run = Run::new_for_test("run-1", &task.id, workflow, policy, workspace, playbook);
+
+    filesystem
+        .write_string(
+            &workspace_root.join("notes.md"),
+            "# Release Notes\nMigration\nObservability\nBilling",
+        )
+        .expect("notes fixture should be written");
+
+    let mut result = execute_discovery_playbook(
+        &mut task,
+        &mut run,
+        &filesystem,
+        &storage,
+        &clock,
+    )
+    .expect("discovery playbook should execute");
     result.workspace_root = workspace_root;
     result
 }
@@ -151,11 +194,11 @@ impl ClockPort for FixedClockForTest {
     }
 }
 
-fn unique_test_workspace_root() -> PathBuf {
+fn unique_test_workspace_root(prefix: &str) -> PathBuf {
     let unique_suffix = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("system time should be after unix epoch")
         .as_nanos();
 
-    std::env::temp_dir().join(format!("summary-playbook-e2e-{unique_suffix}"))
+    std::env::temp_dir().join(format!("{prefix}-{unique_suffix}"))
 }

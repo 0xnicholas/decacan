@@ -38,8 +38,42 @@ const SUMMARY_ROUTINES: &[Routine] = &[
     },
 ];
 
-pub(crate) fn get_summary_routine(step_name: &str) -> Option<&'static Routine> {
+const DISCOVERY_ROUTINES: &[Routine] = &[
+    Routine {
+        id: "routine.scan_markdown_files",
+        workflow_step_name: "scan_markdown_files",
+        kind: RoutineKind::ScanMarkdownFiles,
+    },
+    Routine {
+        id: "routine.read_markdown_contents",
+        workflow_step_name: "read_markdown_contents",
+        kind: RoutineKind::ReadMarkdownContents,
+    },
+    Routine {
+        id: "routine.discover_themes",
+        workflow_step_name: "discover_themes",
+        kind: RoutineKind::DiscoverThemes,
+    },
+    Routine {
+        id: "routine.draft_discovery",
+        workflow_step_name: "draft_discovery",
+        kind: RoutineKind::DraftDiscovery,
+    },
+    Routine {
+        id: "routine.write_discovery",
+        workflow_step_name: "write_discovery",
+        kind: RoutineKind::WriteDiscovery,
+    },
+    Routine {
+        id: "routine.register_artifact",
+        workflow_step_name: "register_artifact",
+        kind: RoutineKind::RegisterArtifact,
+    },
+];
+
+pub(crate) fn get_routine(step_name: &str) -> Option<&'static Routine> {
     SUMMARY_ROUTINES
         .iter()
+        .chain(DISCOVERY_ROUTINES.iter())
         .find(|routine| routine.workflow_step_name == step_name)
 }

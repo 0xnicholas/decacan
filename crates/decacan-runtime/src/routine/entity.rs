@@ -3,9 +3,12 @@ pub(crate) enum RoutineKind {
     ScanMarkdownFiles,
     ReadMarkdownContents,
     DiscoverTopics,
+    DiscoverThemes,
     DraftSummary,
+    DraftDiscovery,
     BackupExistingSummary,
     WriteSummary,
+    WriteDiscovery,
     RegisterArtifact,
 }
 

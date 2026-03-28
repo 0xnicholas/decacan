@@ -3,7 +3,9 @@ use decacan_runtime::playbook::registry::{
     get_registered_playbook, list_registered_playbooks, DISCOVER_TOPICS_PLAYBOOK_KEY,
     SUMMARY_PLAYBOOK_KEY,
 };
-use decacan_runtime::workflow::compiler::{compile_playbook, compile_summary_playbook_for_test};
+use decacan_runtime::workflow::compiler::{
+    compile_discovery_playbook_for_test, compile_summary_playbook_for_test,
+};
 
 #[test]
 fn registry_exposes_expected_playbooks_with_stable_metadata() {
@@ -30,11 +32,21 @@ fn registry_exposes_expected_playbooks_with_stable_metadata() {
 }
 
 #[test]
-fn discovery_playbook_remains_a_non_compiling_shell() {
-    let discovery =
-        get_registered_playbook(DISCOVER_TOPICS_PLAYBOOK_KEY).expect("discovery playbook");
+fn discovery_playbook_compiles_to_expected_workflow() {
+    let workflow = compile_discovery_playbook_for_test();
+    let step_ids: Vec<_> = workflow.steps.iter().map(|s| s.id.as_str()).collect();
 
-    assert_eq!(compile_playbook(&discovery), None);
+    assert_eq!(
+        step_ids,
+        vec![
+            "scan_markdown_files",
+            "read_markdown_contents",
+            "discover_themes",
+            "draft_discovery",
+            "write_discovery",
+            "register_artifact"
+        ]
+    );
 }
 
 #[test]
