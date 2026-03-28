@@ -125,6 +125,22 @@ describe("TaskPage", () => {
         );
       }
 
+      if (url.endsWith("/api/tasks") && method === "GET") {
+        return new Response(
+          JSON.stringify([
+            {
+              id: "task-1",
+              workspace_id: "workspace-1",
+              playbook_key: "总结资料",
+              input: "Summarize notes",
+              status: approvalStatus,
+              artifact_id: "artifact-1"
+            }
+          ]),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
       throw new Error(`Unhandled request: ${url}`);
     });
 
@@ -188,6 +204,22 @@ describe("TaskPage", () => {
               }
             ]
           }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      if (url.endsWith("/api/tasks") && method === "GET") {
+        return new Response(
+          JSON.stringify([
+            {
+              id: "task-1",
+              workspace_id: "workspace-1",
+              playbook_key: "总结资料",
+              input: "Summarize notes",
+              status: "waiting_approval",
+              artifact_id: "artifact-1"
+            }
+          ]),
           { status: 200, headers: { "content-type": "application/json" } },
         );
       }
@@ -263,6 +295,22 @@ describe("TaskPage", () => {
         });
       }
 
+      if (url.endsWith("/api/tasks") && method === "GET") {
+        return new Response(
+          JSON.stringify([
+            {
+              id: "task-1",
+              workspace_id: "workspace-1",
+              playbook_key: "总结资料",
+              input: "Summarize notes",
+              status: currentTask.task.status,
+              artifact_id: "artifact-1"
+            }
+          ]),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
       throw new Error(`Unhandled request: ${url}`);
     });
 
@@ -315,5 +363,116 @@ describe("TaskPage", () => {
     await waitFor(() => {
       expect(screen.getByText("Reconnecting")).toBeInTheDocument();
     });
+  });
+
+  it("renders recent tasks in the sidebar and keeps approvals ahead of artifacts", async () => {
+    fetchMock.mockImplementation(async (input, init) => {
+      const url = typeof input === "string" ? input : input.toString();
+      const method = init?.method ?? "GET";
+
+      if (url.endsWith("/api/tasks/task-1") && method === "GET") {
+        return new Response(
+          JSON.stringify({
+            task: {
+              id: "task-1",
+              workspace_id: "workspace-1",
+              playbook_key: "总结资料",
+              input: "Summarize notes",
+              status: "waiting_approval",
+              status_summary: "Task is waiting for approval",
+              artifact_id: "artifact-1"
+            },
+            plan: {
+              steps: [
+                "Scan markdown files in the selected workspace",
+                "Draft a concise summary with key takeaways",
+                "Write the final summary artifact to output/summary.md"
+              ],
+              current_step_index: 1,
+              status: "waiting_approval"
+            },
+            approvals: [
+              {
+                id: "approval-1",
+                task_id: "task-1",
+                decision: null,
+                comment: null,
+                status: "pending"
+              }
+            ],
+            artifacts: [
+              {
+                id: "artifact-1",
+                task_id: "task-1",
+                label: "primary-output",
+                canonical_path: "output/summary.md",
+                status: "pending"
+              }
+            ],
+            timeline: [
+              {
+                event_id: "event-3",
+                task_id: "task-1",
+                sequence: 3,
+                event_type: "task.waiting_approval",
+                snapshot_version: 3,
+                message: "Approval requested before final write"
+              }
+            ]
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      if (url.endsWith("/api/tasks") && method === "GET") {
+        return new Response(
+          JSON.stringify([
+            {
+              id: "task-1",
+              workspace_id: "workspace-1",
+              playbook_key: "总结资料",
+              input: "Summarize notes",
+              status: "waiting_approval",
+              artifact_id: "artifact-1"
+            },
+            {
+              id: "task-2",
+              workspace_id: "workspace-1",
+              playbook_key: "发现资料主题",
+              input: "Discover themes",
+              status: "completed",
+              artifact_id: "artifact-2"
+            },
+            {
+              id: "task-3",
+              workspace_id: "workspace-1",
+              playbook_key: "总结资料",
+              input: "Prepare release summary",
+              status: "accepted",
+              artifact_id: "artifact-3"
+            }
+          ]),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      throw new Error(`Unhandled request: ${url}`);
+    });
+
+    render(<App />);
+
+    const sidebar = await screen.findByRole("complementary", { name: "Task context" });
+
+    expect(within(sidebar).getByText("Discover themes")).toBeInTheDocument();
+    expect(within(sidebar).getByText("Prepare release summary")).toBeInTheDocument();
+    expect(within(sidebar).getByRole("button", { name: "Open output/summary.md" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Preview output/summary.md" })).toBeInTheDocument();
+
+    const approvalsHeading = screen.getByRole("heading", { name: "Approvals" });
+    const artifactsHeading = screen.getByRole("heading", { name: "Artifacts" });
+
+    expect(
+      approvalsHeading.compareDocumentPosition(artifactsHeading) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 });

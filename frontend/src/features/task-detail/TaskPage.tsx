@@ -17,7 +17,7 @@ interface TaskPageProps {
 }
 
 export function TaskPage({ taskId }: TaskPageProps) {
-  const { connectionState, latestEvent, taskDetail, reload } = useTaskDetail(taskId);
+  const { connectionState, latestEvent, recentTasks, taskDetail, reload } = useTaskDetail(taskId);
   const [preview, setPreview] = useState<ArtifactContent | null>(null);
 
   if (!taskDetail) {
@@ -44,7 +44,11 @@ export function TaskPage({ taskId }: TaskPageProps) {
 
   return (
     <main className="workspace-shell task-workspace-shell">
-      <ContextSidebar taskDetail={taskDetail} onOpenArtifact={handlePreview} />
+      <ContextSidebar
+        recentTasks={recentTasks}
+        taskDetail={taskDetail}
+        onOpenArtifact={handlePreview}
+      />
       <section className="main-panel task-main-column">
         <p className="eyebrow">Decacan</p>
         <TaskHeader task={taskDetail.task} />

@@ -1,4 +1,5 @@
-import { postJson } from "./client";
+import type { TaskListItem } from "../../entities/task/types";
+import { getJson, postJson } from "./client";
 
 export interface TaskPreviewRequest {
   workspace_id: string;
@@ -48,6 +49,10 @@ export function createTaskPreview(request: TaskPreviewRequest) {
 
 export function createTask(request: CreateTaskRequest) {
   return postJson<CreateTaskRequest, CreateTaskResponse>("/api/tasks", request);
+}
+
+export function listTasks() {
+  return getJson<TaskListItem[]>("/api/tasks");
 }
 
 export function decideApproval(approvalId: string, request: ApprovalDecisionRequest) {

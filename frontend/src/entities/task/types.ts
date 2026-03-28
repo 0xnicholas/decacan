@@ -22,6 +22,15 @@ export interface TaskSummary {
   artifact_id: string | null;
 }
 
+export interface TaskListItem {
+  id: string;
+  workspace_id: string;
+  playbook_key: string;
+  input: string;
+  status: string;
+  artifact_id: string | null;
+}
+
 export interface TaskPlan {
   steps: string[];
   current_step_index: number;

@@ -64,6 +64,24 @@ body {
   line-height: 1.5;
 }
 
+.sidebar-task-list {
+  display: grid;
+  gap: 10px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sidebar-task-list li {
+  display: grid;
+  gap: 4px;
+}
+
+.sidebar-task-list span {
+  color: rgba(24, 19, 17, 0.66);
+  text-transform: capitalize;
+}
+
 .main-panel {
   padding: 48px;
 }

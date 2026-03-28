@@ -1,12 +1,17 @@
 import type { Artifact } from "../../entities/artifact/types";
-import type { TaskDetail } from "../../entities/task/types";
+import type { TaskDetail, TaskListItem } from "../../entities/task/types";
 
 interface ContextSidebarProps {
+  recentTasks: TaskListItem[];
   taskDetail: TaskDetail;
   onOpenArtifact: (artifactId: string) => void;
 }
 
-export function ContextSidebar({ taskDetail, onOpenArtifact }: ContextSidebarProps) {
+export function ContextSidebar({
+  recentTasks,
+  taskDetail,
+  onOpenArtifact,
+}: ContextSidebarProps) {
   const currentStep = Math.min(taskDetail.plan.current_step_index + 1, taskDetail.plan.steps.length);
   const primaryArtifact = findPrimaryArtifact(taskDetail);
 
@@ -49,7 +54,18 @@ export function ContextSidebar({ taskDetail, onOpenArtifact }: ContextSidebarPro
       </section>
       <section className="sidebar-section">
         <p className="sidebar-label">Recent Tasks</p>
-        <p className="sidebar-copy">Recent tasks will appear here.</p>
+        {recentTasks.length > 0 ? (
+          <ul className="sidebar-task-list">
+            {recentTasks.map((task) => (
+              <li key={task.id}>
+                <strong>{task.input}</strong>
+                <span>{task.status}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="sidebar-copy">Recent tasks will appear here.</p>
+        )}
       </section>
     </aside>
   );
