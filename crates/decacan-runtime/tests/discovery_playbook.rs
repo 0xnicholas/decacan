@@ -6,7 +6,7 @@ use decacan_runtime::task::entity::TaskStatus;
 
 #[test]
 fn execute_discovery_playbook_e2e_for_test_completes_and_reports_primary_discovery_artifact() {
-    let result = decacan_runtime::run::service::execute_discovery_playbook_e2e_for_test();
+    let result = decacan_runtime::run::service::execute_discovery_playbook_for_test();
 
     assert_eq!(result.task.status, TaskStatus::Succeeded);
     assert_eq!(result.run.status, RunStatus::Completed);

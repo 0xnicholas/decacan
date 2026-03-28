@@ -75,6 +75,11 @@ pub fn execute_discovery_playbook_e2e_for_test() -> SummaryPlaybookE2eResult {
     super::test_support::execute_discovery_playbook_e2e_for_test()
 }
 
+#[doc(hidden)]
+pub fn execute_discovery_playbook_for_test() -> SummaryPlaybookE2eResult {
+    execute_discovery_playbook_e2e_for_test()
+}
+
 #[derive(Debug)]
 pub enum SummaryPlaybookExecutionError {
     Task(TaskServiceError),
