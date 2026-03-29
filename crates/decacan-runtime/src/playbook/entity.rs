@@ -3,6 +3,11 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 
 use super::modes::PlaybookMode;
+pub use super::lifecycle::{
+    DraftHealthIssue, DraftHealthIssueDomain, DraftHealthIssueSeverity, DraftHealthReport,
+    DraftValidationState, PlaybookDraft, PlaybookHandle, PlaybookHandleOrigin,
+    PlaybookOwnerScope, PlaybookVersion, StoreEntry,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
