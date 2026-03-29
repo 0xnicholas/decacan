@@ -105,7 +105,6 @@ Agent Team 在本 spec 中只以 `execution_profile` 的可选关联形式出现
 - routine
 - tool
 - validator
-- playbook template
 
 ## 核心对象模型
 

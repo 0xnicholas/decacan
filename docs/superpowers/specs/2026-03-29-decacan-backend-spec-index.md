@@ -197,15 +197,19 @@ MVP Backend Module Map
 - nested groups
 - 通用 multi-agent 平台能力
 
-## 尚未展开或仅快速收口的部分
+## 本轮补齐的模块
 
-以下模块已经被讨论，但目前只做了快速收口，没有单独完整 spec：
+以下模块在本轮已补成单独完整 spec：
 
 - `Extension Registry`
 - `Validator Registry`
 - `Workspace Policy Model`
 
-如果后续进入实现计划，可能需要根据优先级再补成单独 spec。
+对应文档：
+
+- [Extension Registry Spec](/Users/nicholasl/Documents/build-whatever/decacan/docs/superpowers/specs/2026-03-29-decacan-extension-registry-spec.md)
+- [Validator Registry Spec](/Users/nicholasl/Documents/build-whatever/decacan/docs/superpowers/specs/2026-03-29-decacan-validator-registry-spec.md)
+- [Workspace Policy Model Spec](/Users/nicholasl/Documents/build-whatever/decacan/docs/superpowers/specs/2026-03-29-decacan-workspace-policy-model-spec.md)
 
 ## 当前建议的计划顺序
 
