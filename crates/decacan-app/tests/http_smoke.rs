@@ -776,6 +776,207 @@ async fn workspace_home_endpoint_returns_attention_activity_deliverables_and_tea
 }
 
 #[tokio::test]
+async fn playbook_store_endpoint_lists_builtin_entries() {
+    let app = decacan_app::app::wiring::router_for_test();
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/api/playbook-store")
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("playbook store route should respond");
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("playbook store body should be readable");
+    let json: Value = serde_json::from_slice(&body).expect("playbook store should be json");
+    let first = json[0]
+        .as_object()
+        .expect("playbook store should contain at least one entry");
+
+    assert!(first.contains_key("store_entry_id"));
+    assert!(first.contains_key("title"));
+    assert!(first.contains_key("mode"));
+}
+
+#[tokio::test]
+async fn playbook_fork_endpoint_creates_local_handle_from_store_entry() {
+    let app = decacan_app::app::wiring::router_for_test();
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/playbooks/fork")
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"store_entry_id":"store-entry-summary"}"#))
+                .expect("request should build"),
+        )
+        .await
+        .expect("playbook fork route should respond");
+
+    assert_eq!(response.status(), StatusCode::CREATED);
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("playbook fork body should be readable");
+    let json: Value =
+        serde_json::from_slice(&body).expect("playbook fork response should be json");
+
+    assert_eq!(json["handle"]["origin"], "official_fork");
+    assert_eq!(json["handle"]["source_store_entry_id"], "store-entry-summary");
+    assert_eq!(json["draft"]["playbook_handle_id"], json["handle"]["playbook_handle_id"]);
+}
+
+#[tokio::test]
+async fn playbook_handle_endpoint_returns_handle_draft_and_versions() {
+    let app = decacan_app::app::wiring::router_for_test();
+    let handle_id = fork_playbook(&app).await;
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri(format!("/api/playbooks/{handle_id}"))
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("playbook detail route should respond");
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("playbook detail body should be readable");
+    let json: Value =
+        serde_json::from_slice(&body).expect("playbook detail response should be json");
+
+    assert_eq!(json["handle"]["playbook_handle_id"], handle_id);
+    assert!(json["draft"].is_object());
+    assert_eq!(
+        json["versions"]
+            .as_array()
+            .expect("versions should be an array")
+            .len(),
+        0
+    );
+}
+
+#[tokio::test]
+async fn playbook_draft_endpoint_replaces_document_and_returns_health() {
+    let app = decacan_app::app::wiring::router_for_test();
+    let handle_id = fork_playbook(&app).await;
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("PUT")
+                .uri(format!("/api/playbooks/{handle_id}/draft"))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"spec_document":"metadata:\n  title: edited draft\ncapability_refs:\n  routines:\n    - builtin.scan_markdown_files\n  tools:\n    - builtin.workspace.read\n    - builtin.artifact.write\n  validators:\n    - builtin.output_contract.summary\nexecution_profile: single\n"}"#,
+                ))
+                .expect("request should build"),
+        )
+        .await
+        .expect("playbook draft route should respond");
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("playbook draft body should be readable");
+    let json: Value =
+        serde_json::from_slice(&body).expect("playbook draft response should be json");
+
+    assert_eq!(json["draft"]["playbook_handle_id"], handle_id);
+    assert_eq!(json["draft"]["validation_state"], "validated");
+    assert_eq!(json["health_report"]["publishable"], true);
+    assert_eq!(
+        json["health_report"]["issues"]
+            .as_array()
+            .expect("issues should be an array")
+            .len(),
+        0
+    );
+}
+
+#[tokio::test]
+async fn playbook_publish_endpoint_returns_version_on_success() {
+    let app = decacan_app::app::wiring::router_for_test();
+    let handle_id = fork_playbook(&app).await;
+    save_valid_playbook_draft(&app, &handle_id).await;
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/playbooks/{handle_id}/publish"))
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("playbook publish route should respond");
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("playbook publish body should be readable");
+    let json: Value =
+        serde_json::from_slice(&body).expect("playbook publish response should be json");
+
+    assert!(json["version"].is_object());
+    assert_eq!(json["health_report"]["publishable"], true);
+    assert_eq!(
+        json["resolved_refs"]
+            .as_array()
+            .expect("resolved refs should be an array")
+            .len(),
+        4
+    );
+}
+
+#[tokio::test]
+async fn playbook_publish_endpoint_returns_structured_issues_on_failure() {
+    let app = decacan_app::app::wiring::router_for_test();
+    let handle_id = fork_playbook(&app).await;
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/playbooks/{handle_id}/publish"))
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("playbook publish route should respond");
+
+    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("playbook publish failure body should be readable");
+    let json: Value =
+        serde_json::from_slice(&body).expect("playbook publish failure should be json");
+
+    assert!(json["version"].is_null());
+    assert_eq!(json["health_report"]["publishable"], false);
+    assert!(!json["health_report"]["issues"]
+        .as_array()
+        .expect("issues should be an array")
+        .is_empty());
+}
+
+#[tokio::test]
 async fn root_route_serves_frontend_html_shell() {
     let app = decacan_app::app::wiring::router_for_test();
 
@@ -799,6 +1000,52 @@ async fn root_route_serves_frontend_html_shell() {
 
     assert!(html.contains("<!doctype html>") || html.contains("<!DOCTYPE html>"));
     assert!(html.contains("id=\"root\""));
+}
+
+async fn fork_playbook(app: &axum::Router) -> String {
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/playbooks/fork")
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"store_entry_id":"store-entry-summary"}"#))
+                .expect("request should build"),
+        )
+        .await
+        .expect("playbook fork route should respond");
+    assert_eq!(response.status(), StatusCode::CREATED);
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("playbook fork body should be readable");
+    let json: Value =
+        serde_json::from_slice(&body).expect("playbook fork response should be json");
+
+    json["handle"]["playbook_handle_id"]
+        .as_str()
+        .expect("handle id should be present")
+        .to_owned()
+}
+
+async fn save_valid_playbook_draft(app: &axum::Router, handle_id: &str) {
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("PUT")
+                .uri(format!("/api/playbooks/{handle_id}/draft"))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"spec_document":"metadata:\n  title: edited draft\ncapability_refs:\n  routines:\n    - builtin.scan_markdown_files\n  tools:\n    - builtin.workspace.read\n    - builtin.artifact.write\n  validators:\n    - builtin.output_contract.summary\nexecution_profile: single\n"}"#,
+                ))
+                .expect("request should build"),
+        )
+        .await
+        .expect("playbook draft route should respond");
+
+    assert_eq!(response.status(), StatusCode::OK);
 }
 
 async fn create_task(app: &axum::Router, playbook_key: &str, input: &str) -> (String, String) {

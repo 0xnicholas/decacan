@@ -15,7 +15,12 @@ pub use deliverable::{
     DeliverableReviewRequestDto,
 };
 pub use member::MemberDto;
-pub use playbook::PlaybookDto;
+pub use playbook::{
+    DraftHealthIssueDto, DraftHealthReportDto, ForkPlaybookRequestDto, ForkPlaybookResponseDto,
+    PlaybookDetailDto, PlaybookDraftDto, PlaybookDto, PlaybookHandleDto, PlaybookVersionDto,
+    PublishPlaybookResponseDto, SavePlaybookDraftRequestDto, SavePlaybookDraftResponseDto,
+    StoreEntryDto,
+};
 pub use task::{
     CreateTaskAcceptedResponse, CreateTaskRequest, RetryTaskRequest, TaskAgentMessageDto,
     TaskCollaborationDto, TaskDetailDto, TaskDto, TaskEventEnvelopeDto, TaskInstructionActionDto,

@@ -9,11 +9,18 @@ use decacan_infra::filesystem::local::LocalFilesystem;
 use decacan_infra::storage::memory::MemoryStorage;
 use decacan_runtime::artifact::entity::Artifact as RuntimeArtifact;
 use decacan_runtime::events::{TaskEvent, TaskEventPayload};
+use decacan_runtime::playbook::authoring::{save_draft, SaveDraftCommand};
+use decacan_runtime::playbook::entity::{
+    DraftHealthIssue, DraftHealthReport, DraftValidationState, PlaybookDraft, PlaybookHandle,
+    PlaybookHandleOrigin, PlaybookOwnerScope, PlaybookVersion, StoreEntry,
+};
 use decacan_runtime::playbook::execution::{
     execute_registered_playbook_run, prepare_registered_playbook_run, preview_registered_playbook,
     RegisteredPlaybookError, RegisteredPlaybookExecutionRequest,
 };
 use decacan_runtime::playbook::modes::PlaybookMode;
+use decacan_runtime::playbook::publish::{publish_draft, PublishDraftCommand};
+use decacan_runtime::ports::clock::ClockPort;
 use decacan_runtime::playbook::registry::{
     list_registered_playbooks, DISCOVER_TOPICS_PLAYBOOK_KEY, SUMMARY_PLAYBOOK_KEY,
 };
@@ -25,9 +32,12 @@ use tokio::sync::broadcast;
 
 use crate::dto::{
     ApprovalDto, ArtifactContentDto, ArtifactDto, CreateTaskAcceptedResponse, CreateTaskRequest,
-    PlaybookDto, RetryTaskRequest, TaskAgentMessageDto, TaskCollaborationDto, TaskDetailDto,
-    TaskDto, TaskEventEnvelopeDto, TaskInstructionActionDto, TaskPlanDto, TaskPreviewDto,
-    TaskPreviewRequest, TaskSummaryDto, WorkspaceDto,
+    DraftHealthIssueDto, DraftHealthReportDto, ForkPlaybookResponseDto, PlaybookDetailDto,
+    PlaybookDraftDto, PlaybookDto, PlaybookHandleDto, PlaybookVersionDto,
+    PublishPlaybookResponseDto, RetryTaskRequest, SavePlaybookDraftResponseDto, StoreEntryDto,
+    TaskAgentMessageDto, TaskCollaborationDto, TaskDetailDto, TaskDto, TaskEventEnvelopeDto,
+    TaskInstructionActionDto, TaskPlanDto, TaskPreviewDto, TaskPreviewRequest, TaskSummaryDto,
+    WorkspaceDto,
 };
 
 #[derive(Clone)]
@@ -40,6 +50,8 @@ struct AppStateInner {
     default_workspace_root: PathBuf,
     workspaces: Vec<WorkspaceDto>,
     playbooks: Vec<PlaybookDto>,
+    playbook_store: Vec<StoreEntry>,
+    lifecycle_playbooks: Mutex<HashMap<String, StoredLifecyclePlaybook>>,
     tasks: Mutex<HashMap<String, StoredTask>>,
     artifacts: Mutex<HashMap<String, StoredArtifact>>,
     approvals: Mutex<HashMap<String, ApprovalDto>>,
@@ -65,6 +77,13 @@ struct StoredTask {
 struct StoredArtifact {
     dto: ArtifactDto,
     physical_path: PathBuf,
+}
+
+#[derive(Debug, Clone)]
+struct StoredLifecyclePlaybook {
+    handle: PlaybookHandle,
+    draft: PlaybookDraft,
+    versions: Vec<PlaybookVersion>,
 }
 
 #[derive(Debug, Clone)]
@@ -110,6 +129,7 @@ impl AppState {
             .into_iter()
             .map(playbook_to_dto)
             .collect();
+        let playbook_store = builtin_store_entries();
 
         Ok(Self {
             inner: Arc::new(AppStateInner {
@@ -120,7 +140,9 @@ impl AppState {
                     root_path: default_workspace_root.display().to_string(),
                 }],
                 playbooks,
+                playbook_store,
                 default_workspace_root,
+                lifecycle_playbooks: Mutex::new(HashMap::new()),
                 tasks: Mutex::new(HashMap::new()),
                 artifacts: Mutex::new(HashMap::new()),
                 approvals: Mutex::new(HashMap::new()),
@@ -141,6 +163,137 @@ impl AppState {
 
     pub fn playbooks(&self) -> Vec<PlaybookDto> {
         self.inner.playbooks.clone()
+    }
+
+    pub fn list_playbook_store(&self) -> Vec<StoreEntryDto> {
+        self.inner
+            .playbook_store
+            .iter()
+            .cloned()
+            .map(store_entry_to_dto)
+            .collect()
+    }
+
+    pub fn fork_playbook_from_store(
+        &self,
+        store_entry_id: &str,
+    ) -> Result<ForkPlaybookResponseDto, PlaybookLifecycleError> {
+        let store_entry = self
+            .inner
+            .playbook_store
+            .iter()
+            .find(|entry| entry.store_entry_id == store_entry_id)
+            .cloned()
+            .ok_or(PlaybookLifecycleError::StoreEntryNotFound)?;
+        let handle = build_playbook_handle(
+            self.next_id("handle"),
+            store_entry.store_entry_id.clone(),
+            store_entry.title.clone(),
+        );
+        let draft = build_playbook_draft(
+            self.next_id("draft"),
+            handle.playbook_handle_id.clone(),
+            initial_draft_document(&store_entry),
+        );
+
+        self.inner
+            .lifecycle_playbooks
+            .lock()
+            .expect("playbook lifecycle lock should not be poisoned")
+            .insert(
+                handle.playbook_handle_id.clone(),
+                StoredLifecyclePlaybook {
+                    handle: handle.clone(),
+                    draft: draft.clone(),
+                    versions: Vec::new(),
+                },
+            );
+
+        Ok(ForkPlaybookResponseDto {
+            handle: playbook_handle_to_dto(handle),
+            draft: playbook_draft_to_dto(draft),
+        })
+    }
+
+    pub fn get_playbook_detail(
+        &self,
+        handle_id: &str,
+    ) -> Result<PlaybookDetailDto, PlaybookLifecycleError> {
+        let stored = self
+            .inner
+            .lifecycle_playbooks
+            .lock()
+            .expect("playbook lifecycle lock should not be poisoned")
+            .get(handle_id)
+            .cloned()
+            .ok_or(PlaybookLifecycleError::HandleNotFound)?;
+
+        Ok(PlaybookDetailDto {
+            handle: playbook_handle_to_dto(stored.handle),
+            draft: playbook_draft_to_dto(stored.draft),
+            versions: stored.versions.into_iter().map(playbook_version_to_dto).collect(),
+        })
+    }
+
+    pub fn save_playbook_draft(
+        &self,
+        handle_id: &str,
+        spec_document: String,
+    ) -> Result<SavePlaybookDraftResponseDto, PlaybookLifecycleError> {
+        let mut playbooks = self
+            .inner
+            .lifecycle_playbooks
+            .lock()
+            .expect("playbook lifecycle lock should not be poisoned");
+        let stored = playbooks
+            .get_mut(handle_id)
+            .ok_or(PlaybookLifecycleError::HandleNotFound)?;
+        let result = save_draft(SaveDraftCommand {
+            draft: stored.draft.clone(),
+            spec_document,
+            saved_at: stored.draft.last_saved_at,
+        });
+
+        stored.draft = result.draft.clone();
+
+        Ok(SavePlaybookDraftResponseDto {
+            draft: playbook_draft_to_dto(result.draft),
+            health_report: draft_health_report_to_dto(result.health_report),
+        })
+    }
+
+    pub fn publish_playbook_draft(
+        &self,
+        handle_id: &str,
+    ) -> Result<PublishPlaybookOutcome, PlaybookLifecycleError> {
+        let mut playbooks = self
+            .inner
+            .lifecycle_playbooks
+            .lock()
+            .expect("playbook lifecycle lock should not be poisoned");
+        let stored = playbooks
+            .get_mut(handle_id)
+            .ok_or(PlaybookLifecycleError::HandleNotFound)?;
+        let result = publish_draft(PublishDraftCommand {
+            draft: stored.draft.clone(),
+            playbook_version_id: Default::default(),
+            version_number: stored.versions.len() as u32 + 1,
+            published_at: stored.draft.last_saved_at,
+        });
+
+        let publishable = result.health_report.publishable;
+        if let Some(version) = result.version.clone() {
+            stored.versions.push(version);
+        }
+
+        Ok(PublishPlaybookOutcome {
+            publishable,
+            response: PublishPlaybookResponseDto {
+                version: result.version.map(playbook_version_to_dto),
+                health_report: draft_health_report_to_dto(result.health_report),
+                resolved_refs: result.resolved_refs,
+            },
+        })
     }
 
     pub fn list_tasks(&self) -> Vec<TaskDto> {
@@ -774,6 +927,18 @@ pub enum CreateTaskError {
     UnknownPlaybook,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PlaybookLifecycleError {
+    StoreEntryNotFound,
+    HandleNotFound,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PublishPlaybookOutcome {
+    pub publishable: bool,
+    pub response: PublishPlaybookResponseDto,
+}
+
 fn plan_for_task(task: &StoredTask) -> TaskPlanDto {
     let steps = task
         .runtime_run
@@ -810,6 +975,130 @@ fn task_to_dto(task: &StoredTask) -> TaskDto {
         status: task.status.clone(),
         status_summary: task.status_summary.clone(),
         artifact_id: task.artifact_id.clone(),
+    }
+}
+
+fn builtin_store_entries() -> Vec<StoreEntry> {
+    list_registered_playbooks()
+        .into_iter()
+        .filter_map(|playbook| match playbook.key.as_str() {
+            SUMMARY_PLAYBOOK_KEY => Some(StoreEntry {
+                store_entry_id: "store-entry-summary".to_owned(),
+                title: playbook.title,
+                summary: "Builtin summary playbook".to_owned(),
+                category: "summary".to_owned(),
+                tags: vec!["builtin".to_owned(), "official".to_owned()],
+                mode: playbook.mode,
+                official_version: "builtin-v1".to_owned(),
+                embedded_spec_ref: "builtin://summary-playbook".to_owned(),
+            }),
+            DISCOVER_TOPICS_PLAYBOOK_KEY => Some(StoreEntry {
+                store_entry_id: "store-entry-discovery".to_owned(),
+                title: playbook.title,
+                summary: "Builtin discovery playbook".to_owned(),
+                category: "discovery".to_owned(),
+                tags: vec!["builtin".to_owned(), "official".to_owned()],
+                mode: playbook.mode,
+                official_version: "builtin-v1".to_owned(),
+                embedded_spec_ref: "builtin://discovery-playbook".to_owned(),
+            }),
+            _ => None,
+        })
+        .collect()
+}
+
+fn initial_draft_document(store_entry: &StoreEntry) -> String {
+    format!("metadata:\n  title: {}\n", store_entry.title)
+}
+
+fn build_playbook_handle(
+    playbook_handle_id: String,
+    source_store_entry_id: String,
+    title: String,
+) -> PlaybookHandle {
+    let now = SystemClock::new().now_utc();
+    PlaybookHandle {
+        playbook_handle_id,
+        owner_scope: PlaybookOwnerScope::LocalPrivate,
+        origin: PlaybookHandleOrigin::OfficialFork,
+        source_store_entry_id: Some(source_store_entry_id),
+        title,
+        created_at: now,
+        updated_at: now,
+    }
+}
+
+fn build_playbook_draft(
+    draft_id: String,
+    playbook_handle_id: String,
+    spec_document: String,
+) -> PlaybookDraft {
+    let now = SystemClock::new().now_utc();
+    PlaybookDraft {
+        draft_id,
+        playbook_handle_id,
+        spec_document,
+        last_saved_at: now,
+        last_validated_at: None,
+        validation_state: DraftValidationState::NeedsReview,
+    }
+}
+
+fn store_entry_to_dto(store_entry: StoreEntry) -> StoreEntryDto {
+    StoreEntryDto {
+        store_entry_id: store_entry.store_entry_id,
+        title: store_entry.title,
+        summary: store_entry.summary,
+        category: store_entry.category,
+        tags: store_entry.tags,
+        mode: store_entry.mode,
+        official_version: store_entry.official_version,
+    }
+}
+
+fn playbook_handle_to_dto(handle: PlaybookHandle) -> PlaybookHandleDto {
+    PlaybookHandleDto {
+        playbook_handle_id: handle.playbook_handle_id,
+        owner_scope: handle.owner_scope,
+        origin: handle.origin,
+        source_store_entry_id: handle.source_store_entry_id,
+        title: handle.title,
+    }
+}
+
+fn playbook_draft_to_dto(draft: PlaybookDraft) -> PlaybookDraftDto {
+    PlaybookDraftDto {
+        draft_id: draft.draft_id,
+        playbook_handle_id: draft.playbook_handle_id,
+        spec_document: draft.spec_document,
+        validation_state: draft.validation_state,
+    }
+}
+
+fn draft_health_report_to_dto(report: DraftHealthReport) -> DraftHealthReportDto {
+    DraftHealthReportDto {
+        publishable: report.publishable,
+        summary: report.summary,
+        issues: report.issues.into_iter().map(draft_health_issue_to_dto).collect(),
+    }
+}
+
+fn draft_health_issue_to_dto(issue: DraftHealthIssue) -> DraftHealthIssueDto {
+    DraftHealthIssueDto {
+        severity: issue.severity,
+        domain: issue.domain,
+        kind: issue.kind,
+        location: issue.location,
+        message: issue.message,
+        related_ref: issue.related_ref,
+    }
+}
+
+fn playbook_version_to_dto(version: PlaybookVersion) -> PlaybookVersionDto {
+    PlaybookVersionDto {
+        playbook_version_id: version.playbook_version_id.to_string(),
+        playbook_handle_id: version.playbook_handle_id,
+        version_number: version.version_number,
     }
 }
 
