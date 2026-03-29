@@ -42,8 +42,9 @@ pub struct TaskDetailDto {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CreateTaskRequest {
     pub workspace_id: String,
-    pub playbook_key: String,
-    pub input: String,
+    pub playbook_handle_id: String,
+    pub playbook_version_id: String,
+    pub input_payload: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

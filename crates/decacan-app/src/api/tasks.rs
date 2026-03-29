@@ -95,7 +95,9 @@ async fn create_task(
         .await
         .map_err(|error| match error {
             CreateTaskError::WorkspaceNotFound => StatusCode::NOT_FOUND,
-            CreateTaskError::UnknownPlaybook => StatusCode::UNPROCESSABLE_ENTITY,
+            CreateTaskError::UnknownPlaybook | CreateTaskError::InvalidPlaybookBinding => {
+                StatusCode::UNPROCESSABLE_ENTITY
+            }
         })?;
 
     Ok((StatusCode::ACCEPTED, Json(response)))
@@ -109,7 +111,9 @@ async fn create_task_preview(
         .create_task_preview(request)
         .map_err(|error| match error {
             CreateTaskError::WorkspaceNotFound => StatusCode::NOT_FOUND,
-            CreateTaskError::UnknownPlaybook => StatusCode::UNPROCESSABLE_ENTITY,
+            CreateTaskError::UnknownPlaybook | CreateTaskError::InvalidPlaybookBinding => {
+                StatusCode::UNPROCESSABLE_ENTITY
+            }
         })?;
 
     Ok(Json(preview))

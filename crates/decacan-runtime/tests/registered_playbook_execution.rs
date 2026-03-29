@@ -10,6 +10,7 @@ use decacan_runtime::playbook::execution::{
 };
 use decacan_runtime::playbook::registry::{DISCOVER_TOPICS_PLAYBOOK_KEY, SUMMARY_PLAYBOOK_KEY};
 use decacan_runtime::task::entity::TaskStatus;
+use uuid::Uuid;
 
 #[test]
 fn preview_registered_summary_playbook_returns_runtime_plan_and_expected_artifact() {
@@ -38,11 +39,18 @@ fn prepare_registered_discovery_playbook_run_builds_runtime_task_run_and_pending
         workspace_id: "workspace-1".to_owned(),
         workspace_root: workspace_root.display().to_string(),
         playbook_key: DISCOVER_TOPICS_PLAYBOOK_KEY.to_owned(),
+        playbook_version_id: Uuid::parse_str("88dd5ca4-8c76-4784-a7b0-5b4607d63b62")
+            .expect("fixture uuid should be valid"),
     })
     .expect("discovery playbook should prepare");
 
     assert_eq!(prepared.task.id, "task-42");
     assert_eq!(prepared.run.id, "run-42");
+    assert_eq!(
+        prepared.task.playbook_version_id,
+        Uuid::parse_str("88dd5ca4-8c76-4784-a7b0-5b4607d63b62")
+            .expect("fixture uuid should be valid")
+    );
     assert_eq!(prepared.run.playbook_snapshot.key, DISCOVER_TOPICS_PLAYBOOK_KEY);
     assert_eq!(prepared.run.workflow_snapshot.steps.len(), 6);
     assert_eq!(
@@ -62,6 +70,8 @@ fn execute_registered_playbook_run_dispatches_from_run_snapshot() {
         workspace_id: "workspace-1".to_owned(),
         workspace_root: workspace_root.display().to_string(),
         playbook_key: DISCOVER_TOPICS_PLAYBOOK_KEY.to_owned(),
+        playbook_version_id: Uuid::parse_str("51d4478f-c3b3-41a0-b5dd-213dc12342d5")
+            .expect("fixture uuid should be valid"),
     })
     .expect("discovery playbook should prepare");
 

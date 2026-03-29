@@ -64,7 +64,9 @@ struct StoredTask {
     id: String,
     workspace_id: String,
     playbook_key: String,
-    input: String,
+    input_payload: String,
+    playbook_handle_id: String,
+    playbook_version_id: String,
     artifact_id: Option<String>,
     status: String,
     status_summary: String,
@@ -347,7 +349,7 @@ impl AppState {
                 id: task.id.clone(),
                 workspace_id: task.workspace_id.clone(),
                 playbook_key: task.playbook_key.clone(),
-                input: task.input.clone(),
+                input: task.input_payload.clone(),
                 status: task.status.clone(),
                 status_summary: task.status_summary.clone(),
                 artifact_id: task.artifact_id.clone(),
@@ -400,9 +402,6 @@ impl AppState {
         if !self.is_known_workspace(&request.workspace_id) {
             return Err(CreateTaskError::WorkspaceNotFound);
         }
-        if !self.is_known_playbook(&request.playbook_key) {
-            return Err(CreateTaskError::UnknownPlaybook);
-        }
 
         let prepared = self.prepare_execution(&request)?;
         let artifact = prepared.pending_artifact.clone();
@@ -436,8 +435,10 @@ impl AppState {
                 StoredTask {
                     id: prepared.task_id.clone(),
                     workspace_id: "workspace-1".to_owned(),
-                    playbook_key: request.playbook_key.clone(),
-                    input: request.input,
+                    playbook_key: prepared.runtime_run.playbook_snapshot.key.clone(),
+                    input_payload: request.input_payload,
+                    playbook_handle_id: request.playbook_handle_id,
+                    playbook_version_id: request.playbook_version_id,
                     artifact_id: Some(artifact_id),
                     status: "accepted".to_owned(),
                     status_summary: "Task accepted and queued for runtime execution".to_owned(),
@@ -646,8 +647,9 @@ impl AppState {
             .cloned()?;
         let create_request = CreateTaskRequest {
             workspace_id: existing.workspace_id.clone(),
-            playbook_key: existing.playbook_key.clone(),
-            input: existing.input.clone(),
+            playbook_handle_id: existing.playbook_handle_id.clone(),
+            playbook_version_id: existing.playbook_version_id.clone(),
+            input_payload: existing.input_payload.clone(),
         };
         let prepared = self
             .prepare_execution_with_task_id(task_id.to_owned(), &create_request)
@@ -663,7 +665,9 @@ impl AppState {
                     id: task_id.to_owned(),
                     workspace_id: existing.workspace_id.clone(),
                     playbook_key: existing.playbook_key.clone(),
-                    input: existing.input.clone(),
+                    input_payload: existing.input_payload.clone(),
+                    playbook_handle_id: existing.playbook_handle_id.clone(),
+                    playbook_version_id: existing.playbook_version_id.clone(),
                     artifact_id: Some(prepared.pending_artifact.id.clone()),
                     status: "accepted".to_owned(),
                     status_summary: format!("Task retry requested: {}", request.note),
@@ -723,6 +727,7 @@ impl AppState {
         task_id: String,
         request: &CreateTaskRequest,
     ) -> Result<PreparedExecution, CreateTaskError> {
+        let (playbook_key, version) = self.resolve_bound_playbook_version(request)?;
         let run_id = self.next_id("run");
         let workspace_root = self
             .inner
@@ -734,7 +739,8 @@ impl AppState {
             run_id,
             workspace_id: request.workspace_id.clone(),
             workspace_root: workspace_root.display().to_string(),
-            playbook_key: request.playbook_key.clone(),
+            playbook_key,
+            playbook_version_id: version.playbook_version_id,
         })
         .map_err(map_registered_playbook_error)?;
 
@@ -742,7 +748,7 @@ impl AppState {
             task_id,
             workspace_root: workspace_root.clone(),
             input_path: workspace_root.join("notes.md"),
-            input_contents: request.input.clone(),
+            input_contents: request.input_payload.clone(),
             pending_artifact: ArtifactDto {
                 id: prepared_run.pending_artifact.id,
                 task_id: prepared_run.task.id.clone(),
@@ -753,6 +759,38 @@ impl AppState {
             runtime_task: prepared_run.task,
             runtime_run: prepared_run.run,
         })
+    }
+
+    fn resolve_bound_playbook_version(
+        &self,
+        request: &CreateTaskRequest,
+    ) -> Result<(String, PlaybookVersion), CreateTaskError> {
+        let playbooks = self
+            .inner
+            .lifecycle_playbooks
+            .lock()
+            .expect("playbook lifecycle lock should not be poisoned");
+        let stored = playbooks
+            .get(&request.playbook_handle_id)
+            .ok_or(CreateTaskError::InvalidPlaybookBinding)?;
+        let version = stored
+            .versions
+            .iter()
+            .find(|version| version.playbook_version_id.to_string() == request.playbook_version_id)
+            .ok_or(CreateTaskError::InvalidPlaybookBinding)?;
+        let store_entry_id = stored
+            .handle
+            .source_store_entry_id
+            .as_deref()
+            .ok_or(CreateTaskError::InvalidPlaybookBinding)?;
+        let playbook_key = playbook_key_for_store_entry(store_entry_id)
+            .ok_or(CreateTaskError::InvalidPlaybookBinding)?;
+
+        if version.playbook_handle_id != stored.handle.playbook_handle_id {
+            return Err(CreateTaskError::InvalidPlaybookBinding);
+        }
+
+        Ok((playbook_key.to_owned(), version.clone()))
     }
 
     fn spawn_execution(&self, prepared: PreparedExecution) {
@@ -925,6 +963,7 @@ impl AppState {
 pub enum CreateTaskError {
     WorkspaceNotFound,
     UnknownPlaybook,
+    InvalidPlaybookBinding,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -971,10 +1010,18 @@ fn task_to_dto(task: &StoredTask) -> TaskDto {
         id: task.id.clone(),
         workspace_id: task.workspace_id.clone(),
         playbook_key: task.playbook_key.clone(),
-        input: task.input.clone(),
+        input: task.input_payload.clone(),
         status: task.status.clone(),
         status_summary: task.status_summary.clone(),
         artifact_id: task.artifact_id.clone(),
+    }
+}
+
+fn playbook_key_for_store_entry(store_entry_id: &str) -> Option<&'static str> {
+    match store_entry_id {
+        "store-entry-summary" => Some(SUMMARY_PLAYBOOK_KEY),
+        "store-entry-discovery" => Some(DISCOVER_TOPICS_PLAYBOOK_KEY),
+        _ => None,
     }
 }
 
@@ -1257,10 +1304,31 @@ mod tests {
     #[test]
     fn finish_execution_ignores_stale_run_results() {
         let state = AppState::new_for_test();
+        let handle_id = state
+            .fork_playbook_from_store("store-entry-summary")
+            .expect("store entry should fork")
+            .handle
+            .playbook_handle_id;
+        let publishable = state
+            .save_playbook_draft(
+                &handle_id,
+                "metadata:\n  title: valid draft\ncapability_refs:\n  routines:\n    - builtin.scan_markdown_files\n  tools:\n    - builtin.workspace.read\n    - builtin.artifact.write\n  validators:\n    - builtin.output_contract.summary\nexecution_profile: single\n".to_owned(),
+            )
+            .expect("draft should save");
+        assert!(publishable.health_report.publishable);
+        let published = state
+            .publish_playbook_draft(&handle_id)
+            .expect("draft should publish");
+        let version_id = published
+            .response
+            .version
+            .expect("publish should create a version")
+            .playbook_version_id;
         let request = CreateTaskRequest {
             workspace_id: "workspace-1".to_owned(),
-            playbook_key: SUMMARY_PLAYBOOK_KEY.to_owned(),
-            input: "alpha\nbeta".to_owned(),
+            playbook_handle_id: handle_id.clone(),
+            playbook_version_id: version_id,
+            input_payload: "alpha\nbeta".to_owned(),
         };
 
         let first = state
@@ -1281,7 +1349,9 @@ mod tests {
                     id: "task-stale".to_owned(),
                     workspace_id: "workspace-1".to_owned(),
                     playbook_key: SUMMARY_PLAYBOOK_KEY.to_owned(),
-                    input: "alpha\nbeta".to_owned(),
+                    input_payload: "alpha\nbeta".to_owned(),
+                    playbook_handle_id: handle_id,
+                    playbook_version_id: version_id,
                     artifact_id: None,
                     status: "running".to_owned(),
                     status_summary: "running".to_owned(),

@@ -1,3 +1,5 @@
+use uuid::Uuid;
+
 use crate::policy::entity::PolicyProfile;
 use crate::ports::clock::ClockPort;
 use crate::ports::filesystem::FilesystemPort;
@@ -22,6 +24,7 @@ pub struct RegisteredPlaybookExecutionRequest {
     pub workspace_id: String,
     pub workspace_root: String,
     pub playbook_key: String,
+    pub playbook_version_id: Uuid,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -86,7 +89,7 @@ pub fn prepare_registered_playbook_run(
         request.task_id.clone(),
         workspace.id.clone(),
         playbook.id.clone(),
-        workflow.version_id,
+        request.playbook_version_id,
     );
     let run = Run::new(request.run_id, &task.id, workflow, policy, workspace, playbook);
     let contract =

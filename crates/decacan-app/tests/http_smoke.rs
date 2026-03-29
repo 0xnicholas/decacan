@@ -10,11 +10,88 @@ async fn post_tasks_returns_202_from_router_for_test() {
     let app = decacan_app::app::wiring::router_for_test();
 
     let response = app
-        .oneshot(create_task_request("总结资料", "alpha\nbeta\ngamma"))
+        .clone()
+        .oneshot(create_task_request(&app, "alpha\nbeta\ngamma").await)
         .await
         .expect("router should respond");
 
     assert_eq!(response.status(), StatusCode::ACCEPTED);
+}
+
+#[tokio::test]
+async fn task_creation_requires_published_playbook_version() {
+    let app = decacan_app::app::wiring::router_for_test();
+
+    let direct_store_entry_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/tasks")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"workspace_id":"workspace-1","playbook_handle_id":"store-entry-summary","playbook_version_id":"00000000-0000-0000-0000-000000000000","input_payload":"alpha"}"#,
+                ))
+                .expect("request should build"),
+        )
+        .await
+        .expect("task route should respond");
+    assert_eq!(direct_store_entry_response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+
+    let handle_id = fork_playbook(&app).await;
+    let draft_only_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/tasks")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"workspace_id":"workspace-1","playbook_handle_id":"{handle_id}","playbook_version_id":"00000000-0000-0000-0000-000000000000","input_payload":"alpha"}}"#
+                )))
+                .expect("request should build"),
+        )
+        .await
+        .expect("task route should respond");
+    assert_eq!(draft_only_response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+
+    save_valid_playbook_draft(&app, &handle_id).await;
+    let publish_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/playbooks/{handle_id}/publish"))
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("publish route should respond");
+    assert_eq!(publish_response.status(), StatusCode::OK);
+
+    let publish_body = axum::body::to_bytes(publish_response.into_body(), usize::MAX)
+        .await
+        .expect("publish body should be readable");
+    let publish_json: Value =
+        serde_json::from_slice(&publish_body).expect("publish response should be json");
+    let version_id = publish_json["version"]["playbook_version_id"]
+        .as_str()
+        .expect("published version id should be present");
+
+    let accepted_response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/tasks")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"workspace_id":"workspace-1","playbook_handle_id":"{handle_id}","playbook_version_id":"{version_id}","input_payload":"alpha\nbeta\ngamma"}}"#
+                )))
+                .expect("request should build"),
+        )
+        .await
+        .expect("task route should respond");
+    assert_eq!(accepted_response.status(), StatusCode::ACCEPTED);
 }
 
 #[tokio::test]
@@ -1048,10 +1125,10 @@ async fn save_valid_playbook_draft(app: &axum::Router, handle_id: &str) {
     assert_eq!(response.status(), StatusCode::OK);
 }
 
-async fn create_task(app: &axum::Router, playbook_key: &str, input: &str) -> (String, String) {
+async fn create_task(app: &axum::Router, _playbook_key: &str, input: &str) -> (String, String) {
     let response = app
         .clone()
-        .oneshot(create_task_request(playbook_key, input))
+        .oneshot(create_task_request(app, input).await)
         .await
         .expect("create route should respond");
     assert_eq!(response.status(), StatusCode::ACCEPTED);
@@ -1106,7 +1183,32 @@ async fn wait_for_terminal_task(app: &axum::Router, task_id: &str) -> Value {
     panic!("task {task_id} did not reach a terminal state in time");
 }
 
-fn create_task_request(playbook_key: &str, input: &str) -> Request<Body> {
+async fn create_task_request(app: &axum::Router, input: &str) -> Request<Body> {
+    let handle_id = fork_playbook(app).await;
+    save_valid_playbook_draft(app, &handle_id).await;
+
+    let publish_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/playbooks/{handle_id}/publish"))
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("publish route should respond");
+    assert_eq!(publish_response.status(), StatusCode::OK);
+
+    let publish_body = axum::body::to_bytes(publish_response.into_body(), usize::MAX)
+        .await
+        .expect("publish body should be readable");
+    let publish_json: Value =
+        serde_json::from_slice(&publish_body).expect("publish response should be json");
+    let version_id = publish_json["version"]["playbook_version_id"]
+        .as_str()
+        .expect("published version id should be present");
+
     Request::builder()
         .method("POST")
         .uri("/api/tasks")
@@ -1114,8 +1216,9 @@ fn create_task_request(playbook_key: &str, input: &str) -> Request<Body> {
         .body(Body::from(
             serde_json::json!({
                 "workspace_id": "workspace-1",
-                "playbook_key": playbook_key,
-                "input": input,
+                "playbook_handle_id": handle_id,
+                "playbook_version_id": version_id,
+                "input_payload": input,
             })
             .to_string(),
         ))
