@@ -2,7 +2,9 @@ use decacan_runtime::playbook::authoring::{save_draft, SaveDraftCommand};
 use decacan_runtime::playbook::entity::{
     DraftHealthIssueDomain, DraftHealthIssueSeverity, DraftValidationState, PlaybookDraft,
 };
+use decacan_runtime::playbook::publish::{publish_draft, PublishDraftCommand};
 use time::OffsetDateTime;
+use uuid::Uuid;
 
 #[test]
 fn draft_save_replaces_the_full_document() {
@@ -76,6 +78,75 @@ fn draft_save_reports_unresolved_builtin_only_capability_refs() {
     );
 }
 
+#[test]
+fn publish_success_creates_immutable_playbook_version() {
+    let published_at = OffsetDateTime::from_unix_timestamp(1_743_300_180)
+        .expect("fixture timestamp should be valid");
+
+    let result = publish_draft(PublishDraftCommand {
+        draft: sample_draft(valid_publish_spec_document(), DraftValidationState::Validated),
+        playbook_version_id: Uuid::parse_str("2f7aebaf-4c0e-4ca2-a1ad-f2dc40610b8c")
+            .expect("fixture uuid should be valid"),
+        version_number: 2,
+        published_at,
+    });
+
+    assert!(result.health_report.publishable);
+    assert_eq!(result.resolved_refs.len(), 4);
+    assert_eq!(result.resolved_refs[0], "builtin.scan_markdown_files");
+
+    let version = result
+        .version
+        .expect("publish success should create a version");
+    assert_eq!(version.playbook_handle_id, "handle-1");
+    assert_eq!(version.version_number, 2);
+    assert_eq!(version.published_at, published_at);
+    assert_eq!(version.spec_document, valid_publish_spec_document());
+}
+
+#[test]
+fn publish_failure_returns_structured_issues() {
+    let published_at = OffsetDateTime::from_unix_timestamp(1_743_300_240)
+        .expect("fixture timestamp should be valid");
+
+    let result = publish_draft(PublishDraftCommand {
+        draft: sample_draft(invalid_publish_spec_document(), DraftValidationState::Blocked),
+        playbook_version_id: Uuid::parse_str("f83a7bd5-15c3-47cb-8097-4aa0f09f4d22")
+            .expect("fixture uuid should be valid"),
+        version_number: 1,
+        published_at,
+    });
+
+    assert!(!result.health_report.publishable);
+    assert_eq!(result.health_report.issues.len(), 2);
+    assert!(result.version.is_none());
+    assert_eq!(
+        result.health_report.issues[0].domain,
+        DraftHealthIssueDomain::Capabilities
+    );
+    assert_eq!(
+        result.health_report.issues[1].domain,
+        DraftHealthIssueDomain::Execution
+    );
+}
+
+#[test]
+fn publish_failure_creates_no_half_version_object() {
+    let published_at = OffsetDateTime::from_unix_timestamp(1_743_300_300)
+        .expect("fixture timestamp should be valid");
+
+    let result = publish_draft(PublishDraftCommand {
+        draft: sample_draft(invalid_publish_spec_document(), DraftValidationState::Blocked),
+        playbook_version_id: Uuid::parse_str("fa9ff8ef-0e1f-4351-b522-d55e5c89ae6f")
+            .expect("fixture uuid should be valid"),
+        version_number: 5,
+        published_at,
+    });
+
+    assert!(result.version.is_none());
+    assert!(result.resolved_refs.is_empty());
+}
+
 fn sample_draft(spec_document: &str, validation_state: DraftValidationState) -> PlaybookDraft {
     let saved_at = OffsetDateTime::from_unix_timestamp(1_743_299_000)
         .expect("fixture timestamp should be valid");
@@ -95,4 +166,12 @@ fn valid_spec_document() -> &'static str {
 
 fn invalid_spec_document() -> &'static str {
     "metadata:\n  title: invalid draft\ncapability_refs:\n  routines:\n    - ext.acme.topic_cluster\n"
+}
+
+fn valid_publish_spec_document() -> &'static str {
+    "metadata:\n  title: valid publish draft\ncapability_refs:\n  routines:\n    - builtin.scan_markdown_files\n  tools:\n    - builtin.workspace.read\n    - builtin.artifact.write\n  validators:\n    - builtin.output_contract.summary\nexecution_profile: single\n"
+}
+
+fn invalid_publish_spec_document() -> &'static str {
+    "metadata:\n  title: invalid publish draft\ncapability_refs:\n  routines:\n    - ext.acme.topic_cluster\nexecution_profile: team(core)\n"
 }

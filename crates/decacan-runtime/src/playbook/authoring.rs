@@ -37,7 +37,7 @@ pub fn save_draft(command: SaveDraftCommand) -> SaveDraftResult {
     }
 }
 
-fn compute_draft_health(spec_document: &str) -> DraftHealthReport {
+pub fn compute_draft_health(spec_document: &str) -> DraftHealthReport {
     let issues = unresolved_capability_ref_issues(spec_document);
     let publishable = issues.is_empty();
     let summary = if publishable {

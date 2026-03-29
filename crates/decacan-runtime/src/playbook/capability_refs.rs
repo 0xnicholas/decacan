@@ -31,6 +31,14 @@ pub fn unresolved_capability_ref_issues(spec_document: &str) -> Vec<DraftHealthI
         .collect()
 }
 
+pub fn resolved_builtin_capability_refs(spec_document: &str) -> Vec<String> {
+    declared_capability_refs(spec_document)
+        .into_iter()
+        .filter(|reference| is_supported_builtin_ref(&reference.reference))
+        .map(|reference| reference.reference)
+        .collect()
+}
+
 fn declared_capability_refs(spec_document: &str) -> Vec<CapabilityRefUse> {
     let mut references = Vec::new();
     let mut in_capability_refs = false;
