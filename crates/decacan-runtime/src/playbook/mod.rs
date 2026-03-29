@@ -1,3 +1,5 @@
+pub mod authoring;
+pub mod capability_refs;
 pub mod entity;
 pub mod execution;
 pub mod lifecycle;
