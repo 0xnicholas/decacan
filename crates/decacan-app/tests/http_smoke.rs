@@ -1022,6 +1022,89 @@ async fn playbook_publish_endpoint_returns_version_on_success() {
 }
 
 #[tokio::test]
+async fn playbook_publish_then_run_single_path_reaches_artifact_output() {
+    let app = decacan_app::app::wiring::router_for_test();
+    let handle_id = fork_playbook(&app).await;
+    save_valid_playbook_draft(&app, &handle_id).await;
+
+    let publish_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/playbooks/{handle_id}/publish"))
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("playbook publish route should respond");
+    assert_eq!(publish_response.status(), StatusCode::OK);
+
+    let publish_body = axum::body::to_bytes(publish_response.into_body(), usize::MAX)
+        .await
+        .expect("publish body should be readable");
+    let publish_json: Value =
+        serde_json::from_slice(&publish_body).expect("publish response should be json");
+    let version_id = publish_json["version"]["playbook_version_id"]
+        .as_str()
+        .expect("published version id should be present");
+
+    let create_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/tasks")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({
+                        "workspace_id": "workspace-1",
+                        "playbook_handle_id": handle_id,
+                        "playbook_version_id": version_id,
+                        "input_payload": "alpha\nbeta\ngamma",
+                    })
+                    .to_string(),
+                ))
+                .expect("request should build"),
+        )
+        .await
+        .expect("task create route should respond");
+    assert_eq!(create_response.status(), StatusCode::ACCEPTED);
+
+    let create_body = axum::body::to_bytes(create_response.into_body(), usize::MAX)
+        .await
+        .expect("task create body should be readable");
+    let create_json: Value =
+        serde_json::from_slice(&create_body).expect("task create response should be json");
+    let task_id = create_json["task"]["id"]
+        .as_str()
+        .expect("task id should be present");
+    let artifact_id = create_json["task"]["artifact_id"]
+        .as_str()
+        .expect("artifact id should be present");
+
+    let detail = wait_for_terminal_task(&app, task_id).await;
+    assert_eq!(detail["task"]["status"], "succeeded");
+    assert!(detail["timeline"]
+        .as_array()
+        .expect("timeline should be an array")
+        .iter()
+        .any(|event| event["event_type"] == "artifact.ready"));
+
+    let content_response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri(format!("/api/artifacts/{artifact_id}/content"))
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("artifact content route should respond");
+    assert_eq!(content_response.status(), StatusCode::OK);
+}
+
+#[tokio::test]
 async fn playbook_publish_endpoint_returns_structured_issues_on_failure() {
     let app = decacan_app::app::wiring::router_for_test();
     let handle_id = fork_playbook(&app).await;

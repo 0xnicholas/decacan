@@ -1327,7 +1327,7 @@ mod tests {
         let request = CreateTaskRequest {
             workspace_id: "workspace-1".to_owned(),
             playbook_handle_id: handle_id.clone(),
-            playbook_version_id: version_id,
+            playbook_version_id: version_id.clone(),
             input_payload: "alpha\nbeta".to_owned(),
         };
 

@@ -3,12 +3,14 @@ use std::fs;
 use decacan_runtime::events::TaskEventPayload;
 use decacan_runtime::run::entity::RunStatus;
 use decacan_runtime::task::entity::TaskStatus;
+use uuid::Uuid;
 
 #[test]
 fn execute_summary_playbook_e2e_for_test_completes_and_reports_primary_summary_artifact() {
     let result = decacan_runtime::run::service::execute_summary_playbook_e2e_for_test();
 
     assert_eq!(result.task.status, TaskStatus::Succeeded);
+    assert_ne!(result.task.playbook_version_id, Uuid::nil());
     assert_eq!(result.run.status, RunStatus::Completed);
     assert_eq!(result.primary_artifact.canonical_path, "output/summary.md");
     assert_eq!(
