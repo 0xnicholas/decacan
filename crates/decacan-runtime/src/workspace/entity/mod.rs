@@ -3,7 +3,8 @@ pub mod storage;
 pub mod user;
 pub mod workspace;
 
-pub use membership::{WorkspaceMembership, WorkspaceRole};
+pub use crate::workspace::rbac::WorkspaceRole;
+pub use membership::WorkspaceMembership;
 pub use user::{User, UserStatus};
 pub use workspace::{
     Workspace, WorkspaceFeatures, WorkspaceSettings, WorkspaceStatus, WorkspaceVisibility,

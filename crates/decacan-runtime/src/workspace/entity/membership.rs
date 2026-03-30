@@ -1,14 +1,6 @@
+use crate::workspace::rbac::{Permission, WorkspaceRole};
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum WorkspaceRole {
-    Owner,
-    Admin,
-    Editor,
-    Viewer,
-}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WorkspaceMembership {
@@ -41,5 +33,9 @@ impl WorkspaceMembership {
             joined_at: now,
             expires_at: None,
         }
+    }
+
+    pub fn has_permission(&self, permission: &Permission) -> bool {
+        self.role.permissions().iter().any(|p| p.covers(permission))
     }
 }
