@@ -2,6 +2,7 @@ use decacan_runtime::workspace::entity::storage::{StorageConfig, StorageProvider
 use decacan_runtime::workspace::entity::workspace::{
     Workspace, WorkspaceFeatures, WorkspaceSettings, WorkspaceStatus, WorkspaceVisibility,
 };
+use decacan_runtime::workspace::entity::{User, UserStatus, WorkspaceMembership, WorkspaceRole};
 use time::OffsetDateTime;
 
 #[test]
@@ -285,4 +286,25 @@ fn workspace_complete_roundtrip() {
         workspace.settings.features.enable_team_execution,
         deserialized.settings.features.enable_team_execution
     );
+}
+
+#[test]
+fn user_has_required_fields() {
+    let user = User::new("user-1", "tenant-1", "user@example.com", "John Doe", None);
+
+    assert_eq!(user.id, "user-1");
+    assert_eq!(user.tenant_id, "tenant-1");
+    assert_eq!(user.email, "user@example.com");
+    assert_eq!(user.name, "John Doe");
+    assert!(matches!(user.status, UserStatus::Active));
+}
+
+#[test]
+fn workspace_membership_has_role() {
+    let membership =
+        WorkspaceMembership::new("member-1", "ws-1", "user-1", WorkspaceRole::Editor, None);
+
+    assert_eq!(membership.workspace_id, "ws-1");
+    assert_eq!(membership.user_id, "user-1");
+    assert!(matches!(membership.role, WorkspaceRole::Editor));
 }
