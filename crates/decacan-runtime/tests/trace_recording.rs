@@ -1,6 +1,7 @@
-use decacan_runtime::trace::entities::{StepStatus, StepTrace};
+use decacan_runtime::trace::entities::{StepStatus, StepTrace, TaskExecutionTrace, TaskStatus};
 use serde_json::json;
 use time::OffsetDateTime;
+use uuid::Uuid;
 
 #[test]
 fn test_step_trace_creation() {
@@ -22,4 +23,29 @@ fn test_step_trace_creation() {
 
     assert_eq!(trace.step_id, "scan");
     assert_eq!(trace.sequence, 1);
+}
+
+#[tokio::test]
+async fn test_trace_persistence() {
+    use decacan_runtime::storage::trace_store::TraceStore;
+
+    let store = TraceStore::new_in_memory().await.unwrap();
+
+    let trace = TaskExecutionTrace {
+        task_id: "task-test-001".to_string(),
+        playbook_version_id: Uuid::new_v4(),
+        workspace_id: "ws-1".to_string(),
+        steps: vec![],
+        overall_status: TaskStatus::Succeeded,
+        total_duration_ms: 1000,
+        step_count: 0,
+        failed_step_index: None,
+        created_at: OffsetDateTime::now_utc(),
+        completed_at: Some(OffsetDateTime::now_utc()),
+    };
+
+    store.save_trace(&trace).await.unwrap();
+
+    let retrieved = store.get_trace(&trace.task_id).await.unwrap().expect("trace not found");
+    assert_eq!(retrieved.task_id, trace.task_id);
 }

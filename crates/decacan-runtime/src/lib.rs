@@ -9,6 +9,7 @@ pub mod ports;
 mod routine;
 pub mod run;
 mod semantic;
+pub mod storage;
 pub mod task;
 pub mod trace;
 pub mod workflow;
