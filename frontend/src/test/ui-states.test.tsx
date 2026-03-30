@@ -26,8 +26,8 @@ describe("LoadingState", () => {
 
 describe("ErrorState", () => {
   it("renders error message", () => {
-    render(<ErrorState message="Something went wrong" />);
-    expect(screen.getByText("Something went wrong")).toBeInTheDocument();
+    render(<ErrorState message="Failed to load data" />);
+    expect(screen.getByText("Failed to load data")).toBeInTheDocument();
   });
 
   it("renders retry button when onRetry provided", () => {
@@ -52,25 +52,25 @@ describe("ErrorState", () => {
 
 describe("EmptyState", () => {
   it("renders message", () => {
-    render(<EmptyState message="No tasks found" />);
+    render(<EmptyState title="No Data" message="No tasks found" />);
     expect(screen.getByText("No tasks found")).toBeInTheDocument();
   });
 
-  it("renders action button when actionLabel and onAction provided", () => {
+  it("renders action button when action provided", () => {
     const handleAction = vi.fn();
-    render(<EmptyState message="Empty" actionLabel="Create Task" onAction={handleAction} />);
+    render(<EmptyState title="Empty" message="Empty" action={{ label: "Create Task", onClick: handleAction }} />);
     expect(screen.getByRole("button", { name: "Create Task" })).toBeInTheDocument();
   });
 
-  it("does not render action button when actionLabel not provided", () => {
-    render(<EmptyState message="Empty" />);
+  it("does not render action button when action not provided", () => {
+    render(<EmptyState title="Empty" message="Empty" />);
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
-  it("calls onAction when action button is clicked", async () => {
+  it("calls action.onClick when action button is clicked", async () => {
     const user = userEvent.setup();
     const handleAction = vi.fn();
-    render(<EmptyState message="Empty" actionLabel="Create" onAction={handleAction} />);
+    render(<EmptyState title="Empty" message="Empty" action={{ label: "Create", onClick: handleAction }} />);
     await user.click(screen.getByRole("button", { name: "Create" }));
     expect(handleAction).toHaveBeenCalledTimes(1);
   });

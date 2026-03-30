@@ -1,16 +1,17 @@
 interface EmptyStateProps {
+  title: string;
   message: string;
-  actionLabel?: string;
-  onAction?: () => void;
+  action?: { label: string; onClick: () => void };
 }
 
-export function EmptyState({ message, actionLabel, onAction }: EmptyStateProps) {
+export function EmptyState({ title, message, action }: EmptyStateProps) {
   return (
-    <div className="empty-state">
+    <div className="ui-state empty-state">
+      <p className="empty-title">{title}</p>
       <p className="empty-message">{message}</p>
-      {actionLabel && onAction && (
-        <button className="primary-button" onClick={onAction} type="button">
-          {actionLabel}
+      {action && (
+        <button className="primary-button" onClick={action.onClick} type="button">
+          {action.label}
         </button>
       )}
     </div>

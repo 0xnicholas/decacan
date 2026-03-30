@@ -604,6 +604,30 @@ body {
 
 /* Shared UI State Components */
 
+.ui-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.error-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #181311;
+}
+
+.empty-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #181311;
+}
+
 .loading-state {
   display: flex;
   flex-direction: column;
@@ -679,7 +703,7 @@ body {
   font-size: 2rem;
 }
 
-.page-header-subtitle {
+.page-subtitle {
   margin: 0;
   color: rgba(24, 19, 17, 0.68);
   font-size: 1rem;

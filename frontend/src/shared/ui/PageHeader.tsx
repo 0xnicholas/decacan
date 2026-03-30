@@ -7,7 +7,7 @@ export function PageHeader({ title, subtitle }: PageHeaderProps) {
   return (
     <header className="page-header">
       <h1>{title}</h1>
-      {subtitle && <p className="page-header-subtitle">{subtitle}</p>}
+      {subtitle && <p className="page-subtitle">{subtitle}</p>}
     </header>
   );
 }
