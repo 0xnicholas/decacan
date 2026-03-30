@@ -44,13 +44,36 @@ function WorkspaceSectionPlaceholder({ section }: { section: WorkspaceSection })
   );
 }
 
+function WorkspaceUnknownSectionPlaceholder() {
+  return (
+    <main className="task-route-placeholder">
+      <p className="eyebrow">Decacan</p>
+      <h1>Loading task</h1>
+    </main>
+  );
+}
+
+function WorkspaceSegmentOverflowPlaceholder() {
+  return (
+    <section className="workspace-route-placeholder">
+      <p className="eyebrow">Workspace</p>
+      <h1>Route not available</h1>
+      <p className="subcopy">Content for this route will be implemented in later tasks.</p>
+    </section>
+  );
+}
+
 export function AppRouter() {
   const pathname = usePathname();
+  const pathnameSegments = pathname.split("/").filter(Boolean);
+  const isWorkspacePath = pathnameSegments[0] === "workspaces" && pathnameSegments.length >= 2;
   const workspaceDeliverableRoute = pathname.match(
     /^\/workspaces\/([^/]+)\/deliverables\/([^/]+)\/?$/,
   );
   const workspaceTaskRoute = pathname.match(/^\/workspaces\/([^/]+)\/tasks\/([^/]+)\/?$/);
   const workspaceRoute = parseWorkspaceRoute(pathname);
+  const workspaceBaseMatch = pathname.match(/^\/workspaces\/([^/]+)(?:\/([^/]+))?\/?$/);
+  const hasWorkspaceSegmentOverflow = isWorkspacePath && pathnameSegments.length > 3;
 
   if (pathname === "/inbox" || pathname === "/inbox/") {
     return <InboxPage />;
@@ -90,6 +113,10 @@ export function AppRouter() {
     );
   }
 
+  if (hasWorkspaceSegmentOverflow && !workspaceTaskRoute && !workspaceDeliverableRoute) {
+    return <WorkspaceSegmentOverflowPlaceholder />;
+  }
+
   if (workspaceRoute) {
     const workspaceSectionContent =
       workspaceRoute.section === "home" ? (
@@ -110,6 +137,16 @@ export function AppRouter() {
         workspaceId={workspaceRoute.workspaceId}
       >
         {workspaceSectionContent}
+      </WorkspaceShell>
+    );
+  }
+
+  if (workspaceBaseMatch && !workspaceRoute) {
+    const [, workspaceId] = workspaceBaseMatch;
+
+    return (
+      <WorkspaceShell currentSection="tasks" workspaceId={workspaceId}>
+        <WorkspaceUnknownSectionPlaceholder />
       </WorkspaceShell>
     );
   }

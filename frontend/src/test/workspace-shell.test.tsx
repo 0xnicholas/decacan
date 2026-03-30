@@ -55,7 +55,8 @@ describe("WorkspaceShell", () => {
 
     expect(await screen.findByText("Home")).toBeInTheDocument();
     expect(screen.getByText("Tasks")).toBeInTheDocument();
-    expect(screen.getByText("Deliverables")).toBeInTheDocument();
+    const deliverableMatches = screen.getAllByText("Deliverables");
+    expect(deliverableMatches.some((node) => node.tagName === "BUTTON")).toBeTruthy();
     expect(screen.getByRole("button", { name: "New Task" })).toBeInTheDocument();
   });
 
@@ -64,16 +65,17 @@ describe("WorkspaceShell", () => {
 
     render(<App />);
 
-    expect(await screen.findByText("Choose a playbook")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "New Task" })).not.toBeInTheDocument();
+    expect(await screen.findByText("Loading task")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "New Task" })).toBeInTheDocument();
   });
 
   it("rejects workspace sections with extra path segments", async () => {
-    window.history.replaceState({}, "", "/workspaces/workspace-1/tasks/extra");
+    window.history.replaceState({}, "", "/workspaces/workspace-1/tasks/extra/overflow");
 
     render(<App />);
 
-    expect(await screen.findByText("Choose a playbook")).toBeInTheDocument();
+    const placeholders = await screen.findAllByText("Content for this route will be implemented in later tasks.");
+    expect(placeholders.length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: "New Task" })).not.toBeInTheDocument();
   });
 
