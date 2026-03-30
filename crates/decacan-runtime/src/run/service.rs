@@ -10,7 +10,9 @@ use crate::ports::filesystem::FilesystemPort;
 use crate::ports::storage::StoragePort;
 use crate::routine::executor::execute_workflow;
 use crate::task::entity::Task;
-use crate::task::service::{begin_planning, mark_failed, mark_running, mark_succeeded, TaskServiceError};
+use crate::task::service::{
+    begin_planning, mark_failed, mark_running, mark_succeeded, TaskServiceError,
+};
 
 use super::entity::{Run, RunStatus};
 
@@ -213,7 +215,7 @@ impl RunService {
             clock,
             SemanticGatewayAdapter::new(ToolGateway::new(
                 run.policy_snapshot.clone(),
-                std::path::Path::new(&run.workspace_snapshot.root_path).join("output"),
+                std::path::Path::new(&run.workspace_snapshot.root_path()).join("output"),
             )),
         );
         let routine_result = match routine_result {
@@ -226,7 +228,7 @@ impl RunService {
         mark_succeeded(task, run)?;
 
         Ok(SummaryPlaybookE2eResult {
-            workspace_root: PathBuf::from(&run.workspace_snapshot.root_path),
+            workspace_root: PathBuf::from(run.workspace_snapshot.root_path()),
             task: task.clone(),
             run: run.clone(),
             primary_artifact: routine_result.primary_artifact,

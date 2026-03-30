@@ -126,7 +126,7 @@ where
     S::Error: Debug,
     C: ClockPort,
 {
-    let mut context = RoutineExecutionContext::new(run.workspace_snapshot.root_path.clone());
+    let mut context = RoutineExecutionContext::new(run.workspace_snapshot.root_path().to_string());
     let artifact_service = ArtifactService::new(filesystem, storage, clock);
     let execution_profile = ExecutionProfile::for_run(run)?;
 
