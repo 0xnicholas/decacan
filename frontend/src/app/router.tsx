@@ -7,6 +7,7 @@ import {
 } from "../entities/workspace/routeModel";
 import { ActivityPage } from "../features/activity/ActivityPage";
 import { ApprovalsPage } from "../features/approvals/ApprovalsPage";
+import { MembersPage } from "../features/members/MembersPage";
 import { DeliverableDetailPage } from "../features/deliverables/DeliverableDetailPage";
 import { DeliverablesPage } from "../features/deliverables/DeliverablesPage";
 import { InboxPage } from "../features/inbox/InboxPage";
@@ -130,6 +131,8 @@ export function AppRouter() {
         <ApprovalsPage workspaceId={workspaceRoute.workspaceId} />
       ) : workspaceRoute.section === "activity" ? (
         <ActivityPage workspaceId={workspaceRoute.workspaceId} />
+      ) : workspaceRoute.section === "members" ? (
+        <MembersPage workspaceId={workspaceRoute.workspaceId} />
       ) : (
         <WorkspaceSectionPlaceholder section={workspaceRoute.section} />
       );
