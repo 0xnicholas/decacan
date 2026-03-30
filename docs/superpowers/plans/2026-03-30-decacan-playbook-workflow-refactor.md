@@ -18,21 +18,56 @@ Related Spec: 2026-03-30-decacan-knowledge-learning-design.md
 
 ## 1. 架构设计（已确认）
 
-### 1.1 核心变更
+### 1.1 两阶段架构
+
+**Phase 1（当前 4 周）：Routine 直接实现（简化版）**
+- Workflow 步骤直接引用 Routine
+- 保持简单，快速实现
+- 支持知识学习系统集成
+
+**Phase 2（未来扩展）：Capability 抽象层**
+- 引入 Capability → Implementation 架构
+- 支持 Routine/Tool/Skill 多种实现
+- Agent 可介入决策
+
+### 1.2 核心变更（Phase 1）
+
+**设计理念：先简化实现，后抽象扩展**
+
+Phase 1 保持简单：Routine 直接实现，不引入 Capability 抽象层。这样可以：
+- 快速完成重构，替换硬编码逻辑
+- 支持知识学习系统（通过 `step.knowledge_context`）
+- 为 Phase 2 预留清晰的扩展点
 
 ```
-当前：                              重构后：
-┌──────────────────┐               ┌──────────────────────┐
-│ PlaybookVersion  │               │ PlaybookVersion      │
-│ ├─ spec_document │ ← 未解析     │ ├─ spec: PlaybookSpec│ ← 已解析
-│ │   (String)     │               │ │   ├─ metadata      │
-│ └─ ...           │               │ │   ├─ input_schema  │
-└──────────────────┘               │ │   ├─ workflow      │ ← 内嵌
-                                    │ │   │  └─ steps      │
-                                    │ │   ├─ capabilities  │
-                                    │ │   └─ contracts     │
-                                    │ └─ compiled_workflow │ ← 编译缓存
-                                    └──────────────────────┘
+当前（硬编码）：                    Phase 1（简化版）：
+┌──────────────────┐              ┌──────────────────────┐
+│ PlaybookVersion  │              │ PlaybookVersion      │
+│ ├─ spec_document │ ← 未解析    │ ├─ spec: PlaybookSpec│ ← 已解析
+│ │   (String)     │              │ │   ├─ metadata      │
+│ └─ ...           │              │ │   ├─ input_schema  │
+└──────────────────┘              │ │   ├─ workflow      │ ← 内嵌
+                                  │ │   │  └─ steps      │
+                                  │ │   │     └─ routine │ ← 直接引用
+                                  │ │   └─ contracts     │
+                                  │ └─ compiled_workflow │
+                                  └──────────────────────┘
+
+Phase 2（未来扩展）：
+┌──────────────────────────┐
+│ StepDefinition           │
+│ ├─ capability:           │ ← Capability 抽象层
+│ │   CapabilityRef        │
+│ └─ ...                   │
+└───────────┬──────────────┘
+            │ resolve
+            ▼
+  ┌──────────────────────┐
+  │ Implementation       │
+  │ ├─ Routine           │
+  │ ├─ Tool              │
+  │ └─ Skill             │
+  └──────────────────────┘
 ```
 
 ### 1.2 实体关系
@@ -824,6 +859,125 @@ git commit -m "feat(executor): implement new WorkflowEngine
 **目标：** 创建 YAML specs、全面测试、迁移现有 playbook
 
 （详细实现包含测试用例、迁移脚本、文档等）
+
+---
+
+## Phase 2: Capability 抽象层（未来扩展）
+
+### 目标
+
+将 Routine 实现升级为 **Capability → Implementation** 架构，支持多种实现类型（Routine/Tool/Skill）和 Agent 决策。
+
+### 架构演进
+
+```
+Phase 1 (当前重构):          Phase 2 (未来扩展):
+┌─────────────────┐         ┌──────────────────────────┐
+│ StepDefinition  │         │ StepDefinition           │
+│ ├─ routine:     │   →     │ ├─ capability:           │ ← 引用 Capability
+│ │   RoutineRef  │         │ │   CapabilityRef        │
+│ └─ ...          │         │ └─ ...                   │
+└─────────────────┘         └───────────┬──────────────┘
+                                        │ resolve
+                                        ▼
+                              ┌──────────────────────┐
+                              │ CapabilityResolver   │
+                              │ (Agent 可介入)        │
+                              └───────────┬──────────┘
+                                          │ select
+                                          ▼
+                              ┌──────────────────────┐
+                              │ Implementation       │
+                              │ ├─ Routine           │
+                              │ ├─ Tool  (新增)      │
+                              │ └─ Skill (新增)      │
+                              └──────────────────────┘
+```
+
+### 新增组件
+
+**1. Capability 定义**
+
+```rust
+// capability/mod.rs (Phase 2 新增)
+pub struct Capability {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub input_contract: Contract,
+    pub output_contract: Contract,
+    pub implementations: Vec<ImplementationRef>,
+}
+
+pub struct ImplementationRef {
+    pub implementation_type: ImplementationType,  // Routine | Tool | Skill
+    pub ref_name: String,
+    pub version: String,
+    pub constraints: Vec<Constraint>,  // 适用条件
+}
+
+pub enum ImplementationType {
+    Routine,
+    Tool,    // Phase 2 新增：外部 API 调用
+    Skill,   // Phase 2 新增：子 workflow 组合
+}
+```
+
+**2. Capability Resolver**
+
+```rust
+// capability/resolver.rs (Phase 2 新增)
+pub trait CapabilityResolver: Send + Sync {
+    /// 根据上下文选择最佳实现
+    fn resolve(
+        &self,
+        capability_id: &str,
+        context: &ExecutionContext,
+    ) -> Result<ImplementationRef, ResolveError>;
+}
+
+// 简单实现：按优先级选择
+pub struct PriorityResolver;
+
+// Agent 实现：AI 决策
+pub struct AgentResolver {
+    agent: Arc<dyn Agent>,
+}
+```
+
+**3. Playbook 使用方式变化**
+
+```yaml
+# Phase 1: 直接引用 Routine
+workflow:
+  steps:
+    - id: analyze
+      routine:  # ← 直接指定实现
+        class: builtin
+        name: scan_markdown_files
+
+# Phase 2: 引用 Capability
+workflow:
+  steps:
+    - id: analyze
+      capability: document_analysis  # ← 只声明能力
+      # Resolver 决定用 Routine/Tool/Skill
+```
+
+### 实施策略（按需引入）
+
+| 阶段 | 内容 | 触发条件 |
+|------|------|----------|
+| **Phase 1** | Routine 直接实现 | 当前重构，保持简单 |
+| **Phase 2.1** | Tool 支持 | 需要调用外部 API 时 |
+| **Phase 2.2** | Skill 支持 | 需要复杂子 workflow 时 |
+| **Phase 2.3** | Agent Resolver | 需要 AI 智能决策时 |
+
+### 向后兼容
+
+Phase 2 完全向后兼容 Phase 1：
+- `step.routine` 可以自动映射为 `capability` + 单一 Routine 实现
+- 现有 Playbook YAML 无需修改
 
 ---
 
