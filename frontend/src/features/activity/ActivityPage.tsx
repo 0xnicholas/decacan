@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 
-import type { ActivityEvent, ActivityEventType } from "../../entities/activity/types";
+import type { ActivityEvent, ActivityEventType, ActivityFilters } from "../../entities/activity/types";
 import { EmptyState, ErrorState, LoadingState, PageHeader } from "../../shared/ui";
 import { fetchWorkspaceActivity, getEventTypeLabel } from "../../shared/api/activity";
-import { ActivityFilters } from "./ActivityFilters";
+import { ActivityFilters as ActivityFiltersComponent } from "./ActivityFilters";
 
 interface ActivityPageProps {
   workspaceId: string;
@@ -14,19 +14,19 @@ function getEventDescription(event: ActivityEvent): string {
   
   switch (event.type) {
     case "task_created":
-      return `${event.actor} created task ${event.target}`;
+      return `${event.actor.name} created task ${event.target.title}`;
     case "task_completed":
-      return `${event.actor} completed task ${event.target}`;
+      return `${event.actor.name} completed task ${event.target.title}`;
     case "approval_requested":
-      return `${event.actor} requested approval ${event.target}`;
+      return `${event.actor.name} requested approval ${event.target.title}`;
     case "approval_resolved":
-      return `${event.actor} resolved approval ${event.target}`;
+      return `${event.actor.name} resolved approval ${event.target.title}`;
     case "deliverable_created":
-      return `${event.actor} created deliverable ${event.target}`;
+      return `${event.actor.name} created deliverable ${event.target.title}`;
     case "member_joined":
-      return `${event.actor} joined as ${event.target}`;
+      return `${event.actor.name} joined workspace`;
     default:
-      return `${event.actor} ${typeLabel} ${event.target}`;
+      return `${event.actor.name} ${typeLabel} ${event.target.title}`;
   }
 }
 
@@ -60,13 +60,12 @@ export function ActivityPage({ workspaceId }: ActivityPageProps) {
   const [events, setEvents] = useState<ActivityEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedType, setSelectedType] = useState<ActivityEventType | "all">("all");
+  const [filters, setFilters] = useState<ActivityFilters>({});
 
   const loadActivity = async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const filters = selectedType === "all" ? undefined : { type: selectedType };
       const data = await fetchWorkspaceActivity(workspaceId, filters);
       setEvents(data);
     } catch (err) {
@@ -78,15 +77,15 @@ export function ActivityPage({ workspaceId }: ActivityPageProps) {
 
   useEffect(() => {
     void loadActivity();
-  }, [workspaceId, selectedType]);
+  }, [workspaceId, filters]);
 
   return (
     <section aria-label="Activity" className="activity-page">
       <PageHeader title="Activity" subtitle="Track what's happening in your workspace" />
 
-      <ActivityFilters
-        selectedType={selectedType}
-        onTypeChange={setSelectedType}
+      <ActivityFiltersComponent
+        filters={filters}
+        onChange={setFilters}
       />
 
       {isLoading && (
@@ -115,8 +114,8 @@ export function ActivityPage({ workspaceId }: ActivityPageProps) {
                 <p className="activity-event-description">
                   {getEventDescription(event)}
                 </p>
-                <time className="activity-event-time" dateTime={event.timestamp}>
-                  {formatRelativeTime(event.timestamp)}
+                <time className="activity-event-time" dateTime={event.createdAt}>
+                  {formatRelativeTime(event.createdAt)}
                 </time>
               </div>
             </li>

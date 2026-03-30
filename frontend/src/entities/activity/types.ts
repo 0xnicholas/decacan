@@ -9,11 +9,11 @@ export type ActivityEventType =
 export interface ActivityEvent {
   id: string;
   type: ActivityEventType;
-  actor: string;
-  target: string;
-  timestamp: string;
+  actor: { id: string; name: string };
+  target: { type: "task" | "deliverable" | "approval" | "workspace"; id: string; title: string };
+  createdAt: string;
 }
 
 export interface ActivityFilters {
-  type?: ActivityEventType;
+  types?: ActivityEventType[];
 }

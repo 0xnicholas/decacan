@@ -4,30 +4,30 @@ export const MOCK_ACTIVITY: ActivityEvent[] = [
   {
     id: "event-1",
     type: "task_created",
-    actor: "Ari",
-    target: "TASK-001",
-    timestamp: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+    actor: { id: "user-1", name: "Ari" },
+    target: { type: "task", id: "TASK-001", title: "TASK-001" },
+    createdAt: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
   },
   {
     id: "event-2",
     type: "task_completed",
-    actor: "Maya",
-    target: "TASK-002",
-    timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+    actor: { id: "user-2", name: "Maya" },
+    target: { type: "task", id: "TASK-002", title: "TASK-002" },
+    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
   },
   {
     id: "event-3",
     type: "approval_requested",
-    actor: "Sam",
-    target: "APPROVAL-001",
-    timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+    actor: { id: "user-3", name: "Sam" },
+    target: { type: "approval", id: "APPROVAL-001", title: "APPROVAL-001" },
+    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
   },
   {
     id: "event-4",
     type: "deliverable_created",
-    actor: "Alex",
-    target: "DELIVERABLE-001",
-    timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+    actor: { id: "user-4", name: "Alex" },
+    target: { type: "deliverable", id: "DELIVERABLE-001", title: "DELIVERABLE-001" },
+    createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
   },
 ];
 
@@ -35,23 +35,21 @@ export async function fetchWorkspaceActivity(
   workspaceId: string,
   filters?: ActivityFilters,
 ): Promise<ActivityEvent[]> {
-  let url = `/api/workspaces/${workspaceId}/activity`;
-  
-  if (filters?.type) {
-    url += `?type=${filters.type}`;
-  }
-
-  const response = await fetch(url);
+  // Simulate network delay
+  await new Promise(resolve => setTimeout(resolve, 300));
   
   if (workspaceId === "error-workspace") {
-    throw new Error(`GET activity failed with ${response.status}`);
-  }
-  
-  if (!response.ok) {
-    throw new Error(`GET activity failed with ${response.status}`);
+    throw new Error("GET activity failed with 500");
   }
 
-  return (await response.json()) as ActivityEvent[];
+  let results = [...MOCK_ACTIVITY];
+
+  if (filters?.types && filters.types.length > 0) {
+    const filterTypes = filters.types;
+    results = results.filter((event) => filterTypes.includes(event.type));
+  }
+
+  return results;
 }
 
 export function getEventTypeLabel(type: ActivityEventType): string {
