@@ -1,0 +1,108 @@
+metadata:
+  title: "总结资料"
+  description: "扫描 markdown 文件并生成摘要"
+  mode: standard
+  version: "1.0.0"
+  tags: ["文档处理", "摘要生成"]
+
+input_schema:
+  - name: source_directory
+    type: path
+    required: true
+    description: "包含 markdown 文件的目录"
+  - name: output_format
+    type: enum
+    options: [markdown, json]
+    default: markdown
+
+workflow:
+  steps:
+    - id: scan
+      name: 扫描文件
+      description: "扫描工作区中的 markdown 文件"
+      routine:
+        class: builtin
+        name: scan_markdown_files
+        version: "1.0.0"
+      input_mapping:
+        directory: "{{ input.source_directory }}"
+      transition:
+        type: next
+        step_id: read
+    
+    - id: read
+      name: 读取内容
+      routine:
+        class: builtin
+        name: read_file_content
+      transition:
+        type: next
+        step_id: analyze
+    
+    - id: analyze
+      name: 分析主题
+      description: "分析主题"
+      routine:
+        class: builtin
+        name: extract_topics
+      transition:
+        type: conditional
+        branches:
+          - condition: "output.topics.length > 0"
+            step_id: generate
+          - condition: "output.topics.length == 0"
+            step_id: skip_empty
+    
+    - id: skip_empty
+      name: 跳过空内容
+      description: "跳过空内容"
+      routine:
+        class: builtin
+        name: noop
+      transition:
+        type: end
+    
+    - id: generate
+      name: 生成摘要
+      routine:
+        class: builtin
+        name: generate_summary
+      transition:
+        type: next
+        step_id: write
+    
+    - id: write
+      name: 写入输出
+      routine:
+        class: builtin
+        name: write_output
+      transition:
+        type: next
+        step_id: register
+    
+    - id: register
+      name: 注册产物
+      routine:
+        class: builtin
+        name: register_artifact
+      transition:
+        type: end
+
+capability_refs:
+  routines:
+    - builtin.scan_markdown_files
+    - builtin.read_file_content
+    - builtin.extract_topics
+    - builtin.generate_summary
+    - builtin.write_output
+    - builtin.register_artifact
+  tools:
+    - builtin.workspace.read
+    - builtin.workspace.write
+
+output_contract:
+  primary_artifact:
+    type: markdown_document
+    path: "output/summary.md"
+    schema: summary_schema_v1
+  backup_policy: versioned

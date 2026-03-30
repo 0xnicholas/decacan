@@ -6,3 +6,4 @@ pub mod lifecycle;
 pub mod modes;
 pub mod publish;
 pub mod registry;
+pub mod spec;
