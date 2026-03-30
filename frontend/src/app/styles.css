@@ -708,3 +708,97 @@ body {
   color: rgba(24, 19, 17, 0.68);
   font-size: 1rem;
 }
+
+/* Activity Page Styles */
+
+.activity-page {
+  max-width: 800px;
+}
+
+.activity-filters {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding: 16px;
+  background: rgba(255, 252, 246, 0.7);
+  border-radius: 12px;
+  border: 1px solid rgba(24, 19, 17, 0.08);
+}
+
+.activity-filter-label {
+  font-size: 0.95rem;
+  color: rgba(24, 19, 17, 0.85);
+  font-weight: 500;
+}
+
+.activity-filter-select {
+  min-width: 180px;
+  padding: 8px 12px;
+  border: 1px solid rgba(24, 19, 17, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.activity-filter-select:focus {
+  outline: none;
+  border-color: rgba(24, 19, 17, 0.3);
+}
+
+.activity-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.activity-event {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px;
+  background: rgba(255, 252, 246, 0.7);
+  border-radius: 12px;
+  border: 1px solid rgba(24, 19, 17, 0.08);
+  transition: background 0.15s ease;
+}
+
+.activity-event:hover {
+  background: rgba(255, 252, 246, 0.9);
+}
+
+.activity-event-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(24, 19, 17, 0.06);
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.activity-event-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.activity-event-description {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: #181311;
+}
+
+.activity-event-time {
+  font-size: 0.85rem;
+  color: rgba(24, 19, 17, 0.6);
+}

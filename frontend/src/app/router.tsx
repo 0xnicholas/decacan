@@ -5,6 +5,7 @@ import {
   parseWorkspaceRoute,
   type WorkspaceSection,
 } from "../entities/workspace/routeModel";
+import { ActivityPage } from "../features/activity/ActivityPage";
 import { ApprovalsPage } from "../features/approvals/ApprovalsPage";
 import { DeliverableDetailPage } from "../features/deliverables/DeliverableDetailPage";
 import { DeliverablesPage } from "../features/deliverables/DeliverablesPage";
@@ -127,6 +128,8 @@ export function AppRouter() {
         <DeliverablesPage workspaceId={workspaceRoute.workspaceId} />
       ) : workspaceRoute.section === "approvals" ? (
         <ApprovalsPage workspaceId={workspaceRoute.workspaceId} />
+      ) : workspaceRoute.section === "activity" ? (
+        <ActivityPage workspaceId={workspaceRoute.workspaceId} />
       ) : (
         <WorkspaceSectionPlaceholder section={workspaceRoute.section} />
       );
