@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import type { Deliverable } from "../../entities/deliverable/types";
 import { listDeliverables } from "../../shared/api/deliverables";
+import { EmptyState, ErrorState, LoadingState, PageHeader } from "../../shared/ui";
 
 interface DeliverablesPageProps {
   workspaceId: string;
@@ -14,45 +15,36 @@ export function DeliverablesPage({ workspaceId }: DeliverablesPageProps) {
   const [statusFilter, setStatusFilter] = useState("all");
   const [taskFilter, setTaskFilter] = useState("all");
 
-  useEffect(() => {
-    let active = true;
-
-    async function loadDeliverables() {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const nextDeliverables = await listDeliverables(workspaceId, {
-          status: statusFilter,
-          taskId: taskFilter,
-        });
-        if (active) {
-          setDeliverables(nextDeliverables);
-        }
-      } catch {
-        if (active) {
-          setError("Failed to load deliverables");
-        }
-      } finally {
-        if (active) {
-          setIsLoading(false);
-        }
-      }
+  const loadDeliverables = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const nextDeliverables = await listDeliverables(workspaceId, {
+        status: statusFilter,
+        taskId: taskFilter,
+      });
+      setDeliverables(nextDeliverables);
+    } catch {
+      setError("Failed to load deliverables");
+    } finally {
+      setIsLoading(false);
     }
-
-    void loadDeliverables();
-
-    return () => {
-      active = false;
-    };
   }, [statusFilter, taskFilter, workspaceId]);
+
+  useEffect(() => {
+    void loadDeliverables();
+  }, [loadDeliverables]);
 
   const knownTaskIds = Array.from(new Set(deliverables.map((deliverable) => deliverable.task_id)));
   const knownStatuses = Array.from(new Set(deliverables.map((deliverable) => deliverable.status)));
 
+  const handleRetry = () => {
+    void loadDeliverables();
+  };
+
   return (
     <section aria-label="Deliverables">
-      <p className="eyebrow">Workspace</p>
-      <h1>Deliverables</h1>
+      <PageHeader title="Deliverables" subtitle="Workspace" />
       <div className="workspace-header-actions">
         <label>
           Status
@@ -90,9 +82,9 @@ export function DeliverablesPage({ workspaceId }: DeliverablesPageProps) {
         </label>
       </div>
       {isLoading ? (
-        <p className="subcopy">Loading deliverables...</p>
+        <LoadingState message="Loading deliverables..." />
       ) : error ? (
-        <p className="subcopy">{error}</p>
+        <ErrorState message={error} onRetry={handleRetry} />
       ) : deliverables.length ? (
         <ul className="detail-list">
           {deliverables.map((deliverable) => (
@@ -119,7 +111,7 @@ export function DeliverablesPage({ workspaceId }: DeliverablesPageProps) {
           ))}
         </ul>
       ) : (
-        <p className="subcopy">No deliverables yet.</p>
+        <EmptyState title="No deliverables yet" message="Deliverables will appear here once tasks generate them." />
       )}
     </section>
   );

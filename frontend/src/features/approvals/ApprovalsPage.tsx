@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import type { Approval } from "../../entities/approval/types";
+import { EmptyState, ErrorState, LoadingState, PageHeader } from "../../shared/ui";
 
 interface ApprovalsPageProps {
   workspaceId: string;
@@ -40,42 +41,34 @@ export function ApprovalsPage({ workspaceId }: ApprovalsPageProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let active = true;
-
-    async function loadApprovals() {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const next = await listWorkspaceApprovals(workspaceId);
-        if (active) {
-          setApprovals(next);
-        }
-      } catch {
-        if (active) {
-          setError("Failed to load approvals");
-        }
-      } finally {
-        if (active) {
-          setIsLoading(false);
-        }
-      }
+  const loadApprovals = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const next = await listWorkspaceApprovals(workspaceId);
+      setApprovals(next);
+    } catch {
+      setError("Failed to load approvals");
+    } finally {
+      setIsLoading(false);
     }
-
-    void loadApprovals();
-    return () => {
-      active = false;
-    };
   }, [workspaceId]);
+
+  useEffect(() => {
+    void loadApprovals();
+  }, [loadApprovals]);
+
+  const handleRetry = () => {
+    void loadApprovals();
+  };
 
   return (
     <section aria-label="Approvals">
-      <p className="eyebrow">Workspace</p>
-      <h1>Approvals</h1>
-      {isLoading ? <p className="subcopy">Loading approvals...</p> : null}
-      {error ? <p className="subcopy">{error}</p> : null}
+      <PageHeader title="Approvals" subtitle="Workspace" />
+      {isLoading ? <LoadingState message="Loading approvals..." /> : null}
+      {error ? <ErrorState message={error} onRetry={handleRetry} /> : null}
       {!isLoading && !error && approvals.length === 0 ? (
-        <p className="subcopy">No approvals in queue.</p>
+        <EmptyState title="No approvals in queue" message="Pending approvals will appear here when tasks require review." />
       ) : null}
       {!isLoading && !error && approvals.length > 0 ? (
         <ul className="detail-list">

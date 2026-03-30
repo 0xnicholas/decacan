@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import type { WorkspaceHomeData } from "../../entities/workspace-home/types";
 import { fetchWorkspaceHome } from "../../shared/api/workspace-home";
+import { LoadingState, PageHeader } from "../../shared/ui";
 import { ExecutionOverviewPanel } from "./ExecutionOverviewPanel";
 import { NeedsAttentionPanel } from "./NeedsAttentionPanel";
 import { TeamSnapshotPanel } from "./TeamSnapshotPanel";
@@ -48,12 +49,12 @@ export function WorkspaceHomePage({ workspaceId }: WorkspaceHomePageProps) {
   }, [workspaceId]);
 
   if (!homeData) {
-    return <p>Loading workspace control center…</p>;
+    return <LoadingState message="Loading workspace control center…" />;
   }
 
   return (
     <div>
-      <p className="eyebrow">Workspace Home</p>
+      <PageHeader title="Workspace Home" />
       <NeedsAttentionPanel items={homeData.attention} />
       <ExecutionOverviewPanel taskHealth={homeData.task_health} activity={homeData.activity} />
       <WorkspaceDeliverablesPanel deliverables={homeData.deliverables} />

@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import type { TaskListItem } from "../../entities/task/types";
 import { listWorkspaceTasks } from "../../shared/api/tasks";
+import { EmptyState, ErrorState, LoadingState, PageHeader } from "../../shared/ui";
 import { MyTasksView } from "./MyTasksView";
 import { TaskBoardView } from "./TaskBoardView";
 import { TaskListView } from "./TaskListView";
@@ -18,38 +19,30 @@ export function TasksPage({ workspaceId }: TasksPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<TasksViewMode>("list");
 
-  useEffect(() => {
-    let active = true;
-
-    async function loadTasks() {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const nextTasks = await listWorkspaceTasks(workspaceId);
-        if (active) {
-          setTasks(nextTasks);
-        }
-      } catch {
-        if (active) {
-          setError("Failed to load tasks");
-        }
-      } finally {
-        if (active) {
-          setIsLoading(false);
-        }
-      }
+  const loadTasks = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const nextTasks = await listWorkspaceTasks(workspaceId);
+      setTasks(nextTasks);
+    } catch {
+      setError("Failed to load tasks");
+    } finally {
+      setIsLoading(false);
     }
-
-    void loadTasks();
-    return () => {
-      active = false;
-    };
   }, [workspaceId]);
+
+  useEffect(() => {
+    void loadTasks();
+  }, [loadTasks]);
+
+  const handleRetry = () => {
+    void loadTasks();
+  };
 
   return (
     <section aria-label="Tasks">
-      <p className="eyebrow">Workspace</p>
-      <h1>Tasks</h1>
+      <PageHeader title="Tasks" subtitle="Workspace" />
       <div role="tablist" aria-label="Task views" className="tasks-view-tabs">
         <button
           type="button"
@@ -79,9 +72,12 @@ export function TasksPage({ workspaceId }: TasksPageProps) {
           My Tasks
         </button>
       </div>
-      {isLoading ? <p className="subcopy">Loading tasks...</p> : null}
-      {error ? <p className="subcopy">{error}</p> : null}
-      {!isLoading && !error ? (
+      {isLoading ? <LoadingState message="Loading tasks..." /> : null}
+      {error ? <ErrorState message={error} onRetry={handleRetry} /> : null}
+      {!isLoading && !error && tasks.length === 0 ? (
+        <EmptyState title="No tasks found" message="Get started by creating your first task." />
+      ) : null}
+      {!isLoading && !error && tasks.length > 0 ? (
         viewMode === "list" ? (
           <TaskListView tasks={tasks} workspaceId={workspaceId} />
         ) : viewMode === "board" ? (
