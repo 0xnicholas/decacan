@@ -67,6 +67,17 @@ impl PolicyProfile {
         self
     }
 
+    pub fn new_for_test(id: &str, workspace_id: &str) -> Self {
+        Self::new(
+            id,
+            workspace_id,
+            "Test Policy",
+            vec!["workspace.read".to_string()],
+            vec!["shell.exec".to_string()],
+            vec!["network.egress".to_string()],
+        )
+    }
+
     pub fn has_permission(&self, permission: &str) -> bool {
         self.allowed_permissions.iter().any(|p| p == permission)
     }
