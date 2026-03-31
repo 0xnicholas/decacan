@@ -9,7 +9,6 @@ use decacan_runtime::workspace::entity::Workspace;
 fn summary_workflow_for_test() -> Workflow {
     Workflow::new_for_test(
         "workflow-1",
-        "playbook-1",
         vec![
             WorkflowStep::new_for_test(
                 "step-1",
@@ -83,7 +82,7 @@ fn workflow_run_and_policy_types_roundtrip_through_serde() {
         id: "run-1".to_owned(),
         task_id: "task-1".to_owned(),
         attempt_index: 0,
-        created_at: workflow.created_at,
+        created_at: workflow.compiled_at,
         workflow_snapshot: workflow.clone(),
         policy_snapshot: policy.clone(),
         workspace_snapshot: workspace.clone(),

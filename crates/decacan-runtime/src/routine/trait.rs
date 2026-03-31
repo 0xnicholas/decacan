@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
+use crate::capability::entities::CapabilityRef;
 use crate::playbook::spec::entities::RoutineRef;
 
 use super::contract::{Contract, ValidationError};
@@ -32,6 +33,25 @@ pub trait Routine: Send + Sync {
         ctx: &mut RoutineContext,
         input: Value,
     ) -> Result<Value, RoutineError>;
+
+    /// Returns the capability this routine provides (if any)
+    ///
+    /// This enables self-declaration of capabilities, allowing routines
+    /// to be automatically registered with the capability system.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// impl Routine for MyRoutine {
+    ///     fn provides_capability(&self) -> Option<CapabilityRef> {
+    ///         Some(CapabilityRef::new("filesystem.read"))
+    ///     }
+    ///     // ... other methods
+    /// }
+    /// ```
+    fn provides_capability(&self) -> Option<CapabilityRef> {
+        None // Default: no capability declared
+    }
 }
 
 /// Unique identifier for a routine
