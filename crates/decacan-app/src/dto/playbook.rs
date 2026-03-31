@@ -102,3 +102,29 @@ pub struct PublishPlaybookResponseDto {
     pub health_report: DraftHealthReportDto,
     pub resolved_refs: Vec<String>,
 }
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct CreatePlaybookRequestDto {
+    pub title: String,
+    pub description: String,
+    pub mode: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CreatePlaybookResponseDto {
+    pub handle: PlaybookHandleDto,
+    pub draft: PlaybookDraftDto,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct UpdatePlaybookRequestDto {
+    pub title: Option<String>,
+    pub description: Option<String>,
+    pub mode: Option<String>,
+    pub tags: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct UpdatePlaybookResponseDto {
+    pub handle: PlaybookHandleDto,
+}

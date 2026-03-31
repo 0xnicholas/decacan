@@ -4,7 +4,9 @@ mod artifact;
 mod deliverable;
 mod member;
 mod playbook;
+pub mod policy;
 mod task;
+pub mod team;
 pub mod trace;
 mod workspace;
 
@@ -17,16 +19,25 @@ pub use deliverable::{
 };
 pub use member::MemberDto;
 pub use playbook::{
-    DraftHealthIssueDto, DraftHealthReportDto, ForkPlaybookRequestDto, ForkPlaybookResponseDto,
-    PlaybookDetailDto, PlaybookDraftDto, PlaybookDto, PlaybookHandleDto, PlaybookVersionDto,
-    PublishPlaybookResponseDto, SavePlaybookDraftRequestDto, SavePlaybookDraftResponseDto,
-    StoreEntryDto,
+    CreatePlaybookRequestDto, CreatePlaybookResponseDto, DraftHealthIssueDto, DraftHealthReportDto,
+    ForkPlaybookRequestDto, ForkPlaybookResponseDto, PlaybookDetailDto, PlaybookDraftDto,
+    PlaybookDto, PlaybookHandleDto, PlaybookVersionDto, PublishPlaybookResponseDto,
+    SavePlaybookDraftRequestDto, SavePlaybookDraftResponseDto, StoreEntryDto,
+    UpdatePlaybookRequestDto, UpdatePlaybookResponseDto,
+};
+pub use policy::{
+    CheckPermissionRequestDto, CheckPermissionResponseDto, PermissionDto,
+    RolePermissionsResponseDto, UserPermissionsResponseDto, WorkspacePermissionDto,
 };
 pub use task::{
     CreateTaskAcceptedResponse, CreateTaskRequest, RetryTaskRequest, TaskAgentMessageDto,
     TaskCollaborationDto, TaskDetailDto, TaskDto, TaskEventEnvelopeDto, TaskInstructionActionDto,
     TaskInstructionRequest, TaskInstructionResponse, TaskPlanDto, TaskPreviewDto,
     TaskPreviewRequest, TaskSummaryDto,
+};
+pub use team::{
+    CreateTeamRequestDto, CreateTeamResponseDto, CreateTeamRoleDto, ListTeamsResponseDto,
+    TeamRoleDto, TeamSpecDto, UpdateTeamRequestDto,
 };
 pub use trace::{
     AttributionResponse, AttributionTargetDto, StepTraceDto, TaskTraceResponse,

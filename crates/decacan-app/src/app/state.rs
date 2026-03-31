@@ -4,6 +4,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use time::OffsetDateTime;
+
 use decacan_auth::{AuthService, SqliteUserStorage};
 use decacan_infra::clock::system::SystemClock;
 use decacan_infra::filesystem::local::LocalFilesystem;
@@ -35,13 +37,15 @@ use decacan_runtime::workspace::service::member_service::{CreateMembershipInput,
 use tokio::sync::broadcast;
 
 use crate::dto::{
-    ApprovalDto, ArtifactContentDto, ArtifactDto, CreateTaskAcceptedResponse, CreateTaskRequest,
-    DraftHealthIssueDto, DraftHealthReportDto, ForkPlaybookResponseDto, PlaybookDetailDto,
-    PlaybookDraftDto, PlaybookDto, PlaybookHandleDto, PlaybookVersionDto,
-    PublishPlaybookResponseDto, RetryTaskRequest, SavePlaybookDraftResponseDto, StoreEntryDto,
-    TaskAgentMessageDto, TaskCollaborationDto, TaskDetailDto, TaskDto, TaskEventEnvelopeDto,
-    TaskInstructionActionDto, TaskPlanDto, TaskPreviewDto, TaskPreviewRequest, TaskSummaryDto,
-    WorkspaceDto,
+    ApprovalDto, ArtifactContentDto, ArtifactDto, CreatePlaybookRequestDto, CreatePlaybookResponseDto,
+    CreateTaskAcceptedResponse, CreateTaskRequest, CreateTeamRequestDto, CreateTeamResponseDto,
+    DraftHealthIssueDto, DraftHealthReportDto, ForkPlaybookResponseDto, ListTeamsResponseDto,
+    PermissionDto, PlaybookDetailDto, PlaybookDraftDto, PlaybookDto, PlaybookHandleDto,
+    PlaybookVersionDto, PublishPlaybookResponseDto, RetryTaskRequest, SavePlaybookDraftResponseDto,
+    StoreEntryDto, TaskAgentMessageDto, TaskCollaborationDto, TaskDetailDto, TaskDto,
+    TaskEventEnvelopeDto, TaskInstructionActionDto, TaskPlanDto, TaskPreviewDto, TaskPreviewRequest,
+    TaskSummaryDto, TeamRoleDto, TeamSpecDto, UpdatePlaybookRequestDto, UpdatePlaybookResponseDto,
+    UpdateTeamRequestDto, UserPermissionsResponseDto, WorkspaceDto, WorkspacePermissionDto,
 };
 
 #[derive(Clone)]
@@ -56,6 +60,7 @@ struct AppStateInner {
     playbooks: Vec<PlaybookDto>,
     playbook_store: Vec<StoreEntry>,
     lifecycle_playbooks: Mutex<HashMap<String, StoredLifecyclePlaybook>>,
+    teams: Mutex<HashMap<String, StoredTeamSpec>>,
     tasks: Mutex<HashMap<String, StoredTask>>,
     artifacts: Mutex<HashMap<String, StoredArtifact>>,
     approvals: Mutex<HashMap<String, ApprovalDto>>,
@@ -92,6 +97,12 @@ struct StoredLifecyclePlaybook {
     handle: PlaybookHandle,
     draft: PlaybookDraft,
     versions: Vec<PlaybookVersion>,
+}
+
+#[derive(Debug, Clone)]
+struct StoredTeamSpec {
+    spec: TeamSpecDto,
+    created_at: String,
 }
 
 #[derive(Debug, Clone)]
@@ -221,6 +232,7 @@ impl AppState {
                 playbook_store,
                 default_workspace_root,
                 lifecycle_playbooks: Mutex::new(HashMap::new()),
+                teams: Mutex::new(HashMap::new()),
                 tasks: Mutex::new(HashMap::new()),
                 artifacts: Mutex::new(HashMap::new()),
                 approvals: Mutex::new(HashMap::new()),
@@ -374,6 +386,263 @@ impl AppState {
                 resolved_refs: result.resolved_refs,
             },
         })
+    }
+
+    pub fn create_playbook(
+        &self,
+        request: CreatePlaybookRequestDto,
+    ) -> Result<CreatePlaybookResponseDto, ()> {
+        use decacan_runtime::playbook::entity::{
+            PlaybookHandle, PlaybookHandleOrigin, PlaybookOwnerScope,
+        };
+        use decacan_runtime::ports::clock::ClockPort;
+
+        let handle_id = self.next_id("pb");
+        let draft_id = self.next_id("draft");
+        let now = SystemClock::new().now_utc();
+
+        let handle = PlaybookHandle {
+            playbook_handle_id: handle_id.clone(),
+            owner_scope: PlaybookOwnerScope::LocalPrivate,
+            origin: PlaybookHandleOrigin::LocalCopy,
+            source_store_entry_id: None,
+            title: request.title,
+            created_at: now,
+            updated_at: now,
+        };
+
+        // Create an initial empty spec document
+        let spec_document = format!(
+            r#"metadata:
+  title: "{}"
+  description: "{}"
+  mode: {}
+  version: "1.0.0"
+  tags: []
+
+input_schema: []
+
+workflow:
+  steps: []
+
+output_contract:
+  primary_artifact: null
+  secondary_artifacts: null
+  backup_policy: none
+"#,
+            handle.title,
+            request.description,
+            request.mode
+        );
+
+        let draft = build_playbook_draft(draft_id, handle_id.clone(), spec_document);
+
+        let mut playbooks = self
+            .inner
+            .lifecycle_playbooks
+            .lock()
+            .expect("playbook lifecycle lock should not be poisoned");
+
+        playbooks.insert(
+            handle_id,
+            StoredLifecyclePlaybook {
+                handle: handle.clone(),
+                draft: draft.clone(),
+                versions: vec![],
+            },
+        );
+
+        Ok(CreatePlaybookResponseDto {
+            handle: playbook_handle_to_dto(handle),
+            draft: playbook_draft_to_dto(draft),
+        })
+    }
+
+    pub fn update_playbook(
+        &self,
+        handle_id: &str,
+        request: UpdatePlaybookRequestDto,
+    ) -> Result<UpdatePlaybookResponseDto, PlaybookLifecycleError> {
+        use time::OffsetDateTime;
+
+        let mut playbooks = self
+            .inner
+            .lifecycle_playbooks
+            .lock()
+            .expect("playbook lifecycle lock should not be poisoned");
+
+        let stored = playbooks
+            .get_mut(handle_id)
+            .ok_or(PlaybookLifecycleError::HandleNotFound)?;
+
+        if let Some(title) = request.title {
+            stored.handle.title = title;
+            stored.handle.updated_at = OffsetDateTime::now_utc();
+        }
+
+        Ok(UpdatePlaybookResponseDto {
+            handle: playbook_handle_to_dto(stored.handle.clone()),
+        })
+    }
+
+    pub fn delete_playbook(&self, handle_id: &str) -> Result<(), PlaybookLifecycleError> {
+        let mut playbooks = self
+            .inner
+            .lifecycle_playbooks
+            .lock()
+            .expect("playbook lifecycle lock should not be poisoned");
+
+        playbooks
+            .remove(handle_id)
+            .ok_or(PlaybookLifecycleError::HandleNotFound)?;
+
+        Ok(())
+    }
+
+    pub fn list_teams(&self) -> ListTeamsResponseDto {
+        let teams = self
+            .inner
+            .teams
+            .lock()
+            .expect("teams lock should not be poisoned");
+
+        ListTeamsResponseDto {
+            teams: teams.values().map(|t| t.spec.clone()).collect(),
+        }
+    }
+
+    pub fn get_team(&self, team_id: &str) -> Option<TeamSpecDto> {
+        let teams = self
+            .inner
+            .teams
+            .lock()
+            .expect("teams lock should not be poisoned");
+
+        teams.get(team_id).map(|t| t.spec.clone())
+    }
+
+    pub fn create_team(&self, request: CreateTeamRequestDto) -> Result<CreateTeamResponseDto, ()> {
+        use decacan_runtime::ports::clock::ClockPort;
+
+        let team_id = self.next_id("team");
+        let created_at = SystemClock::new().now_utc().to_string();
+
+        let roles: Vec<TeamRoleDto> = request
+            .roles
+            .into_iter()
+            .enumerate()
+            .map(|(idx, r)| TeamRoleDto {
+                id: format!("{}-role-{}", team_id, idx + 1),
+                name: r.name,
+                description: r.description,
+                focus: r.focus,
+                instructions: r.instructions,
+            })
+            .collect();
+
+        // Validate lead_role_id exists in roles
+        let lead_role_exists = roles.iter().any(|r| r.id == request.lead_role_id);
+        let lead_role_id = if lead_role_exists {
+            request.lead_role_id
+        } else {
+            // Default to first role if not found
+            roles.first().map(|r| r.id.clone()).unwrap_or_default()
+        };
+
+        let spec = TeamSpecDto {
+            id: team_id.clone(),
+            name: request.name,
+            description: request.description,
+            roles,
+            lead_role_id,
+            created_at: created_at.clone(),
+        };
+
+        let mut teams = self
+            .inner
+            .teams
+            .lock()
+            .expect("teams lock should not be poisoned");
+
+        teams.insert(
+            team_id,
+            StoredTeamSpec {
+                spec: spec.clone(),
+                created_at,
+            },
+        );
+
+        Ok(CreateTeamResponseDto { team: spec })
+    }
+
+    pub fn update_team(&self, team_id: &str, request: UpdateTeamRequestDto) -> Result<TeamSpecDto, ()> {
+        let mut teams = self
+            .inner
+            .teams
+            .lock()
+            .expect("teams lock should not be poisoned");
+
+        let stored = teams.get_mut(team_id).ok_or(())?;
+
+        if let Some(name) = request.name {
+            stored.spec.name = name;
+        }
+        if let Some(description) = request.description {
+            stored.spec.description = description;
+        }
+        if let Some(roles) = request.roles {
+            stored.spec.roles = roles;
+        }
+        if let Some(lead_role_id) = request.lead_role_id {
+            stored.spec.lead_role_id = lead_role_id;
+        }
+
+        Ok(stored.spec.clone())
+    }
+
+    pub fn delete_team(&self, team_id: &str) -> Result<(), ()> {
+        let mut teams = self
+            .inner
+            .teams
+            .lock()
+            .expect("teams lock should not be poisoned");
+
+        teams.remove(team_id).ok_or(())?;
+        Ok(())
+    }
+
+    pub fn get_current_user_permissions(&self) -> Result<UserPermissionsResponseDto, ()> {
+        use decacan_runtime::workspace::rbac::{ActionType, ResourceType, WorkspaceRole};
+
+        // For testing/demo, return owner permissions
+        // In production, extract from authenticated user context
+        let role = WorkspaceRole::Owner;
+        let permissions: Vec<PermissionDto> = role
+            .permissions()
+            .into_iter()
+            .map(|p| PermissionDto {
+                resource: format!("{:?}", p.resource).to_lowercase(),
+                action: format!("{:?}", p.action).to_lowercase(),
+            })
+            .collect();
+
+        Ok(UserPermissionsResponseDto {
+            user_id: "current-user".to_string(),
+            global_permissions: permissions.clone(),
+            workspace_permissions: vec![
+                WorkspacePermissionDto {
+                    workspace_id: "workspace-1".to_string(),
+                    role: "owner".to_string(),
+                    permissions: permissions.clone(),
+                },
+            ],
+        })
+    }
+
+    pub fn check_permission(&self, workspace_id: Option<&str>, resource: &str, action: &str) -> bool {
+        // For now, always allow if workspace_id is provided
+        // In production, check actual membership and permissions
+        workspace_id.is_some()
     }
 
     pub fn list_tasks(&self) -> Vec<TaskDto> {

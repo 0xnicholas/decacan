@@ -5,17 +5,21 @@ use axum::{Json, Router};
 
 use crate::app::state::{AppState, PlaybookLifecycleError};
 use crate::dto::{
-    ForkPlaybookRequestDto, ForkPlaybookResponseDto, PlaybookDetailDto, PlaybookDto,
-    PublishPlaybookResponseDto, SavePlaybookDraftRequestDto, SavePlaybookDraftResponseDto,
-    StoreEntryDto,
+    CreatePlaybookRequestDto, CreatePlaybookResponseDto, ForkPlaybookRequestDto,
+    ForkPlaybookResponseDto, PlaybookDetailDto, PlaybookDto, PublishPlaybookResponseDto,
+    SavePlaybookDraftRequestDto, SavePlaybookDraftResponseDto, StoreEntryDto,
+    UpdatePlaybookRequestDto, UpdatePlaybookResponseDto,
 };
 
 pub(super) fn router() -> Router<AppState> {
     Router::new()
-        .route("/api/playbooks", get(list_playbooks))
+        .route("/api/playbooks", get(list_playbooks).post(create_playbook))
         .route("/api/playbook-store", get(list_playbook_store))
         .route("/api/playbooks/fork", axum::routing::post(fork_playbook))
-        .route("/api/playbooks/:handle_id", get(get_playbook))
+        .route(
+            "/api/playbooks/:handle_id",
+            get(get_playbook).put(update_playbook).delete(delete_playbook),
+        )
         .route("/api/playbooks/:handle_id/draft", put(save_playbook_draft))
         .route("/api/playbooks/:handle_id/publish", axum::routing::post(publish_playbook))
 }
@@ -26,6 +30,17 @@ async fn list_playbooks(State(state): State<AppState>) -> Json<Vec<PlaybookDto>>
 
 async fn list_playbook_store(State(state): State<AppState>) -> Json<Vec<StoreEntryDto>> {
     Json(state.list_playbook_store())
+}
+
+async fn create_playbook(
+    State(state): State<AppState>,
+    Json(request): Json<CreatePlaybookRequestDto>,
+) -> Result<(StatusCode, Json<CreatePlaybookResponseDto>), StatusCode> {
+    let response = state
+        .create_playbook(request)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok((StatusCode::CREATED, Json(response)))
 }
 
 async fn fork_playbook(
@@ -48,6 +63,29 @@ async fn get_playbook(
         .map_err(map_playbook_lifecycle_error)?;
 
     Ok(Json(detail))
+}
+
+async fn update_playbook(
+    State(state): State<AppState>,
+    Path(handle_id): Path<String>,
+    Json(request): Json<UpdatePlaybookRequestDto>,
+) -> Result<Json<UpdatePlaybookResponseDto>, StatusCode> {
+    let response = state
+        .update_playbook(&handle_id, request)
+        .map_err(map_playbook_lifecycle_error)?;
+
+    Ok(Json(response))
+}
+
+async fn delete_playbook(
+    State(state): State<AppState>,
+    Path(handle_id): Path<String>,
+) -> Result<StatusCode, StatusCode> {
+    state
+        .delete_playbook(&handle_id)
+        .map_err(map_playbook_lifecycle_error)?;
+
+    Ok(StatusCode::NO_CONTENT)
 }
 
 async fn save_playbook_draft(
