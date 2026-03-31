@@ -1,10 +1,52 @@
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use tower::ServiceExt;
+use decacan_app::app::state::AppState;
 
-use decacan_app::app::wiring::router_for_test;
+use decacan_app::app::wiring::{router_and_state_for_test, router_for_test};
+use decacan_runtime::workspace::rbac::WorkspaceRole;
 
-/// Helper function to register a user and return their token
+/// Helper function to register a user, create workspace membership, and return their token
+async fn register_user_and_create_membership(
+    app: &axum::Router,
+    state: &AppState,
+    email: &str,
+    password: &str,
+    name: &str,
+    role: WorkspaceRole,
+) -> (String, String) {
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/auth/register")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"email": "{}", "password": "{}", "name": "{}"}}"#,
+                    email, password, name
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body_bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body_bytes).unwrap();
+    let token = json["access_token"].as_str().unwrap().to_string();
+    let user_id = json["user_id"].as_str().unwrap().to_string();
+
+    // Create workspace membership
+    state.create_test_membership("workspace-1".to_string(), user_id.clone(), role);
+
+    (token, user_id)
+}
+
+/// Helper function to register a user and return their token (legacy version for simple auth tests)
 async fn register_user(
     app: &axum::Router,
     email: &str,
@@ -94,10 +136,12 @@ async fn test_list_members_requires_auth() {
 
 #[tokio::test]
 async fn test_list_members_success() {
-    let app = router_for_test().await;
+    let (app, state) = router_and_state_for_test().await;
 
-    // 1. Register a user (this creates a workspace membership automatically via the auth flow)
-    let (token, _user_id) = register_user(&app, "owner@example.com", "Password123", "Owner").await;
+    // 1. Register a user and create workspace membership
+    let (token, _user_id) = register_user_and_create_membership(
+        &app, &state, "owner@example.com", "Password123", "Owner", WorkspaceRole::Owner
+    ).await;
 
     // 2. List members with the token
     let response = app
@@ -127,7 +171,7 @@ async fn test_invite_member_success() {
 
     // 1. Register owner
     let (owner_token, _owner_id) =
-        register_user(&app, "owner@example.com", "Password123", "Owner").await;
+        register_user(&app, "owner@example.com", "Password123", "owner").await;
 
     // 2. Register member to invite
     let (_member_token, _member_id) = register_user(
@@ -148,7 +192,7 @@ async fn test_invite_member_success() {
                 .header("content-type", "application/json")
                 .header("authorization", format!("Bearer {}", owner_token))
                 .body(Body::from(
-                    r#"{"email": "member@example.com", "role": "Editor"}"#,
+                    r#"{"email": "member@example.com", "role": "editor"}"#,
                 ))
                 .unwrap(),
         )
@@ -201,7 +245,7 @@ async fn test_invite_member_already_exists() {
 
     // 1. Register owner
     let (owner_token, _owner_id) =
-        register_user(&app, "owner@example.com", "Password123", "Owner").await;
+        register_user(&app, "owner@example.com", "Password123", "owner").await;
 
     // 2. Register member
     let (_member_token, _member_id) = register_user(
@@ -222,7 +266,7 @@ async fn test_invite_member_already_exists() {
                 .header("content-type", "application/json")
                 .header("authorization", format!("Bearer {}", owner_token))
                 .body(Body::from(
-                    r#"{"email": "member@example.com", "role": "Editor"}"#,
+                    r#"{"email": "member@example.com", "role": "editor"}"#,
                 ))
                 .unwrap(),
         )
@@ -240,7 +284,7 @@ async fn test_invite_member_already_exists() {
                 .header("content-type", "application/json")
                 .header("authorization", format!("Bearer {}", owner_token))
                 .body(Body::from(
-                    r#"{"email": "member@example.com", "role": "Viewer"}"#,
+                    r#"{"email": "member@example.com", "role": "viewer"}"#,
                 ))
                 .unwrap(),
         )
@@ -256,7 +300,7 @@ async fn test_invite_member_user_not_found() {
 
     // 1. Register owner
     let (owner_token, _owner_id) =
-        register_user(&app, "owner@example.com", "Password123", "Owner").await;
+        register_user(&app, "owner@example.com", "Password123", "owner").await;
 
     // 2. Try to invite a non-existent user
     let response = app
@@ -267,7 +311,7 @@ async fn test_invite_member_user_not_found() {
                 .header("content-type", "application/json")
                 .header("authorization", format!("Bearer {}", owner_token))
                 .body(Body::from(
-                    r#"{"email": "nonexistent@example.com", "role": "Editor"}"#,
+                    r#"{"email": "nonexistent@example.com", "role": "editor"}"#,
                 ))
                 .unwrap(),
         )
@@ -283,7 +327,7 @@ async fn test_update_role_success() {
 
     // 1. Register owner
     let (owner_token, _owner_id) =
-        register_user(&app, "owner@example.com", "Password123", "Owner").await;
+        register_user(&app, "owner@example.com", "Password123", "owner").await;
 
     // 2. Register member
     let (_member_token, _member_id) = register_user(
@@ -304,7 +348,7 @@ async fn test_update_role_success() {
                 .header("content-type", "application/json")
                 .header("authorization", format!("Bearer {}", owner_token))
                 .body(Body::from(
-                    r#"{"email": "member@example.com", "role": "Viewer"}"#,
+                    r#"{"email": "member@example.com", "role": "viewer"}"#,
                 ))
                 .unwrap(),
         )
@@ -328,7 +372,7 @@ async fn test_update_role_success() {
                 .uri(format!("/api/workspaces/workspace-1/members/{}", membership_id))
                 .header("content-type", "application/json")
                 .header("authorization", format!("Bearer {}", owner_token))
-                .body(Body::from(r#"{"role": "Editor"}"#))
+                .body(Body::from(r#"{"role": "editor"}"#))
                 .unwrap(),
         )
         .await
@@ -357,7 +401,7 @@ async fn test_update_role_success() {
         .iter()
         .find(|m| m["email"].as_str() == Some("member@example.com"))
         .expect("Member should exist");
-    assert_eq!(member["role"].as_str().unwrap(), "Editor");
+    assert_eq!(member["role"].as_str().unwrap(), "editor");
 }
 
 #[tokio::test]
@@ -366,7 +410,7 @@ async fn test_update_role_prevents_self_update() {
 
     // 1. Register owner
     let (owner_token, owner_id) =
-        register_user(&app, "owner@example.com", "Password123", "Owner").await;
+        register_user(&app, "owner@example.com", "Password123", "owner").await;
 
     // 2. List members to find owner's membership ID
     let list_response = app
@@ -400,7 +444,7 @@ async fn test_update_role_prevents_self_update() {
                 .uri(format!("/api/workspaces/workspace-1/members/{}", membership_id))
                 .header("content-type", "application/json")
                 .header("authorization", format!("Bearer {}", owner_token))
-                .body(Body::from(r#"{"role": "Editor"}"#))
+                .body(Body::from(r#"{"role": "editor"}"#))
                 .unwrap(),
         )
         .await
@@ -415,7 +459,7 @@ async fn test_update_role_prevents_owner_role_update() {
 
     // 1. Register two users - first will be owner
     let (owner_token, _owner_id) =
-        register_user(&app, "owner@example.com", "Password123", "Owner").await;
+        register_user(&app, "owner@example.com", "Password123", "owner").await;
 
     // 2. Register second user and invite them
     // First, we need to check if we can invite someone as Owner
@@ -441,7 +485,7 @@ async fn test_update_role_prevents_owner_role_update() {
 
     let owner_membership = members
         .iter()
-        .find(|m| m["role"].as_str() == Some("Owner"))
+        .find(|m| m["role"].as_str() == Some("owner"))
         .expect("Owner should exist");
     let membership_id = owner_membership["id"].as_str().unwrap();
 
@@ -453,7 +497,7 @@ async fn test_update_role_prevents_owner_role_update() {
                 .uri(format!("/api/workspaces/workspace-1/members/{}", membership_id))
                 .header("content-type", "application/json")
                 .header("authorization", format!("Bearer {}", owner_token))
-                .body(Body::from(r#"{"role": "Editor"}"#))
+                .body(Body::from(r#"{"role": "editor"}"#))
                 .unwrap(),
         )
         .await
@@ -468,7 +512,7 @@ async fn test_remove_member_success() {
 
     // 1. Register owner
     let (owner_token, _owner_id) =
-        register_user(&app, "owner@example.com", "Password123", "Owner").await;
+        register_user(&app, "owner@example.com", "Password123", "owner").await;
 
     // 2. Register member
     let (_member_token, _member_id) = register_user(
@@ -489,7 +533,7 @@ async fn test_remove_member_success() {
                 .header("content-type", "application/json")
                 .header("authorization", format!("Bearer {}", owner_token))
                 .body(Body::from(
-                    r#"{"email": "member@example.com", "role": "Editor"}"#,
+                    r#"{"email": "member@example.com", "role": "editor"}"#,
                 ))
                 .unwrap(),
         )
@@ -550,7 +594,7 @@ async fn test_remove_member_prevents_self_removal() {
 
     // 1. Register owner
     let (owner_token, owner_id) =
-        register_user(&app, "owner@example.com", "Password123", "Owner").await;
+        register_user(&app, "owner@example.com", "Password123", "owner").await;
 
     // 2. List members to find owner's membership ID
     let list_response = app
@@ -598,14 +642,14 @@ async fn test_remove_member_prevents_owner_removal() {
 
     // 1. Register two users
     let (owner_token, _owner_id) =
-        register_user(&app, "owner@example.com", "Password123", "Owner").await;
+        register_user(&app, "owner@example.com", "Password123", "owner").await;
 
     // 2. Register another user and invite them
     let (_editor_token, _editor_id) = register_user(
         &app,
         "editor@example.com",
         "Password123",
-        "Editor",
+        "editor",
     )
     .await;
 
@@ -619,7 +663,7 @@ async fn test_remove_member_prevents_owner_removal() {
                 .header("content-type", "application/json")
                 .header("authorization", format!("Bearer {}", owner_token))
                 .body(Body::from(
-                    r#"{"email": "editor@example.com", "role": "Editor"}"#,
+                    r#"{"email": "editor@example.com", "role": "editor"}"#,
                 ))
                 .unwrap(),
         )
@@ -646,7 +690,7 @@ async fn test_remove_member_prevents_owner_removal() {
 
     let owner_membership = members
         .iter()
-        .find(|m| m["role"].as_str() == Some("Owner"))
+        .find(|m| m["role"].as_str() == Some("owner"))
         .expect("Owner should exist");
     let membership_id = owner_membership["id"].as_str().unwrap();
 
@@ -676,14 +720,14 @@ async fn test_viewer_cannot_invite_members() {
 
     // 1. Register owner
     let (owner_token, _owner_id) =
-        register_user(&app, "owner@example.com", "Password123", "Owner").await;
+        register_user(&app, "owner@example.com", "Password123", "owner").await;
 
     // 2. Register viewer
     let (_viewer_token, _viewer_id) = register_user(
         &app,
         "viewer@example.com",
         "Password123",
-        "Viewer",
+        "viewer",
     )
     .await;
 
@@ -697,7 +741,7 @@ async fn test_viewer_cannot_invite_members() {
                 .header("content-type", "application/json")
                 .header("authorization", format!("Bearer {}", owner_token))
                 .body(Body::from(
-                    r#"{"email": "viewer@example.com", "role": "Viewer"}"#,
+                    r#"{"email": "viewer@example.com", "role": "viewer"}"#,
                 ))
                 .unwrap(),
         )
@@ -724,7 +768,7 @@ async fn test_viewer_cannot_invite_members() {
                 .header("content-type", "application/json")
                 .header("authorization", format!("Bearer {}", viewer_token))
                 .body(Body::from(
-                    r#"{"email": "target@example.com", "role": "Viewer"}"#,
+                    r#"{"email": "target@example.com", "role": "viewer"}"#,
                 ))
                 .unwrap(),
         )
@@ -740,14 +784,14 @@ async fn test_editor_can_invite_members() {
 
     // 1. Register owner
     let (owner_token, _owner_id) =
-        register_user(&app, "owner@example.com", "Password123", "Owner").await;
+        register_user(&app, "owner@example.com", "Password123", "owner").await;
 
     // 2. Register editor
     let (_editor_token, _editor_id) = register_user(
         &app,
         "editor@example.com",
         "Password123",
-        "Editor",
+        "editor",
     )
     .await;
 
@@ -761,7 +805,7 @@ async fn test_editor_can_invite_members() {
                 .header("content-type", "application/json")
                 .header("authorization", format!("Bearer {}", owner_token))
                 .body(Body::from(
-                    r#"{"email": "editor@example.com", "role": "Editor"}"#,
+                    r#"{"email": "editor@example.com", "role": "editor"}"#,
                 ))
                 .unwrap(),
         )
@@ -788,7 +832,7 @@ async fn test_editor_can_invite_members() {
                 .header("content-type", "application/json")
                 .header("authorization", format!("Bearer {}", editor_token))
                 .body(Body::from(
-                    r#"{"email": "target@example.com", "role": "Viewer"}"#,
+                    r#"{"email": "target@example.com", "role": "viewer"}"#,
                 ))
                 .unwrap(),
         )
@@ -829,7 +873,7 @@ async fn test_update_role_member_not_found() {
 
     // 1. Register owner
     let (owner_token, _owner_id) =
-        register_user(&app, "owner@example.com", "Password123", "Owner").await;
+        register_user(&app, "owner@example.com", "Password123", "owner").await;
 
     // 2. Try to update role of non-existent member
     let response = app
@@ -839,7 +883,7 @@ async fn test_update_role_member_not_found() {
                 .uri("/api/workspaces/workspace-1/members/nonexistent-id")
                 .header("content-type", "application/json")
                 .header("authorization", format!("Bearer {}", owner_token))
-                .body(Body::from(r#"{"role": "Editor"}"#))
+                .body(Body::from(r#"{"role": "editor"}"#))
                 .unwrap(),
         )
         .await
@@ -854,7 +898,7 @@ async fn test_remove_member_not_found() {
 
     // 1. Register owner
     let (owner_token, _owner_id) =
-        register_user(&app, "owner@example.com", "Password123", "Owner").await;
+        register_user(&app, "owner@example.com", "Password123", "owner").await;
 
     // 2. Try to remove non-existent member
     let response = app
@@ -878,14 +922,14 @@ async fn test_viewer_can_list_members() {
 
     // 1. Register owner
     let (owner_token, _owner_id) =
-        register_user(&app, "owner@example.com", "Password123", "Owner").await;
+        register_user(&app, "owner@example.com", "Password123", "owner").await;
 
     // 2. Register viewer
     let (_viewer_token, _viewer_id) = register_user(
         &app,
         "viewer@example.com",
         "Password123",
-        "Viewer",
+        "viewer",
     )
     .await;
 
@@ -899,7 +943,7 @@ async fn test_viewer_can_list_members() {
                 .header("content-type", "application/json")
                 .header("authorization", format!("Bearer {}", owner_token))
                 .body(Body::from(
-                    r#"{"email": "viewer@example.com", "role": "Viewer"}"#,
+                    r#"{"email": "viewer@example.com", "role": "viewer"}"#,
                 ))
                 .unwrap(),
         )
