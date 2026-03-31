@@ -16,6 +16,7 @@ mod synthesis;
 // Alias for backward compatibility - some files still reference `semantic`
 pub(crate) use synthesis as semantic;
 pub mod task;
+pub mod team;
 pub mod trace;
 pub mod workflow;
 pub mod workspace;
