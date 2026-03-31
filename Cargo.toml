@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "crates/decacan-app",
+    "crates/decacan-auth",
     "crates/decacan-runtime",
     "crates/decacan-infra",
 ]

@@ -1,0 +1,28 @@
+[package]
+name = "decacan-auth"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "time"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+time = { version = "0.3", features = ["serde", "formatting", "parsing"] }
+uuid = { version = "1", features = ["serde", "v4"] }
+async-trait = "0.1"
+thiserror = "1"
+argon2 = "0.5"
+jsonwebtoken = "9"
+rand = "0.8"
+validator = { version = "0.18", features = ["derive"] }
+
+# Storage
+sqlx = { version = "0.7", features = ["runtime-tokio", "sqlite", "postgres", "time", "uuid"], optional = true }
+
+[features]
+default = ["sqlite"]
+sqlite = ["sqlx"]
+postgres = ["sqlx"]
+
+[dev-dependencies]
+tokio-test = "0.4"
