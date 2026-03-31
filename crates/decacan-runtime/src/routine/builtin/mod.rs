@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use once_cell::sync::Lazy;
 use serde_json::{json, Value};
 
-use crate::playbook::spec::entities::RoutineRef;
+use crate::capability::entities::CapabilityRef;
 use crate::routine::contract::Contract;
 use crate::routine::context::RoutineContext;
 use crate::routine::error::RoutineError;
@@ -33,6 +33,10 @@ impl Routine for NoopRoutine {
         _input: Value,
     ) -> Result<Value, RoutineError> {
         Ok(json!({}))
+    }
+
+    fn provides_capability(&self) -> Option<CapabilityRef> {
+        Some(CapabilityRef::new("builtin.noop"))
     }
 }
 
@@ -74,6 +78,10 @@ impl Routine for EchoRoutine {
             .unwrap_or("");
         
         Ok(json!({"echo": message}))
+    }
+
+    fn provides_capability(&self) -> Option<CapabilityRef> {
+        Some(CapabilityRef::new("builtin.echo"))
     }
 }
 
@@ -122,14 +130,32 @@ mod tests {
     #[test]
     fn test_builtin_registry() {
         let registry = create_builtin_registry();
-        
+
         let noop_type = RoutineType::new("builtin", "noop", "1.0.0");
         let echo_type = RoutineType::new("builtin", "echo", "1.0.0");
-        
+
         assert!(registry.contains(&noop_type));
         assert!(registry.contains(&echo_type));
-        
+
         let available = registry.list_available();
         assert_eq!(available.len(), 2);
+    }
+
+    #[test]
+    fn test_noop_provides_capability() {
+        let routine = NoopRoutine;
+        let cap = routine.provides_capability();
+
+        assert!(cap.is_some());
+        assert_eq!(cap.unwrap().id, "builtin.noop");
+    }
+
+    #[test]
+    fn test_echo_provides_capability() {
+        let routine = EchoRoutine;
+        let cap = routine.provides_capability();
+
+        assert!(cap.is_some());
+        assert_eq!(cap.unwrap().id, "builtin.echo");
     }
 }
