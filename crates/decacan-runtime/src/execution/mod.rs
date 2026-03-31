@@ -257,6 +257,39 @@ impl WorkflowExecutor {
         }
     }
 
+    /// Apply fallback strategy when a step fails
+    fn apply_fallback(
+        &self,
+        step: &CompiledWorkflowStep,
+        error: ExecutionError,
+        step_outputs: &HashMap<String, Value>,
+    ) -> Result<Value, ExecutionError> {
+        match &step.fallback {
+            Some(fallback) => match fallback.action {
+                FallbackAction::Skip => {
+                    // Return empty success
+                    Ok(serde_json::json!({"fallback": "skipped"}))
+                }
+                FallbackAction::UseDefault => {
+                    // Return default value
+                    Ok(fallback
+                        .default_value
+                        .clone()
+                        .unwrap_or_else(|| serde_json::json!({"fallback": "default"})))
+                }
+                FallbackAction::ExecuteAlternate => {
+                    // This would require executing an alternate step
+                    // For now, just return an error indicating alternate step execution is not implemented
+                    Err(ExecutionError::FallbackNotImplemented {
+                        step_id: step.id.clone(),
+                        reason: "ExecuteAlternate fallback requires step re-execution".to_string(),
+                    })
+                }
+            },
+            None => Err(error),
+        }
+    }
+
     /// Prepare input for a step by applying input mappings
     fn prepare_step_input(
         step: &CompiledWorkflowStep,
@@ -473,6 +506,7 @@ struct StepExecution {
     step_id: String,
     output: Value,
     executed_at: OffsetDateTime,
+    success: bool,
 }
 
 /// Result of workflow execution
@@ -515,6 +549,9 @@ pub enum ExecutionError {
 
     #[error("max retries exceeded for step {step_id}")]
     MaxRetriesExceeded { step_id: String },
+
+    #[error("fallback not implemented for step {step_id}: {reason}")]
+    FallbackNotImplemented { step_id: String, reason: String },
 }
 
 #[cfg(test)]

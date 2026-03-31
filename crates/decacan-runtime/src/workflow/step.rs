@@ -160,6 +160,8 @@ mod tests {
             transition: CompiledTransition::Next("step2".to_string()),
             retry_policy: None,
             timeout_seconds: None,
+            error_handling: None,
+            fallback: None,
         };
 
         assert_eq!(
@@ -180,6 +182,8 @@ mod tests {
             transition: CompiledTransition::End,
             retry_policy: None,
             timeout_seconds: None,
+            error_handling: None,
+            fallback: None,
         };
 
         assert!(step.is_terminal());

@@ -103,6 +103,8 @@ mod tests {
             transition,
             retry_policy: None,
             timeout_seconds: None,
+            error_handling: None,
+            fallback: None,
         }
     }
 
