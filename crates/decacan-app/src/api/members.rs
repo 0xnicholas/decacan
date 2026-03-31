@@ -44,6 +44,16 @@ pub struct ErrorResponse {
     pub message: String,
 }
 
+fn error_response(status: StatusCode, error: &str, message: &str) -> (StatusCode, Json<ErrorResponse>) {
+    (
+        status,
+        Json(ErrorResponse {
+            error: error.to_string(),
+            message: message.to_string(),
+        }),
+    )
+}
+
 impl MemberResponse {
     fn from_membership(membership: &WorkspaceMembership, name: String, email: String) -> Self {
         Self {
@@ -77,15 +87,15 @@ async fn list_members(
     State(state): State<AppState>,
     Path(workspace_id): Path<String>,
     Extension(current_user): Extension<CurrentUser>,
-) -> Result<Json<Vec<MemberResponse>>, StatusCode> {
+) -> Result<Json<Vec<MemberResponse>>, (StatusCode, Json<ErrorResponse>)> {
     // Check auth: User must be workspace member with Read permission on Member resource
     let membership = state
         .member_service()
         .get_membership_by_workspace_and_user(&workspace_id, &current_user.user_id)
-        .map_err(|_| StatusCode::FORBIDDEN)?;
+        .map_err(|_| error_response(StatusCode::FORBIDDEN, "forbidden", "Access denied"))?;
 
     if !membership.has_permission(&Permission::new(ResourceType::Member, ActionType::Read)) {
-        return Err(StatusCode::FORBIDDEN);
+        return Err(error_response(StatusCode::FORBIDDEN, "forbidden", "Insufficient permissions to list members"));
     }
 
     // Get all workspace members
@@ -111,22 +121,22 @@ async fn invite_member(
     Path(workspace_id): Path<String>,
     Extension(current_user): Extension<CurrentUser>,
     Json(request): Json<InviteMemberRequest>,
-) -> Result<(StatusCode, Json<MemberResponse>), StatusCode> {
+) -> Result<(StatusCode, Json<MemberResponse>), (StatusCode, Json<ErrorResponse>)> {
     // Check auth: User must have Create permission on Member resource
     let membership = state
         .member_service()
         .get_membership_by_workspace_and_user(&workspace_id, &current_user.user_id)
-        .map_err(|_| StatusCode::FORBIDDEN)?;
+        .map_err(|_| error_response(StatusCode::FORBIDDEN, "forbidden", "Access denied"))?;
 
     if !membership.has_permission(&Permission::new(ResourceType::Member, ActionType::Create)) {
-        return Err(StatusCode::FORBIDDEN);
+        return Err(error_response(StatusCode::FORBIDDEN, "forbidden", "Insufficient permissions to invite members"));
     }
 
     // Find user by email
     let target_user = state
         .find_user_by_email(&request.email)
         .await
-        .ok_or(StatusCode::NOT_FOUND)?;
+        .ok_or_else(|| error_response(StatusCode::NOT_FOUND, "not_found", "User not found"))?;
 
     // Create new membership
     let input = CreateMembershipInput {
@@ -140,8 +150,8 @@ async fn invite_member(
         .member_service()
         .invite_member(input)
         .map_err(|e| match e {
-            MemberServiceError::AlreadyMember { .. } => StatusCode::CONFLICT,
-            _ => StatusCode::INTERNAL_SERVER_ERROR,
+            MemberServiceError::AlreadyMember { .. } => error_response(StatusCode::CONFLICT, "conflict", "User is already a member"),
+            _ => error_response(StatusCode::INTERNAL_SERVER_ERROR, "internal_error", "Failed to invite member"),
         })?;
 
     let response = MemberResponse::from_membership(
@@ -158,31 +168,31 @@ async fn update_role(
     Path((workspace_id, member_id)): Path<(String, String)>,
     Extension(current_user): Extension<CurrentUser>,
     Json(request): Json<UpdateRoleRequest>,
-) -> Result<StatusCode, StatusCode> {
+) -> Result<StatusCode, (StatusCode, Json<ErrorResponse>)> {
     // Check auth: User must have Update permission on Member resource
     let membership = state
         .member_service()
         .get_membership_by_workspace_and_user(&workspace_id, &current_user.user_id)
-        .map_err(|_| StatusCode::FORBIDDEN)?;
+        .map_err(|_| error_response(StatusCode::FORBIDDEN, "forbidden", "Access denied"))?;
 
     if !membership.has_permission(&Permission::new(ResourceType::Member, ActionType::Update)) {
-        return Err(StatusCode::FORBIDDEN);
+        return Err(error_response(StatusCode::FORBIDDEN, "forbidden", "Insufficient permissions to update member roles"));
     }
 
     // Get the target membership
     let target_membership = state
         .member_service()
         .get_membership(&member_id)
-        .map_err(|_| StatusCode::NOT_FOUND)?;
+        .map_err(|_| error_response(StatusCode::NOT_FOUND, "not_found", "Member not found"))?;
 
     // Prevent changing own role
     if target_membership.user_id == current_user.user_id {
-        return Err(StatusCode::FORBIDDEN);
+        return Err(error_response(StatusCode::FORBIDDEN, "forbidden", "Cannot change your own role"));
     }
 
     // Prevent changing Owner's role
     if target_membership.role == WorkspaceRole::Owner {
-        return Err(StatusCode::FORBIDDEN);
+        return Err(error_response(StatusCode::FORBIDDEN, "forbidden", "Cannot change the workspace owner's role"));
     }
 
     // Update role
@@ -195,7 +205,7 @@ async fn update_role(
     state
         .member_service()
         .update_role(input)
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(|_| error_response(StatusCode::INTERNAL_SERVER_ERROR, "internal_error", "Failed to update role"))?;
 
     Ok(StatusCode::OK)
 }
@@ -204,38 +214,38 @@ async fn remove_member(
     State(state): State<AppState>,
     Path((workspace_id, member_id)): Path<(String, String)>,
     Extension(current_user): Extension<CurrentUser>,
-) -> Result<StatusCode, StatusCode> {
+) -> Result<StatusCode, (StatusCode, Json<ErrorResponse>)> {
     // Check auth: User must have Delete permission on Member resource
     let membership = state
         .member_service()
         .get_membership_by_workspace_and_user(&workspace_id, &current_user.user_id)
-        .map_err(|_| StatusCode::FORBIDDEN)?;
+        .map_err(|_| error_response(StatusCode::FORBIDDEN, "forbidden", "Access denied"))?;
 
     if !membership.has_permission(&Permission::new(ResourceType::Member, ActionType::Delete)) {
-        return Err(StatusCode::FORBIDDEN);
+        return Err(error_response(StatusCode::FORBIDDEN, "forbidden", "Insufficient permissions to remove members"));
     }
 
     // Get the target membership
     let target_membership = state
         .member_service()
         .get_membership(&member_id)
-        .map_err(|_| StatusCode::NOT_FOUND)?;
+        .map_err(|_| error_response(StatusCode::NOT_FOUND, "not_found", "Member not found"))?;
 
     // Prevent removing self
     if target_membership.user_id == current_user.user_id {
-        return Err(StatusCode::FORBIDDEN);
+        return Err(error_response(StatusCode::FORBIDDEN, "forbidden", "Cannot remove yourself from the workspace"));
     }
 
     // Prevent removing Owner
     if target_membership.role == WorkspaceRole::Owner {
-        return Err(StatusCode::FORBIDDEN);
+        return Err(error_response(StatusCode::FORBIDDEN, "forbidden", "Cannot remove the workspace owner"));
     }
 
     // Remove member
     state
         .member_service()
         .remove_member(&member_id)
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(|_| error_response(StatusCode::INTERNAL_SERVER_ERROR, "internal_error", "Failed to remove member"))?;
 
     Ok(StatusCode::NO_CONTENT)
 }
