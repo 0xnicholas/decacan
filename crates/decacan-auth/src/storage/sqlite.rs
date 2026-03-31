@@ -5,6 +5,8 @@ use time::OffsetDateTime;
 use crate::entities::*;
 use crate::error::{AuthError, AuthResult};
 use super::UserStorage;
+use decacan_runtime::workspace::entity::WorkspaceMembership;
+use decacan_runtime::workspace::rbac::WorkspaceRole;
 
 pub struct SqliteUserStorage {
     pool: SqlitePool,
@@ -76,7 +78,40 @@ impl SqliteUserStorage {
         .execute(pool)
         .await
         .map_err(|e| AuthError::Storage(e.to_string()))?;
-        
+
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS workspace_memberships (
+                id TEXT PRIMARY KEY,
+                workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+                user_id TEXT NOT NULL,
+                role TEXT NOT NULL,
+                invited_by TEXT,
+                invited_at TIMESTAMP,
+                joined_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                expires_at TIMESTAMP,
+                UNIQUE(workspace_id, user_id)
+            )
+            "#
+        )
+        .execute(pool)
+        .await
+        .map_err(|e| AuthError::Storage(e.to_string()))?;
+
+        sqlx::query(
+            r#"CREATE INDEX IF NOT EXISTS idx_memberships_workspace ON workspace_memberships(workspace_id)"#
+        )
+        .execute(pool)
+        .await
+        .map_err(|e| AuthError::Storage(e.to_string()))?;
+
+        sqlx::query(
+            r#"CREATE INDEX IF NOT EXISTS idx_memberships_user ON workspace_memberships(user_id)"#
+        )
+        .execute(pool)
+        .await
+        .map_err(|e| AuthError::Storage(e.to_string()))?;
+
         Ok(())
     }
 }
@@ -233,6 +268,120 @@ impl UserStorage for SqliteUserStorage {
     async fn delete_oauth_state(&self, _state: &str) -> AuthResult<()> {
         Ok(())
     }
+
+    async fn create_membership(
+        &self,
+        membership: &WorkspaceMembership,
+    ) -> AuthResult<()> {
+        sqlx::query(
+            r#"
+            INSERT INTO workspace_memberships
+                (id, workspace_id, user_id, role, invited_by, invited_at, joined_at, expires_at)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+            "#
+        )
+        .bind(&membership.id)
+        .bind(&membership.workspace_id)
+        .bind(&membership.user_id)
+        .bind(format!("{:?}", membership.role).to_lowercase())
+        .bind(&membership.invited_by)
+        .bind(membership.invited_at)
+        .bind(membership.joined_at)
+        .bind(membership.expires_at)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| {
+            if let sqlx::Error::Database(db_err) = &e {
+                if db_err.is_unique_violation() {
+                    return AuthError::Storage("Membership already exists".to_string());
+                }
+            }
+            AuthError::Storage(e.to_string())
+        })?;
+
+        Ok(())
+    }
+
+    async fn find_membership(
+        &self,
+        workspace_id: &str,
+        user_id: &str,
+    ) -> AuthResult<Option<WorkspaceMembership>> {
+        let row = sqlx::query_as::<_, MembershipRow>(
+            "SELECT * FROM workspace_memberships WHERE workspace_id = ?1 AND user_id = ?2"
+        )
+        .bind(workspace_id)
+        .bind(user_id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| AuthError::Storage(e.to_string()))?;
+
+        Ok(row.map(|r| r.into()))
+    }
+
+    async fn list_workspace_members(
+        &self,
+        workspace_id: &str,
+    ) -> AuthResult<Vec<(WorkspaceMembership, User)>> {
+        let membership_rows: Vec<MembershipRow> = sqlx::query_as(
+            r#"SELECT * FROM workspace_memberships WHERE workspace_id = ?1"#
+        )
+        .bind(workspace_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| AuthError::Storage(e.to_string()))?;
+
+        let mut results = Vec::with_capacity(membership_rows.len());
+        for m_row in membership_rows {
+            let user_row: Option<UserRow> = sqlx::query_as(
+                r#"SELECT * FROM users WHERE id = ?1"#
+            )
+            .bind(&m_row.user_id)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| AuthError::Storage(e.to_string()))?;
+
+            if let Some(user_row) = user_row {
+                results.push((m_row.into(), user_row.into()));
+            }
+        }
+
+        Ok(results)
+    }
+
+    async fn update_membership_role(
+        &self,
+        membership_id: &str,
+        role: WorkspaceRole,
+    ) -> AuthResult<()> {
+        let result = sqlx::query(
+            "UPDATE workspace_memberships SET role = ?2 WHERE id = ?1"
+        )
+        .bind(membership_id)
+        .bind(format!("{:?}", role).to_lowercase())
+        .execute(&self.pool)
+        .await
+        .map_err(|e| AuthError::Storage(e.to_string()))?;
+
+        if result.rows_affected() == 0 {
+            return Err(AuthError::Storage("Membership not found".to_string()));
+        }
+
+        Ok(())
+    }
+
+    async fn delete_membership(
+        &self,
+        membership_id: &str,
+    ) -> AuthResult<()> {
+        sqlx::query("DELETE FROM workspace_memberships WHERE id = ?1")
+            .bind(membership_id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| AuthError::Storage(e.to_string()))?;
+
+        Ok(())
+    }
 }
 
 #[derive(sqlx::FromRow)]
@@ -310,5 +459,43 @@ fn parse_provider(s: &str) -> AuthProvider {
         "google" => AuthProvider::Google,
         "github" => AuthProvider::GitHub,
         _ => AuthProvider::Email,
+    }
+}
+
+fn parse_workspace_role(s: &str) -> WorkspaceRole {
+    match s {
+        "owner" => WorkspaceRole::Owner,
+        "admin" => WorkspaceRole::Admin,
+        "editor" => WorkspaceRole::Editor,
+        "viewer" => WorkspaceRole::Viewer,
+        "guest" => WorkspaceRole::Guest,
+        _ => WorkspaceRole::Viewer,
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct MembershipRow {
+    id: String,
+    workspace_id: String,
+    user_id: String,
+    role: String,
+    invited_by: Option<String>,
+    invited_at: Option<OffsetDateTime>,
+    joined_at: OffsetDateTime,
+    expires_at: Option<OffsetDateTime>,
+}
+
+impl From<MembershipRow> for WorkspaceMembership {
+    fn from(row: MembershipRow) -> Self {
+        Self {
+            id: row.id,
+            workspace_id: row.workspace_id,
+            user_id: row.user_id,
+            role: parse_workspace_role(&row.role),
+            invited_by: row.invited_by,
+            invited_at: row.invited_at,
+            joined_at: row.joined_at,
+            expires_at: row.expires_at,
+        }
     }
 }
