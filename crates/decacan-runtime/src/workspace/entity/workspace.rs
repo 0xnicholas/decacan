@@ -7,7 +7,7 @@ use super::storage::StorageConfig;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Workspace {
     pub id: String,
-    pub tenant_id: String,
+    pub owner_id: String,
     pub slug: String,
     pub name: String,
     pub description: Option<String>,
@@ -112,7 +112,7 @@ impl Workspace {
         let now = OffsetDateTime::now_utc();
         Self {
             id: id.clone(),
-            tenant_id: "default".to_string(),
+            owner_id: "default".to_string(),
             slug: id,
             name: name_str,
             description: None,
@@ -131,7 +131,7 @@ impl Workspace {
 
     pub fn new_with_config(
         id: impl Into<String>,
-        tenant_id: impl Into<String>,
+        owner_id: impl Into<String>,
         slug: impl Into<String>,
         name: impl Into<String>,
         description: Option<impl Into<String>>,
@@ -144,7 +144,7 @@ impl Workspace {
         let now = OffsetDateTime::now_utc();
         Self {
             id: id.into(),
-            tenant_id: tenant_id.into(),
+            owner_id: owner_id.into(),
             slug: slug.into(),
             name: name.into(),
             description: description.map(|d| d.into()),
