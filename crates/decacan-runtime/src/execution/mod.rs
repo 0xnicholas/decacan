@@ -1,5 +1,29 @@
+//! Workflow execution engine
+//!
+//! This module provides the [`WorkflowExecutor`] for running compiled workflows
+//! using the Routine trait system. It supports:
+//!
+//! - Contract validation (strict/lenient modes)
+//! - Retry policies with configurable backoff
+//! - Error handling strategies (Fail, Skip, Retry, Continue)
+//! - Fallback mechanisms for graceful degradation
+//! - Conditional transitions
+//!
+//! # Example
+//!
+//! ```rust,ignore
+//! let executor = WorkflowExecutor::strict();
+//! let result = executor.execute(
+//!     &workflow,
+//!     &registry,
+//!     &filesystem,
+//!     &storage,
+//!     &clock,
+//!     initial_input,
+//! ).await?;
+//! ```
+
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::time::Duration;
 
 use serde_json::Value;
@@ -150,8 +174,17 @@ impl WorkflowExecutor {
                                 success: false,
                             });
 
-                            state.current_step_id =
-                                Self::determine_next_step(step, &fallback_output)?;
+                            // Check if fallback is ExecuteAlternate with alternate_step_id
+                            if let Some(ref alternate_id) = fallback_output
+                                .get("alternate_step_id")
+                                .and_then(|v| v.as_str())
+                            {
+                                // Jump to alternate step
+                                state.current_step_id = Some(alternate_id.to_string());
+                            } else {
+                                state.current_step_id =
+                                    Self::determine_next_step(step, &fallback_output)?;
+                            }
                         }
                     }
                 }
@@ -278,12 +311,21 @@ impl WorkflowExecutor {
                         .unwrap_or_else(|| serde_json::json!({"fallback": "default"})))
                 }
                 FallbackAction::ExecuteAlternate => {
-                    // This would require executing an alternate step
-                    // For now, just return an error indicating alternate step execution is not implemented
-                    Err(ExecutionError::FallbackNotImplemented {
-                        step_id: step.id.clone(),
-                        reason: "ExecuteAlternate fallback requires step re-execution".to_string(),
-                    })
+                    // ExecuteAlternate transitions to an alternate step instead of the normal flow
+                    // The alternate step will be executed in the next iteration
+                    // We return a marker that signals the executor to jump to the alternate step
+                    if let Some(ref alternate_id) = fallback.alternate_step_id {
+                        Ok(serde_json::json!({
+                            "fallback": "execute_alternate",
+                            "alternate_step_id": alternate_id.clone(),
+                            "original_error": error.to_string()
+                        }))
+                    } else {
+                        Err(ExecutionError::FallbackNotImplemented {
+                            step_id: step.id.clone(),
+                            reason: "ExecuteAlternate requires alternate_step_id to be set".to_string(),
+                        })
+                    }
                 }
             },
             None => Err(error),

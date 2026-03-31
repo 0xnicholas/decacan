@@ -1,3 +1,23 @@
+//! Tool Gateway Routine Adapter
+//!
+//! This module provides adapters that wrap Tool Gateway calls as Routine trait
+//! implementations. This enables the new execution engine to work with existing
+//! tools while maintaining policy enforcement and security.
+//!
+//! # Key Components
+//!
+//! - [`ToolGatewayRoutine`]: Wraps tool calls as Routine implementations
+//! - [`ToolGatewayRoutineRegistry`]: Registry for managing tool routines
+//! - [`ToolGatewayRoutineBuilder`]: Builder for creating custom tool routines
+//!
+//! # Example
+//!
+//! ```rust,ignore
+//! let routine = ToolGatewayRoutine::read_file();
+//! let mut ctx = RoutineContext::new("/tmp", "step1", "run1", "task1");
+//! let output = routine.execute(&mut ctx, input).await?;
+//! ```
+
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -398,8 +418,6 @@ impl Default for ToolGatewayRoutineRegistry {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::policy::entity::PolicyProfile;
-    use std::path::PathBuf;
 
     #[test]
     fn test_tool_routine_creation() {
