@@ -3,6 +3,7 @@ use std::net::SocketAddr;
 #[tokio::main]
 async fn main() {
     let app = decacan_app::app::wiring::router_for_local()
+        .await
         .expect("local app router should initialize");
     let port = std::env::var("DECACAN_APP_PORT")
         .ok()

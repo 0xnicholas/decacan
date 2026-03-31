@@ -17,8 +17,9 @@ export interface TaskPreview {
 
 export interface CreateTaskRequest {
   workspace_id: string;
-  playbook_key: string;
-  input: string;
+  playbook_handle_id: string;
+  playbook_version_id: string;
+  input_payload: string;
 }
 
 export interface CreateTaskResponse {

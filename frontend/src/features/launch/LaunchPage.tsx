@@ -1,7 +1,13 @@
 import { useEffect, useState } from "react";
 
 import type { PlaybookCard, Workspace } from "../../entities/playbook/types";
-import { fetchPlaybooks, fetchWorkspaces } from "../../shared/api/catalog";
+import {
+  fetchPlaybookStore,
+  fetchWorkspaces,
+  forkPlaybook,
+  publishPlaybook,
+  savePlaybookDraft,
+} from "../../shared/api/catalog";
 import {
   createTask,
   createTaskPreview,
@@ -24,7 +30,7 @@ export function LaunchPage() {
     async function loadCatalog() {
       const [workspaceResponse, playbookResponse] = await Promise.all([
         fetchWorkspaces(),
-        fetchPlaybooks(),
+        fetchPlaybookStore(),
       ]);
 
       setWorkspaces(workspaceResponse);
@@ -57,14 +63,51 @@ export function LaunchPage() {
     setIsStarting(true);
 
     try {
+      // 1. Fork playbook from store
+      const forkResponse = await forkPlaybook({
+        store_entry_id: selectedPlaybook.store_entry_id,
+      });
+
+      const handleId = forkResponse.handle.playbook_handle_id;
+
+      // 2. Save draft with proper configuration
+      const specDocument = `metadata:
+  title: ${selectedPlaybook.title}
+capability_refs:
+  routines:
+    - builtin.scan_markdown_files
+  tools:
+    - builtin.workspace.read
+    - builtin.artifact.write
+  validators:
+    - builtin.output_contract.summary
+execution_profile: single
+`;
+
+      await savePlaybookDraft(handleId, { spec_document: specDocument });
+
+      // 3. Publish playbook to get version
+      const publishResponse = await publishPlaybook(handleId);
+
+      if (!publishResponse.version) {
+        throw new Error("Failed to publish playbook");
+      }
+
+      const versionId = publishResponse.version.playbook_version_id;
+
+      // 4. Create task with handle_id and version_id
       const response = await createTask({
         workspace_id: selectedWorkspaceId,
-        playbook_key: selectedPlaybook.key,
-        input: goal.trim(),
+        playbook_handle_id: handleId,
+        playbook_version_id: versionId,
+        input_payload: goal.trim(),
       });
 
       window.history.pushState({}, "", `/tasks/${response.task.id}`);
       window.dispatchEvent(new PopStateEvent("popstate"));
+    } catch (error) {
+      console.error("Failed to start task:", error);
+      alert("Failed to start task. Please try again.");
     } finally {
       setIsStarting(false);
     }
@@ -77,7 +120,24 @@ export function LaunchPage() {
     <div className="workspace-shell">
       <aside className="sidebar">
         <p className="sidebar-label">Workspace</p>
-        <h2 className="sidebar-title">{selectedWorkspace?.title ?? "Loading workspace..."}</h2>
+        <select
+          aria-label="Select workspace"
+          className="workspace-select"
+          value={selectedWorkspaceId ?? ""}
+          onChange={(event) => {
+            setSelectedWorkspaceId(event.target.value || null);
+            setPreview(null);
+          }}
+        >
+          <option value="" disabled={selectedWorkspaceId !== null}>
+            Select a workspace...
+          </option>
+          {workspaces.map((workspace) => (
+            <option key={workspace.id} value={workspace.id}>
+              {workspace.title}
+            </option>
+          ))}
+        </select>
         <p className="sidebar-path">{selectedWorkspace?.root_path ?? "/workspace"}</p>
         <div className="sidebar-section">
           <p className="sidebar-label">Current playbook</p>

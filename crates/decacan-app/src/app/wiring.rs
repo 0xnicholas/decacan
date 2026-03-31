@@ -13,12 +13,12 @@ const FRONTEND_DIST_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fron
 const FRONTEND_ASSETS_DIR: &str =
     concat!(env!("CARGO_MANIFEST_DIR"), "/../../frontend/dist/assets");
 
-pub fn router_for_test() -> Router {
-    router_with_state(AppState::new_for_test())
+pub async fn router_for_test() -> Router {
+    router_with_state(AppState::new_for_test().await)
 }
 
-pub fn router_for_local() -> std::io::Result<Router> {
-    Ok(router_with_state(AppState::new_local()?))
+pub async fn router_for_local() -> std::io::Result<Router> {
+    Ok(router_with_state(AppState::new_local().await?))
 }
 
 pub fn router_with_state(state: AppState) -> Router {

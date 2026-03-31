@@ -4,6 +4,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use decacan_auth::{AuthService, SqliteUserStorage};
 use decacan_infra::clock::system::SystemClock;
 use decacan_infra::filesystem::local::LocalFilesystem;
 use decacan_infra::storage::memory::MemoryStorage;
@@ -57,6 +58,7 @@ struct AppStateInner {
     approvals: Mutex<HashMap<String, ApprovalDto>>,
     task_events: Mutex<HashMap<String, Vec<TaskEventEnvelopeDto>>>,
     task_event_bus: broadcast::Sender<TaskEventEnvelopeDto>,
+    auth_service: AuthService<SqliteUserStorage>,
 }
 
 #[derive(Debug, Clone)]
@@ -107,7 +109,7 @@ struct ExecutionOutcome {
 }
 
 impl AppState {
-    pub fn new_for_test() -> Self {
+    pub async fn new_for_test() -> Self {
         let root = std::env::temp_dir().join(format!(
             "decacan-app-runtime-{}",
             SystemTime::now()
@@ -116,15 +118,20 @@ impl AppState {
                 .as_nanos()
         ));
         Self::new_with_workspace_root(root)
+            .await
             .expect("test app state should create a default workspace root")
     }
 
-    pub fn new_local() -> std::io::Result<Self> {
+    pub async fn new_local() -> std::io::Result<Self> {
         let root = std::env::current_dir()?.join(".decacan-local-workspace");
-        Self::new_with_workspace_root(root)
+        Self::new_with_workspace_root(root).await
     }
 
-    fn new_with_workspace_root(default_workspace_root: PathBuf) -> std::io::Result<Self> {
+    pub fn auth_service(&self) -> &AuthService<SqliteUserStorage> {
+        &self.inner.auth_service
+    }
+
+    async fn new_with_workspace_root(default_workspace_root: PathBuf) -> std::io::Result<Self> {
         std::fs::create_dir_all(&default_workspace_root)?;
         let (task_event_bus, _) = broadcast::channel(64);
         let playbooks = list_registered_playbooks()
@@ -132,6 +139,16 @@ impl AppState {
             .map(playbook_to_dto)
             .collect();
         let playbook_store = builtin_store_entries();
+
+        // 初始化认证服务
+        let db_path = default_workspace_root.join("auth.db");
+        let storage = Arc::new(
+            SqliteUserStorage::new(&format!("sqlite:{}", db_path.display()))
+                .await
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?
+        );
+        let jwt_secret = std::env::var("JWT_SECRET").unwrap_or_else(|_| "decacan-secret-key".to_string());
+        let auth_service = AuthService::new(storage, jwt_secret);
 
         Ok(Self {
             inner: Arc::new(AppStateInner {
@@ -150,6 +167,7 @@ impl AppState {
                 approvals: Mutex::new(HashMap::new()),
                 task_events: Mutex::new(HashMap::new()),
                 task_event_bus,
+                auth_service,
             }),
         })
     }

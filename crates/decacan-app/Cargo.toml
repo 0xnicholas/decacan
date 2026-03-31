@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 axum = { version = "0.7", features = ["json", "http1", "tokio"] }
+decacan-auth = { path = "../decacan-auth" }
 decacan-infra = { path = "../decacan-infra" }
 decacan-runtime = { path = "../decacan-runtime" }
 http = "1"

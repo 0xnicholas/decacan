@@ -1,5 +1,6 @@
 mod approvals;
 mod artifacts;
+mod auth;
 mod deliverables;
 mod inbox;
 mod playbooks;
@@ -14,6 +15,7 @@ use crate::app::state::AppState;
 
 pub fn router() -> Router<AppState> {
     Router::new()
+        .merge(auth::router())
         .merge(workspaces::router())
         .merge(playbooks::router())
         .merge(tasks::router())
