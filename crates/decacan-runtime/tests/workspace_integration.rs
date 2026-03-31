@@ -32,7 +32,7 @@ async fn test_complete_workspace_workflow() {
     let service = WorkspaceService::new();
 
     let input = CreateWorkspaceInput {
-        tenant_id: "tenant-1".to_string(),
+        owner_id: "tenant-1".to_string(),
         slug: "test-workspace".to_string(),
         name: "Test Workspace".to_string(),
         description: Some("Integration test workspace".to_string()),
@@ -43,7 +43,7 @@ async fn test_complete_workspace_workflow() {
     };
 
     let workspace = service.create_workspace(input).await.unwrap();
-    assert_eq!(workspace.tenant_id, "tenant-1");
+    assert_eq!(workspace.owner_id, "tenant-1");
     assert_eq!(workspace.slug, "test-workspace");
     assert_eq!(workspace.name, "Test Workspace");
     let workspace_id = workspace.id.clone();
@@ -230,7 +230,7 @@ async fn test_workspace_service_error_handling() {
 
     // Test: Create duplicate workspace
     let input = CreateWorkspaceInput {
-        tenant_id: "tenant-dup".to_string(),
+        owner_id: "tenant-dup".to_string(),
         slug: "dup-workspace".to_string(),
         name: "Duplicate Test".to_string(),
         description: None,
@@ -247,7 +247,7 @@ async fn test_workspace_service_error_handling() {
 
     // Test: Invalid state transition
     let input2 = CreateWorkspaceInput {
-        tenant_id: "tenant-state".to_string(),
+        owner_id: "tenant-state".to_string(),
         slug: "state-workspace".to_string(),
         name: "State Test".to_string(),
         description: None,

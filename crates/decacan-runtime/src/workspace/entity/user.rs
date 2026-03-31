@@ -4,7 +4,7 @@ use time::OffsetDateTime;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct User {
     pub id: String,
-    pub tenant_id: String,
+    pub owner_id: String,
     pub email: String,
     pub name: String,
     pub avatar_url: Option<String>,
@@ -24,7 +24,7 @@ pub enum UserStatus {
 impl User {
     pub fn new(
         id: impl Into<String>,
-        tenant_id: impl Into<String>,
+        owner_id: impl Into<String>,
         email: impl Into<String>,
         name: impl Into<String>,
         avatar_url: Option<String>,
@@ -32,7 +32,7 @@ impl User {
         let now = OffsetDateTime::now_utc();
         Self {
             id: id.into(),
-            tenant_id: tenant_id.into(),
+            owner_id: owner_id.into(),
             email: email.into(),
             name: name.into(),
             avatar_url,
@@ -42,7 +42,7 @@ impl User {
         }
     }
 
-    pub fn new_for_test(id: &str, tenant_id: &str) -> Self {
-        Self::new(id, tenant_id, "test@example.com", "Test User", None)
+    pub fn new_for_test(id: &str, owner_id: &str) -> Self {
+        Self::new(id, owner_id, "test@example.com", "Test User", None)
     }
 }

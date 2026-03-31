@@ -10,7 +10,7 @@ async fn test_create_workspace() {
     let service = WorkspaceService::new();
 
     let input = CreateWorkspaceInput {
-        tenant_id: "tenant-1".to_string(),
+        owner_id: "tenant-1".to_string(),
         slug: "my-workspace".to_string(),
         name: "My Workspace".to_string(),
         description: Some("Test description".to_string()),
@@ -24,7 +24,7 @@ async fn test_create_workspace() {
     assert!(result.is_ok());
 
     let workspace = result.unwrap();
-    assert_eq!(workspace.tenant_id, "tenant-1");
+    assert_eq!(workspace.owner_id, "tenant-1");
     assert_eq!(workspace.slug, "my-workspace");
     assert_eq!(workspace.name, "My Workspace");
     assert_eq!(workspace.description, Some("Test description".to_string()));
@@ -36,7 +36,7 @@ async fn test_enforce_unique_slug_per_tenant() {
     let service = WorkspaceService::new();
 
     let input1 = CreateWorkspaceInput {
-        tenant_id: "tenant-1".to_string(),
+        owner_id: "tenant-1".to_string(),
         slug: "my-workspace".to_string(),
         name: "My Workspace 1".to_string(),
         description: None,
@@ -50,7 +50,7 @@ async fn test_enforce_unique_slug_per_tenant() {
     assert!(result1.is_ok());
 
     let input2 = CreateWorkspaceInput {
-        tenant_id: "tenant-1".to_string(),
+        owner_id: "tenant-1".to_string(),
         slug: "my-workspace".to_string(),
         name: "My Workspace 2".to_string(),
         description: None,
@@ -70,7 +70,7 @@ async fn test_same_slug_different_tenant() {
     let service = WorkspaceService::new();
 
     let input1 = CreateWorkspaceInput {
-        tenant_id: "tenant-1".to_string(),
+        owner_id: "tenant-1".to_string(),
         slug: "my-workspace".to_string(),
         name: "My Workspace 1".to_string(),
         description: None,
@@ -84,7 +84,7 @@ async fn test_same_slug_different_tenant() {
     assert!(result1.is_ok());
 
     let input2 = CreateWorkspaceInput {
-        tenant_id: "tenant-2".to_string(),
+        owner_id: "tenant-2".to_string(),
         slug: "my-workspace".to_string(),
         name: "My Workspace 2".to_string(),
         description: None,
@@ -103,7 +103,7 @@ async fn test_get_workspace() {
     let service = WorkspaceService::new();
 
     let input = CreateWorkspaceInput {
-        tenant_id: "tenant-1".to_string(),
+        owner_id: "tenant-1".to_string(),
         slug: "my-workspace".to_string(),
         name: "My Workspace".to_string(),
         description: None,
@@ -132,7 +132,7 @@ async fn test_list_workspaces() {
     assert!(workspaces.is_empty());
 
     let input1 = CreateWorkspaceInput {
-        tenant_id: "tenant-1".to_string(),
+        owner_id: "tenant-1".to_string(),
         slug: "workspace-1".to_string(),
         name: "Workspace 1".to_string(),
         description: None,
@@ -143,7 +143,7 @@ async fn test_list_workspaces() {
     };
 
     let input2 = CreateWorkspaceInput {
-        tenant_id: "tenant-1".to_string(),
+        owner_id: "tenant-1".to_string(),
         slug: "workspace-2".to_string(),
         name: "Workspace 2".to_string(),
         description: None,
@@ -165,7 +165,7 @@ async fn test_activate_workspace() {
     let service = WorkspaceService::new();
 
     let input = CreateWorkspaceInput {
-        tenant_id: "tenant-1".to_string(),
+        owner_id: "tenant-1".to_string(),
         slug: "my-workspace".to_string(),
         name: "My Workspace".to_string(),
         description: None,
@@ -190,7 +190,7 @@ async fn test_archive_workspace() {
     let service = WorkspaceService::new();
 
     let input = CreateWorkspaceInput {
-        tenant_id: "tenant-1".to_string(),
+        owner_id: "tenant-1".to_string(),
         slug: "my-workspace".to_string(),
         name: "My Workspace".to_string(),
         description: None,
@@ -217,7 +217,7 @@ async fn test_restore_workspace() {
     let service = WorkspaceService::new();
 
     let input = CreateWorkspaceInput {
-        tenant_id: "tenant-1".to_string(),
+        owner_id: "tenant-1".to_string(),
         slug: "my-workspace".to_string(),
         name: "My Workspace".to_string(),
         description: None,
@@ -244,7 +244,7 @@ async fn test_delete_workspace() {
     let service = WorkspaceService::new();
 
     let input = CreateWorkspaceInput {
-        tenant_id: "tenant-1".to_string(),
+        owner_id: "tenant-1".to_string(),
         slug: "my-workspace".to_string(),
         name: "My Workspace".to_string(),
         description: None,
@@ -272,7 +272,7 @@ async fn test_invalid_state_transition_archive_draft() {
     let service = WorkspaceService::new();
 
     let input = CreateWorkspaceInput {
-        tenant_id: "tenant-1".to_string(),
+        owner_id: "tenant-1".to_string(),
         slug: "my-workspace".to_string(),
         name: "My Workspace".to_string(),
         description: None,
@@ -294,7 +294,7 @@ async fn test_invalid_state_transition_activate_deleted() {
     let service = WorkspaceService::new();
 
     let input = CreateWorkspaceInput {
-        tenant_id: "tenant-1".to_string(),
+        owner_id: "tenant-1".to_string(),
         slug: "my-workspace".to_string(),
         name: "My Workspace".to_string(),
         description: None,

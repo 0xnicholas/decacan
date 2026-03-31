@@ -11,15 +11,15 @@ use crate::workspace::entity::{
 pub enum WorkspaceServiceError {
     #[error("Workspace not found")]
     NotFound,
-    #[error("Workspace with slug '{slug}' already exists for tenant '{tenant_id}'")]
-    AlreadyExists { slug: String, tenant_id: String },
+    #[error("Workspace with slug '{slug}' already exists for tenant '{owner_id}'")]
+    AlreadyExists { slug: String, owner_id: String },
     #[error("Invalid state transition from {from:?} to {to:?}")]
     InvalidStateTransition { from: WorkspaceStatus, to: WorkspaceStatus },
 }
 
 #[derive(Debug, Clone)]
 pub struct CreateWorkspaceInput {
-    pub tenant_id: String,
+    pub owner_id: String,
     pub slug: String,
     pub name: String,
     pub description: Option<String>,
@@ -46,14 +46,14 @@ impl WorkspaceService {
         &self,
         input: CreateWorkspaceInput,
     ) -> Result<Workspace, WorkspaceServiceError> {
-        let slug_key = (input.tenant_id.clone(), input.slug.clone());
+        let slug_key = (input.owner_id.clone(), input.slug.clone());
         
         {
             let slug_index = self.slug_index.lock().unwrap();
             if slug_index.contains_key(&slug_key) {
                 return Err(WorkspaceServiceError::AlreadyExists {
                     slug: input.slug,
-                    tenant_id: input.tenant_id,
+                    owner_id: input.owner_id,
                 });
             }
         }
@@ -61,7 +61,7 @@ impl WorkspaceService {
         let id = Uuid::new_v4().to_string();
         let workspace = Workspace::new_with_config(
             id.clone(),
-            input.tenant_id.clone(),
+            input.owner_id.clone(),
             input.slug.clone(),
             input.name,
             input.description,
@@ -95,12 +95,12 @@ impl WorkspaceService {
 
     pub async fn list_workspaces(
         &self,
-        tenant_id: &str,
+        owner_id: &str,
     ) -> Vec<Workspace> {
         let storage = self.storage.lock().unwrap();
         storage
             .values()
-            .filter(|ws| ws.tenant_id == tenant_id)
+            .filter(|ws| ws.owner_id == owner_id)
             .cloned()
             .collect()
     }
@@ -193,7 +193,7 @@ impl WorkspaceService {
             });
         }
 
-        let slug_key = (workspace.tenant_id.clone(), workspace.slug.clone());
+        let slug_key = (workspace.owner_id.clone(), workspace.slug.clone());
         
         {
             let mut slug_index = self.slug_index.lock().unwrap();
@@ -221,7 +221,7 @@ mod tests {
         let service = WorkspaceService::new();
 
         let input = CreateWorkspaceInput {
-            tenant_id: "tenant-1".to_string(),
+            owner_id: "tenant-1".to_string(),
             slug: "my-workspace".to_string(),
             name: "My Workspace".to_string(),
             description: None,
@@ -235,7 +235,7 @@ mod tests {
         assert!(result.is_ok());
 
         let workspace = result.unwrap();
-        assert_eq!(workspace.tenant_id, "tenant-1");
+        assert_eq!(workspace.owner_id, "tenant-1");
         assert_eq!(workspace.slug, "my-workspace");
         assert_eq!(workspace.name, "My Workspace");
     }

@@ -10,7 +10,7 @@ fn workspace_has_all_required_fields() {
     let workspace = Workspace::new_for_test("ws-1", "My Workspace", "/data/ws-1");
 
     assert_eq!(workspace.id, "ws-1");
-    assert_eq!(workspace.tenant_id, "default");
+    assert_eq!(workspace.owner_id, "default");
     assert_eq!(workspace.slug, "ws-1");
     assert_eq!(workspace.name, "My Workspace");
     assert_eq!(workspace.description, None);
@@ -266,7 +266,7 @@ fn workspace_complete_roundtrip() {
     let deserialized: Workspace = serde_json::from_str(&json).unwrap();
 
     assert_eq!(workspace.id, deserialized.id);
-    assert_eq!(workspace.tenant_id, deserialized.tenant_id);
+    assert_eq!(workspace.owner_id, deserialized.owner_id);
     assert_eq!(workspace.slug, deserialized.slug);
     assert_eq!(workspace.name, deserialized.name);
     assert_eq!(workspace.description, deserialized.description);
@@ -293,7 +293,7 @@ fn user_has_required_fields() {
     let user = User::new("user-1", "tenant-1", "user@example.com", "John Doe", None);
 
     assert_eq!(user.id, "user-1");
-    assert_eq!(user.tenant_id, "tenant-1");
+    assert_eq!(user.owner_id, "tenant-1");
     assert_eq!(user.email, "user@example.com");
     assert_eq!(user.name, "John Doe");
     assert!(matches!(user.status, UserStatus::Active));
