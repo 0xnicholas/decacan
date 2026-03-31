@@ -465,6 +465,15 @@ output_contract:
     ) -> Result<UpdatePlaybookResponseDto, PlaybookLifecycleError> {
         use time::OffsetDateTime;
 
+        // Validate that at least one field is provided
+        if request.title.is_none()
+            && request.description.is_none()
+            && request.mode.is_none()
+            && request.tags.is_none()
+        {
+            return Err(PlaybookLifecycleError::InvalidUpdate);
+        }
+
         let mut playbooks = self
             .inner
             .lifecycle_playbooks
@@ -475,8 +484,20 @@ output_contract:
             .get_mut(handle_id)
             .ok_or(PlaybookLifecycleError::HandleNotFound)?;
 
+        let mut updated = false;
+
         if let Some(title) = request.title {
-            stored.handle.title = title;
+            if !title.is_empty() {
+                stored.handle.title = title;
+                updated = true;
+            }
+        }
+
+        // Note: description, mode, and tags are stored in the draft spec_document
+        // not in the PlaybookHandle. To update these, you need to update the draft.
+        // For now, we only support updating the title via this endpoint.
+
+        if updated {
             stored.handle.updated_at = OffsetDateTime::now_utc();
         }
 
@@ -542,19 +563,16 @@ output_contract:
 
         // Validate lead_role_id exists in roles
         let lead_role_exists = roles.iter().any(|r| r.id == request.lead_role_id);
-        let lead_role_id = if lead_role_exists {
-            request.lead_role_id
-        } else {
-            // Default to first role if not found
-            roles.first().map(|r| r.id.clone()).unwrap_or_default()
-        };
+        if !lead_role_exists {
+            return Err(()); // Return error if lead_role_id doesn't exist in roles
+        }
 
         let spec = TeamSpecDto {
             id: team_id.clone(),
             name: request.name,
             description: request.description,
             roles,
-            lead_role_id,
+            lead_role_id: request.lead_role_id,
             created_at: created_at.clone(),
         };
 
@@ -575,26 +593,42 @@ output_contract:
         Ok(CreateTeamResponseDto { team: spec })
     }
 
-    pub fn update_team(&self, team_id: &str, request: UpdateTeamRequestDto) -> Result<TeamSpecDto, ()> {
+    pub fn update_team(&self, team_id: &str, request: UpdateTeamRequestDto) -> Result<TeamSpecDto, String> {
+        // Validate that at least one field is provided
+        if request.name.is_none() 
+            && request.description.is_none() 
+            && request.roles.is_none() 
+            && request.lead_role_id.is_none() {
+            return Err("At least one field must be provided for update".to_string());
+        }
+
         let mut teams = self
             .inner
             .teams
             .lock()
             .expect("teams lock should not be poisoned");
 
-        let stored = teams.get_mut(team_id).ok_or(())?;
+        let stored = teams.get_mut(team_id).ok_or_else(|| "Team not found".to_string())?;
+
+        // Update roles first if provided
+        if let Some(roles) = request.roles {
+            stored.spec.roles = roles;
+        }
+
+        // Validate lead_role_id exists in roles if provided
+        if let Some(ref lead_role_id) = request.lead_role_id {
+            let role_exists = stored.spec.roles.iter().any(|r| &r.id == lead_role_id);
+            if !role_exists {
+                return Err(format!("Lead role '{}' does not exist in team roles", lead_role_id));
+            }
+            stored.spec.lead_role_id = lead_role_id.clone();
+        }
 
         if let Some(name) = request.name {
             stored.spec.name = name;
         }
         if let Some(description) = request.description {
             stored.spec.description = description;
-        }
-        if let Some(roles) = request.roles {
-            stored.spec.roles = roles;
-        }
-        if let Some(lead_role_id) = request.lead_role_id {
-            stored.spec.lead_role_id = lead_role_id;
         }
 
         Ok(stored.spec.clone())
@@ -1317,6 +1351,7 @@ pub enum CreateTaskError {
 pub enum PlaybookLifecycleError {
     StoreEntryNotFound,
     HandleNotFound,
+    InvalidUpdate,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

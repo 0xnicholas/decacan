@@ -9,6 +9,7 @@ use crate::dto::policy::{
     CheckPermissionResponseDto, PermissionDto, RolePermissionsResponseDto,
     UserPermissionsResponseDto,
 };
+use decacan_runtime::workspace::rbac::WorkspaceRole;
 
 #[derive(Debug, Deserialize)]
 struct CheckPermissionQuery {
@@ -53,33 +54,27 @@ async fn check_permission(
 async fn get_role_permissions(
     Path(role): Path<String>,
 ) -> Result<Json<RolePermissionsResponseDto>, StatusCode> {
-    let permissions = match role.as_str() {
-        "owner" => vec![
-            PermissionDto { resource: "workspace".to_string(), action: "*".to_string() },
-            PermissionDto { resource: "playbook".to_string(), action: "*".to_string() },
-            PermissionDto { resource: "task".to_string(), action: "*".to_string() },
-            PermissionDto { resource: "member".to_string(), action: "*".to_string() },
-        ],
-        "admin" => vec![
-            PermissionDto { resource: "playbook".to_string(), action: "*".to_string() },
-            PermissionDto { resource: "task".to_string(), action: "*".to_string() },
-            PermissionDto { resource: "member".to_string(), action: "create".to_string() },
-            PermissionDto { resource: "member".to_string(), action: "read".to_string() },
-            PermissionDto { resource: "member".to_string(), action: "update".to_string() },
-        ],
-        "editor" => vec![
-            PermissionDto { resource: "playbook".to_string(), action: "create".to_string() },
-            PermissionDto { resource: "playbook".to_string(), action: "read".to_string() },
-            PermissionDto { resource: "playbook".to_string(), action: "update".to_string() },
-            PermissionDto { resource: "playbook".to_string(), action: "execute".to_string() },
-            PermissionDto { resource: "task".to_string(), action: "*".to_string() },
-        ],
-        "viewer" => vec![
-            PermissionDto { resource: "playbook".to_string(), action: "read".to_string() },
-            PermissionDto { resource: "task".to_string(), action: "read".to_string() },
-            PermissionDto { resource: "artifact".to_string(), action: "read".to_string() },
-        ],
-        _ => vec![],
+    // Parse role string to WorkspaceRole enum
+    let workspace_role = match role.as_str() {
+        "owner" => Some(WorkspaceRole::Owner),
+        "admin" => Some(WorkspaceRole::Admin),
+        "editor" => Some(WorkspaceRole::Editor),
+        "viewer" => Some(WorkspaceRole::Viewer),
+        _ => None,
+    };
+
+    let permissions = if let Some(ws_role) = workspace_role {
+        // Use actual WorkspaceRole permissions from runtime
+        ws_role
+            .permissions()
+            .into_iter()
+            .map(|p| PermissionDto {
+                resource: format!("{:?}", p.resource).to_lowercase(),
+                action: format!("{:?}", p.action).to_lowercase(),
+            })
+            .collect()
+    } else {
+        vec![]
     };
 
     Ok(Json(RolePermissionsResponseDto {

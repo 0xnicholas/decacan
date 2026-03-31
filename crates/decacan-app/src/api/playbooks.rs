@@ -121,5 +121,6 @@ fn map_playbook_lifecycle_error(error: PlaybookLifecycleError) -> StatusCode {
         PlaybookLifecycleError::StoreEntryNotFound | PlaybookLifecycleError::HandleNotFound => {
             StatusCode::NOT_FOUND
         }
+        PlaybookLifecycleError::InvalidUpdate => StatusCode::BAD_REQUEST,
     }
 }

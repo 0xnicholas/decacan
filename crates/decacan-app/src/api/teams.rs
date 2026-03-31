@@ -47,7 +47,13 @@ async fn update_team(
 ) -> Result<Json<TeamSpecDto>, StatusCode> {
     state
         .update_team(&team_id, request)
-        .map_err(|_| StatusCode::NOT_FOUND)
+        .map_err(|e| {
+            if e.contains("not found") {
+                StatusCode::NOT_FOUND
+            } else {
+                StatusCode::BAD_REQUEST
+            }
+        })
         .map(Json)
 }
 
