@@ -14,15 +14,8 @@ thiserror = "1"
 argon2 = "0.5"
 jsonwebtoken = "9"
 rand = "0.8"
-validator = { version = "0.18", features = ["derive"] }
-
 # Storage
-sqlx = { version = "0.7", features = ["runtime-tokio", "sqlite", "postgres", "time", "uuid"], optional = true }
-
-[features]
-default = ["sqlite"]
-sqlite = ["sqlx"]
-postgres = ["sqlx"]
+sqlx = { version = "0.7", features = ["runtime-tokio", "sqlite", "time", "uuid"] }
 
 [dev-dependencies]
 tokio-test = "0.4"

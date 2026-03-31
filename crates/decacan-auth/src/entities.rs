@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
-use uuid::Uuid;
 
+/// 用户实体（仅认证相关字段）
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct User {
     pub id: String,
@@ -33,35 +33,30 @@ pub enum AuthProvider {
     GitHub,
 }
 
+/// JWT 认证会话
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Workspace {
+pub struct AuthSession {
     pub id: String,
-    pub name: String,
-    pub slug: String,
-    pub description: Option<String>,
-    pub owner_id: String,
-    pub workspace_type: WorkspaceType,
-    pub created_at: OffsetDateTime,
-    pub updated_at: OffsetDateTime,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum WorkspaceType {
-    Personal,
-    Team,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct WorkspaceMembership {
-    pub id: String,
-    pub workspace_id: String,
     pub user_id: String,
-    pub role: WorkspaceRole,
-    pub invited_by: Option<String>,
-    pub joined_at: OffsetDateTime,
+    pub access_token: String,
+    pub refresh_token: String,
+    pub expires_at: OffsetDateTime,
+    pub created_at: OffsetDateTime,
+    pub last_used_at: Option<OffsetDateTime>,
+    pub ip_address: Option<String>,
+    pub user_agent: Option<String>,
 }
 
+/// OAuth State（防止 CSRF）
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OAuthState {
+    pub state: String,
+    pub provider: AuthProvider,
+    pub redirect_url: String,
+    pub created_at: OffsetDateTime,
+}
+
+/// Workspace 角色（供 runtime 使用）
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum WorkspaceRole {
@@ -85,27 +80,6 @@ impl WorkspaceRole {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct AuthSession {
-    pub id: String,
-    pub user_id: String,
-    pub access_token: String,
-    pub refresh_token: String,
-    pub expires_at: OffsetDateTime,
-    pub created_at: OffsetDateTime,
-    pub last_used_at: Option<OffsetDateTime>,
-    pub ip_address: Option<String>,
-    pub user_agent: Option<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct OAuthState {
-    pub state: String,
-    pub provider: AuthProvider,
-    pub redirect_url: String,
-    pub created_at: OffsetDateTime,
-}
-
 impl User {
     pub fn new(id: impl Into<String>, email: impl Into<String>, name: impl Into<String>) -> Self {
         let now = OffsetDateTime::now_utc();
@@ -121,44 +95,6 @@ impl User {
             email_verified_at: None,
             created_at: now,
             last_login_at: None,
-        }
-    }
-}
-
-impl Workspace {
-    pub fn new(
-        id: impl Into<String>,
-        name: impl Into<String>,
-        slug: impl Into<String>,
-        owner_id: impl Into<String>,
-    ) -> Self {
-        let now = OffsetDateTime::now_utc();
-        Self {
-            id: id.into(),
-            name: name.into(),
-            slug: slug.into(),
-            description: None,
-            owner_id: owner_id.into(),
-            workspace_type: WorkspaceType::Personal,
-            created_at: now,
-            updated_at: now,
-        }
-    }
-}
-
-impl WorkspaceMembership {
-    pub fn new(
-        workspace_id: impl Into<String>,
-        user_id: impl Into<String>,
-        role: WorkspaceRole,
-    ) -> Self {
-        Self {
-            id: Uuid::new_v4().to_string(),
-            workspace_id: workspace_id.into(),
-            user_id: user_id.into(),
-            role,
-            invited_by: None,
-            joined_at: OffsetDateTime::now_utc(),
         }
     }
 }
