@@ -25,6 +25,7 @@ struct Claims {
     exp: i64,
     iat: i64,
     typ: String,
+    jti: String, // JWT ID - unique identifier for each token
 }
 
 pub struct AuthTokens {
@@ -187,6 +188,9 @@ impl<S: UserStorage> AuthService<S> {
         let access_expiry = Duration::minutes(15);
         let refresh_expiry = Duration::days(7);
         
+        // Generate unique session ID first to use as JWT ID (jti)
+        let session_id = Uuid::new_v4().to_string();
+        
         let access_token = encode(
             &Header::default(),
             &Claims {
@@ -194,6 +198,7 @@ impl<S: UserStorage> AuthService<S> {
                 exp: (now + access_expiry).unix_timestamp(),
                 iat: now.unix_timestamp(),
                 typ: "access".to_string(),
+                jti: format!("{}-access", session_id),
             },
             &EncodingKey::from_secret(self.jwt_secret.as_bytes()),
         ).map_err(|e| AuthError::Internal(format!("JWT encoding failed: {}", e)))?;
@@ -205,12 +210,13 @@ impl<S: UserStorage> AuthService<S> {
                 exp: (now + refresh_expiry).unix_timestamp(),
                 iat: now.unix_timestamp(),
                 typ: "refresh".to_string(),
+                jti: format!("{}-refresh", session_id),
             },
             &EncodingKey::from_secret(self.jwt_secret.as_bytes()),
         ).map_err(|e| AuthError::Internal(format!("JWT encoding failed: {}", e)))?;
         
         let session = AuthSession {
-            id: Uuid::new_v4().to_string(),
+            id: session_id,
             user_id: user_id.to_string(),
             access_token: access_token.clone(),
             refresh_token: refresh_token.clone(),

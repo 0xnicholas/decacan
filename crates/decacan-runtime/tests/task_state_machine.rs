@@ -19,7 +19,6 @@ fn planning_task_and_initialized_run() -> (Task, Run) {
     );
     let workflow = Workflow::new_for_test(
         "workflow-1",
-        &playbook.id,
         vec![
             WorkflowStep::new_for_test(
                 "step-1",
@@ -118,7 +117,7 @@ fn task_can_be_cancelled_before_run_creation() {
         "task-1",
         "workspace-1",
         "playbook-1",
-        Workflow::new_for_test("workflow-1", "playbook-1", Vec::new()).version_id,
+        Workflow::new_for_test("workflow-1", Vec::new()).version_id,
     );
 
     service::cancel_before_run(&mut task).unwrap();

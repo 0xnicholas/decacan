@@ -52,16 +52,13 @@ async fn test_register_short_password() {
 #[tokio::test]
 async fn test_login_success() {
     let storage = Arc::new(SqliteUserStorage::new(":memory:").await.unwrap());
-    let auth_service = AuthService::new(storage, "test-secret-login");
+    let auth_service = AuthService::new(storage, "test-secret-login-unique-1");
     
-    // Register first (but don't use auto-login tokens)
-    let (_, _) = auth_service
+    // Register first
+    auth_service
         .register("login@example.com", "Password123", "Test User")
         .await
         .unwrap();
-    
-    // Small delay to ensure unique timestamps
-    tokio::time::sleep(std::time::Duration::from_millis(10)).await;
     
     // Login
     let (user, tokens) = auth_service
@@ -107,7 +104,7 @@ async fn test_login_nonexistent_user() {
 #[tokio::test]
 async fn test_verify_token_success() {
     let storage = Arc::new(SqliteUserStorage::new(":memory:").await.unwrap());
-    let auth_service = AuthService::new(storage, "test-secret");
+    let auth_service = AuthService::new(storage, "test-secret-verify-unique-2");
     
     // Register and get token
     let (user, tokens) = auth_service
