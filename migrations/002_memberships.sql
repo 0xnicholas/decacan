@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS workspace_memberships (
     id TEXT PRIMARY KEY,
     workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-    user_id TEXT NOT NULL,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     role TEXT NOT NULL,
     invited_by TEXT,
     invited_at TIMESTAMP,

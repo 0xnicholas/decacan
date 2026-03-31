@@ -84,7 +84,7 @@ impl SqliteUserStorage {
             CREATE TABLE IF NOT EXISTS workspace_memberships (
                 id TEXT PRIMARY KEY,
                 workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-                user_id TEXT NOT NULL,
+                user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
                 role TEXT NOT NULL,
                 invited_by TEXT,
                 invited_at TIMESTAMP,
@@ -283,7 +283,7 @@ impl UserStorage for SqliteUserStorage {
         .bind(&membership.id)
         .bind(&membership.workspace_id)
         .bind(&membership.user_id)
-        .bind(format!("{:?}", membership.role).to_lowercase())
+        .bind(membership.role.as_str())
         .bind(&membership.invited_by)
         .bind(membership.invited_at)
         .bind(membership.joined_at)
@@ -358,7 +358,7 @@ impl UserStorage for SqliteUserStorage {
             "UPDATE workspace_memberships SET role = ?2 WHERE id = ?1"
         )
         .bind(membership_id)
-        .bind(format!("{:?}", role).to_lowercase())
+        .bind(role.as_str())
         .execute(&self.pool)
         .await
         .map_err(|e| AuthError::Storage(e.to_string()))?;

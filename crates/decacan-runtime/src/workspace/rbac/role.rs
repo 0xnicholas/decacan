@@ -12,6 +12,16 @@ pub enum WorkspaceRole {
 }
 
 impl WorkspaceRole {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Owner => "owner",
+            Self::Admin => "admin",
+            Self::Editor => "editor",
+            Self::Viewer => "viewer",
+            Self::Guest => "guest",
+        }
+    }
+
     pub fn permissions(&self) -> Vec<Permission> {
         match self {
             WorkspaceRole::Owner => Self::owner_permissions(),
