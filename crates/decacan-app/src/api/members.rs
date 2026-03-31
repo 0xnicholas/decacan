@@ -1,7 +1,7 @@
 use axum::{
-    extract::{Extension, Path, State},
+    extract::{Path, State, HeaderMap},
     http::StatusCode,
-    routing::{delete, get, post, put},
+    routing::{get, post, put, delete},
     Json, Router,
 };
 use serde::{Deserialize, Serialize};
@@ -14,7 +14,6 @@ use decacan_runtime::workspace::service::member_service::{
 };
 
 use crate::app::state::AppState;
-use crate::middleware::auth::CurrentUser;
 
 #[derive(Serialize)]
 pub struct MemberResponse {
@@ -71,6 +70,26 @@ impl MemberResponse {
     }
 }
 
+/// Extract user_id from Authorization header
+fn extract_user_id_from_headers(
+    headers: &HeaderMap,
+    state: &AppState,
+) -> Result<String, StatusCode> {
+    let auth_header = headers
+        .get("authorization")
+        .and_then(|value| value.to_str().ok())
+        .ok_or(StatusCode::UNAUTHORIZED)?;
+    
+    let token = auth_header
+        .strip_prefix("Bearer ")
+        .ok_or(StatusCode::UNAUTHORIZED)?;
+    
+    // This is a synchronous function but verify_token is async
+    // We need to handle this differently - for now return error
+    // The actual verification will happen in the async handlers
+    Err(StatusCode::UNAUTHORIZED)
+}
+
 pub(super) fn router() -> Router<AppState> {
     Router::new()
         .route(
@@ -86,12 +105,28 @@ pub(super) fn router() -> Router<AppState> {
 async fn list_members(
     State(state): State<AppState>,
     Path(workspace_id): Path<String>,
-    Extension(current_user): Extension<CurrentUser>,
+    headers: HeaderMap,
 ) -> Result<Json<Vec<MemberResponse>>, (StatusCode, Json<ErrorResponse>)> {
+    // Extract and verify token from headers
+    let auth_header = headers
+        .get("authorization")
+        .and_then(|value| value.to_str().ok())
+        .ok_or_else(|| error_response(StatusCode::UNAUTHORIZED, "unauthorized", "Missing authorization header"))?;
+    
+    let token = auth_header
+        .strip_prefix("Bearer ")
+        .ok_or_else(|| error_response(StatusCode::UNAUTHORIZED, "unauthorized", "Invalid authorization format"))?;
+    
+    let user_id = state
+        .auth_service()
+        .verify_token(token)
+        .await
+        .map_err(|_| error_response(StatusCode::UNAUTHORIZED, "unauthorized", "Invalid token"))?;
+    
     // Check auth: User must be workspace member with Read permission on Member resource
     let membership = state
         .member_service()
-        .get_membership_by_workspace_and_user(&workspace_id, &current_user.user_id)
+        .get_membership_by_workspace_and_user(&workspace_id, &user_id)
         .map_err(|_| error_response(StatusCode::FORBIDDEN, "forbidden", "Access denied"))?;
 
     if !membership.has_permission(&Permission::new(ResourceType::Member, ActionType::Read)) {
@@ -119,13 +154,29 @@ async fn list_members(
 async fn invite_member(
     State(state): State<AppState>,
     Path(workspace_id): Path<String>,
-    Extension(current_user): Extension<CurrentUser>,
+    headers: HeaderMap,
     Json(request): Json<InviteMemberRequest>,
 ) -> Result<(StatusCode, Json<MemberResponse>), (StatusCode, Json<ErrorResponse>)> {
+    // Extract and verify token from headers
+    let auth_header = headers
+        .get("authorization")
+        .and_then(|value| value.to_str().ok())
+        .ok_or_else(|| error_response(StatusCode::UNAUTHORIZED, "unauthorized", "Missing authorization header"))?;
+    
+    let token = auth_header
+        .strip_prefix("Bearer ")
+        .ok_or_else(|| error_response(StatusCode::UNAUTHORIZED, "unauthorized", "Invalid authorization format"))?;
+    
+    let user_id = state
+        .auth_service()
+        .verify_token(token)
+        .await
+        .map_err(|_| error_response(StatusCode::UNAUTHORIZED, "unauthorized", "Invalid token"))?;
+    
     // Check auth: User must have Create permission on Member resource
     let membership = state
         .member_service()
-        .get_membership_by_workspace_and_user(&workspace_id, &current_user.user_id)
+        .get_membership_by_workspace_and_user(&workspace_id, &user_id)
         .map_err(|_| error_response(StatusCode::FORBIDDEN, "forbidden", "Access denied"))?;
 
     if !membership.has_permission(&Permission::new(ResourceType::Member, ActionType::Create)) {
@@ -143,7 +194,7 @@ async fn invite_member(
         workspace_id: workspace_id.clone(),
         user_id: target_user.id.clone(),
         role: request.role,
-        invited_by: Some(current_user.user_id.clone()),
+        invited_by: Some(user_id.clone()),
     };
 
     let new_membership = state
@@ -166,13 +217,29 @@ async fn invite_member(
 async fn update_role(
     State(state): State<AppState>,
     Path((workspace_id, member_id)): Path<(String, String)>,
-    Extension(current_user): Extension<CurrentUser>,
+    headers: HeaderMap,
     Json(request): Json<UpdateRoleRequest>,
 ) -> Result<StatusCode, (StatusCode, Json<ErrorResponse>)> {
+    // Extract and verify token from headers
+    let auth_header = headers
+        .get("authorization")
+        .and_then(|value| value.to_str().ok())
+        .ok_or_else(|| error_response(StatusCode::UNAUTHORIZED, "unauthorized", "Missing authorization header"))?;
+    
+    let token = auth_header
+        .strip_prefix("Bearer ")
+        .ok_or_else(|| error_response(StatusCode::UNAUTHORIZED, "unauthorized", "Invalid authorization format"))?;
+    
+    let user_id = state
+        .auth_service()
+        .verify_token(token)
+        .await
+        .map_err(|_| error_response(StatusCode::UNAUTHORIZED, "unauthorized", "Invalid token"))?;
+    
     // Check auth: User must have Update permission on Member resource
     let membership = state
         .member_service()
-        .get_membership_by_workspace_and_user(&workspace_id, &current_user.user_id)
+        .get_membership_by_workspace_and_user(&workspace_id, &user_id)
         .map_err(|_| error_response(StatusCode::FORBIDDEN, "forbidden", "Access denied"))?;
 
     if !membership.has_permission(&Permission::new(ResourceType::Member, ActionType::Update)) {
@@ -186,7 +253,7 @@ async fn update_role(
         .map_err(|_| error_response(StatusCode::NOT_FOUND, "not_found", "Member not found"))?;
 
     // Prevent changing own role
-    if target_membership.user_id == current_user.user_id {
+    if target_membership.user_id == user_id {
         return Err(error_response(StatusCode::FORBIDDEN, "forbidden", "Cannot change your own role"));
     }
 
@@ -199,7 +266,7 @@ async fn update_role(
     let input = UpdateRoleInput {
         membership_id: member_id,
         new_role: request.role,
-        updated_by: current_user.user_id,
+        updated_by: user_id,
     };
 
     state
@@ -213,12 +280,28 @@ async fn update_role(
 async fn remove_member(
     State(state): State<AppState>,
     Path((workspace_id, member_id)): Path<(String, String)>,
-    Extension(current_user): Extension<CurrentUser>,
+    headers: HeaderMap,
 ) -> Result<StatusCode, (StatusCode, Json<ErrorResponse>)> {
+    // Extract and verify token from headers
+    let auth_header = headers
+        .get("authorization")
+        .and_then(|value| value.to_str().ok())
+        .ok_or_else(|| error_response(StatusCode::UNAUTHORIZED, "unauthorized", "Missing authorization header"))?;
+    
+    let token = auth_header
+        .strip_prefix("Bearer ")
+        .ok_or_else(|| error_response(StatusCode::UNAUTHORIZED, "unauthorized", "Invalid authorization format"))?;
+    
+    let user_id = state
+        .auth_service()
+        .verify_token(token)
+        .await
+        .map_err(|_| error_response(StatusCode::UNAUTHORIZED, "unauthorized", "Invalid token"))?;
+    
     // Check auth: User must have Delete permission on Member resource
     let membership = state
         .member_service()
-        .get_membership_by_workspace_and_user(&workspace_id, &current_user.user_id)
+        .get_membership_by_workspace_and_user(&workspace_id, &user_id)
         .map_err(|_| error_response(StatusCode::FORBIDDEN, "forbidden", "Access denied"))?;
 
     if !membership.has_permission(&Permission::new(ResourceType::Member, ActionType::Delete)) {
@@ -232,7 +315,7 @@ async fn remove_member(
         .map_err(|_| error_response(StatusCode::NOT_FOUND, "not_found", "Member not found"))?;
 
     // Prevent removing self
-    if target_membership.user_id == current_user.user_id {
+    if target_membership.user_id == user_id {
         return Err(error_response(StatusCode::FORBIDDEN, "forbidden", "Cannot remove yourself from the workspace"));
     }
 

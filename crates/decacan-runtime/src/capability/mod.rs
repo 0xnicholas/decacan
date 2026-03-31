@@ -27,6 +27,12 @@ pub mod entities;
 pub mod registry;
 pub mod resolver;
 
+// Phase 3: Runtime execution integration
+pub mod execution;
+
 pub use entities::{Capability, CapabilityRef, ImplementationRef};
 pub use registry::CapabilityRegistry;
-pub use resolver::{CapabilityResolver, ResolutionResult, ResolveError, SimpleResolver};
+pub use resolver::{CapabilityResolver, ResolutionContext, ResolutionResult, ResolveError, SimpleResolver};
+
+// Phase 3 exports
+pub use execution::CapabilityAwareExecutor;

@@ -594,6 +594,16 @@ pub enum ExecutionError {
 
     #[error("fallback not implemented for step {step_id}: {reason}")]
     FallbackNotImplemented { step_id: String, reason: String },
+
+    #[error("capability resolution failed for step {step_id}: capability '{capability_id}' - {error}")]
+    CapabilityResolution {
+        step_id: String,
+        capability_id: String,
+        error: String,
+    },
+
+    #[error("tool execution not supported for step {step_id}: tool '{tool_name}'")]
+    ToolNotSupported { step_id: String, tool_name: String },
 }
 
 #[cfg(test)]
