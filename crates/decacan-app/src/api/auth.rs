@@ -128,13 +128,34 @@ async fn refresh_token(
     State(state): State<AppState>,
     Json(req): Json<RefreshRequest>,
 ) -> Result<Json<AuthResponse>, (axum::http::StatusCode, Json<ErrorResponse>)> {
-    // TODO: 实现 refresh_token 逻辑
-    // 暂时返回未实现错误
-    Err((
-        axum::http::StatusCode::NOT_IMPLEMENTED,
-        Json(ErrorResponse {
-            error: "not_implemented".to_string(),
-            message: "Token refresh not yet implemented".to_string(),
-        }),
-    ))
+    let tokens = state
+        .auth_service()
+        .refresh_token(&req.refresh_token)
+        .await
+        .map_err(|e| {
+            let (status, error_code) = match e {
+                decacan_auth::AuthError::InvalidToken => {
+                    (axum::http::StatusCode::UNAUTHORIZED, "invalid_token")
+                }
+                decacan_auth::AuthError::TokenExpired => {
+                    (axum::http::StatusCode::UNAUTHORIZED, "token_expired")
+                }
+                _ => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "internal_error"),
+            };
+            
+            (status, Json(ErrorResponse {
+                error: error_code.to_string(),
+                message: e.to_string(),
+            }))
+        })?;
+    
+    // Note: refresh token doesn't return user info, caller should use /me endpoint
+    Ok(Json(AuthResponse {
+        user_id: "".to_string(),
+        email: "".to_string(),
+        name: "".to_string(),
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token,
+        expires_in: tokens.expires_in,
+    }))
 }

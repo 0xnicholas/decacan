@@ -106,11 +106,13 @@ impl UserStorage for SqliteUserStorage {
         .execute(&self.pool)
         .await
         .map_err(|e| {
-            if e.to_string().contains("UNIQUE constraint failed") {
-                AuthError::EmailAlreadyExists
-            } else {
-                AuthError::Storage(e.to_string())
+            // 使用 SQLx 的结构化错误检查唯一约束违反
+            if let sqlx::Error::Database(db_err) = &e {
+                if db_err.is_unique_violation() {
+                    return AuthError::EmailAlreadyExists;
+                }
             }
+            AuthError::Storage(e.to_string())
         })?;
         
         Ok(())
@@ -196,12 +198,32 @@ impl UserStorage for SqliteUserStorage {
             .execute(&self.pool)
             .await
             .map_err(|e| AuthError::Storage(e.to_string()))?;
-        
+
         Ok(())
     }
-    
-    async fn create_oauth_state(&self, _state: &OAuthState) -> AuthResult<()> {
+
+    async fn revoke_all_user_sessions(&self, user_id: &str) -> AuthResult<()> {
+        sqlx::query("DELETE FROM auth_sessions WHERE user_id = ?1")
+            .bind(user_id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| AuthError::Storage(e.to_string()))?;
+
         Ok(())
+    }
+
+    async fn cleanup_expired_sessions(&self) -> AuthResult<u64> {
+        let result = sqlx::query("DELETE FROM auth_sessions WHERE expires_at < ?1")
+            .bind(OffsetDateTime::now_utc())
+            .execute(&self.pool)
+            .await
+            .map_err(|e| AuthError::Storage(e.to_string()))?;
+
+        Ok(result.rows_affected())
+    }
+
+    async fn create_oauth_state(&self, _state: &OAuthState) -> AuthResult<()> {
+        todo!("OAuth state storage not yet implemented")
     }
     
     async fn find_oauth_state(&self, _state: &str) -> AuthResult<Option<OAuthState>> {

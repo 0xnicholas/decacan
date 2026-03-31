@@ -54,17 +54,20 @@ pub async fn optional_auth_middleware(
     mut request: Request,
     next: Next,
 ) -> impl IntoResponse {
-    let user_id = request
+    // 安全地异步提取和验证 token
+    let token = request
         .headers()
         .get("authorization")
         .and_then(|value| value.to_str().ok())
         .and_then(|header| header.strip_prefix("Bearer "))
-        .and_then(|token| {
-            // 使用 block_in_place 避免在异步上下文中执行同步操作
-            std::future::block_on(async {
-                state.auth_service().verify_token(token).await.ok()
-            })
-        });
+        .map(|t| t.to_string());
+    
+    // 异步验证 token（如果有的话）
+    let user_id = if let Some(token) = token {
+        state.auth_service().verify_token(&token).await.ok()
+    } else {
+        None
+    };
     
     if let Some(uid) = user_id {
         request.extensions_mut().insert(CurrentUser { user_id: uid });

@@ -18,6 +18,8 @@ pub enum AuthError {
     Validation(String),
     #[error("storage error: {0}")]
     Storage(String),
+    #[error("internal error: {0}")]
+    Internal(String),
 }
 
 pub type AuthResult<T> = Result<T, AuthError>;

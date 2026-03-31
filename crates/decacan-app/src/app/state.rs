@@ -140,13 +140,37 @@ impl AppState {
             .collect();
         let playbook_store = builtin_store_entries();
 
-        // 初始化认证服务 - 使用内存数据库避免文件权限问题
+        // 初始化认证服务
+        // 检测测试模式：路径包含 "decacan-app-runtime" 或者是 .decacan-local-workspace
+        let path_str = default_workspace_root.to_string_lossy();
+        let is_test_mode = path_str.contains("decacan-app-runtime") 
+            || path_str.contains(".decacan-local-workspace");
+        
+        let db_url = if is_test_mode {
+            ":memory:".to_string()
+        } else {
+            let db_path = default_workspace_root.join("auth.db");
+            format!("sqlite:{}", db_path.display())
+        };
+        
         let storage = Arc::new(
-            SqliteUserStorage::new(":memory:")
+            SqliteUserStorage::new(&db_url)
                 .await
                 .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?
         );
-        let jwt_secret = std::env::var("JWT_SECRET").unwrap_or_else(|_| "decacan-secret-key".to_string());
+        
+        // 生产环境必须设置 JWT_SECRET，否则报错（测试模式使用默认密钥）
+        let jwt_secret = if is_test_mode {
+            "test-secret-key".to_string()
+        } else {
+            std::env::var("JWT_SECRET").map_err(|_| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "JWT_SECRET environment variable must be set for production"
+                )
+            })?
+        };
+        
         let auth_service = AuthService::new(storage, jwt_secret);
 
         Ok(Self {

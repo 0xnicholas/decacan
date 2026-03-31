@@ -118,6 +118,39 @@ impl<S: UserStorage> AuthService<S> {
         Ok(token_data.claims.sub)
     }
     
+    pub async fn refresh_token(
+        &self,
+        refresh_token: &str,
+    ) -> AuthResult<AuthTokens> {
+        // 1. 验证 refresh token 格式
+        let claims = self.verify_token(refresh_token).await?;
+        
+        // 2. 检查数据库中是否存在且未过期
+        let session = self.storage
+            .find_session_by_refresh_token(refresh_token)
+            .await?
+            .ok_or(AuthError::InvalidToken)?;
+        
+        if session.expires_at < OffsetDateTime::now_utc() {
+            return Err(AuthError::TokenExpired);
+        }
+        
+        // 3. 撤销旧的 session（token rotation）
+        self.storage.revoke_session(&session.id).await?;
+        
+        // 4. 生成新 tokens
+        let tokens = self.generate_tokens(&claims).await?;
+        
+        Ok(tokens)
+    }
+    
+    pub async fn logout(
+        &self,
+        user_id: &str,
+    ) -> AuthResult<()> {
+        self.storage.revoke_all_user_sessions(user_id).await
+    }
+    
     async fn generate_tokens(
         &self,
         user_id: &str,
@@ -135,7 +168,7 @@ impl<S: UserStorage> AuthService<S> {
                 typ: "access".to_string(),
             },
             &EncodingKey::from_secret(self.jwt_secret.as_bytes()),
-        ).map_err(|e| AuthError::Storage(e.to_string()))?;
+        ).map_err(|e| AuthError::Internal(format!("JWT encoding failed: {}", e)))?;
         
         let refresh_token = encode(
             &Header::default(),
@@ -146,7 +179,7 @@ impl<S: UserStorage> AuthService<S> {
                 typ: "refresh".to_string(),
             },
             &EncodingKey::from_secret(self.jwt_secret.as_bytes()),
-        ).map_err(|e| AuthError::Storage(e.to_string()))?;
+        ).map_err(|e| AuthError::Internal(format!("JWT encoding failed: {}", e)))?;
         
         let session = AuthSession {
             id: Uuid::new_v4().to_string(),

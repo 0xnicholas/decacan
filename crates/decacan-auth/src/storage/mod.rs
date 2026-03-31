@@ -17,6 +17,8 @@ pub trait UserStorage: Send + Sync {
         &self, token: &str
     ) -> AuthResult<Option<AuthSession>>;
     async fn revoke_session(&self, id: &str) -> AuthResult<()>;
+    async fn revoke_all_user_sessions(&self, user_id: &str) -> AuthResult<()>;
+    async fn cleanup_expired_sessions(&self) -> AuthResult<u64>;
     
     async fn create_oauth_state(&self, state: &OAuthState) -> AuthResult<()>;
     async fn find_oauth_state(&self, state: &str) -> AuthResult<Option<OAuthState>>;
