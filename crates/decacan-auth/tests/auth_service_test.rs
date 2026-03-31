@@ -8,7 +8,7 @@ async fn test_register_new_user() {
     let auth_service = AuthService::new(storage, "test-secret");
     
     let (user, tokens) = auth_service
-        .register("test@example.com", "password123", "Test User")
+        .register("test@example.com", "Password123", "Test User")
         .await
         .unwrap();
     
@@ -25,13 +25,13 @@ async fn test_register_duplicate_email() {
     
     // First registration
     auth_service
-        .register("dup@example.com", "password123", "User 1")
+        .register("dup@example.com", "Password123", "User 1")
         .await
         .unwrap();
     
     // Second registration with same email
     let result = auth_service
-        .register("dup@example.com", "password456", "User 2")
+        .register("dup@example.com", "Password456", "User 2")
         .await;
     
     assert!(matches!(result, Err(AuthError::EmailAlreadyExists)));
@@ -56,7 +56,7 @@ async fn test_login_success() {
     
     // Register first (but don't use auto-login tokens)
     let (_, _) = auth_service
-        .register("login@example.com", "password123", "Test User")
+        .register("login@example.com", "Password123", "Test User")
         .await
         .unwrap();
     
@@ -65,7 +65,7 @@ async fn test_login_success() {
     
     // Login
     let (user, tokens) = auth_service
-        .login("login@example.com", "password123")
+        .login("login@example.com", "Password123")
         .await
         .unwrap();
     
@@ -80,7 +80,7 @@ async fn test_login_wrong_password() {
     
     // Register first
     auth_service
-        .register("login@example.com", "password123", "Test User")
+        .register("login@example.com", "Password123", "Test User")
         .await
         .unwrap();
     
@@ -98,7 +98,7 @@ async fn test_login_nonexistent_user() {
     let auth_service = AuthService::new(storage, "test-secret");
     
     let result = auth_service
-        .login("nonexistent@example.com", "password123")
+        .login("nonexistent@example.com", "Password123")
         .await;
     
     assert!(matches!(result, Err(AuthError::InvalidCredentials)));
@@ -111,7 +111,7 @@ async fn test_verify_token_success() {
     
     // Register and get token
     let (user, tokens) = auth_service
-        .register("test@example.com", "password123", "Test User")
+        .register("test@example.com", "Password123", "Test User")
         .await
         .unwrap();
     
@@ -134,4 +134,28 @@ async fn test_verify_invalid_token() {
         .await;
     
     assert!(matches!(result, Err(AuthError::InvalidToken)));
+}
+
+#[tokio::test]
+async fn test_register_password_missing_uppercase() {
+    let storage = Arc::new(SqliteUserStorage::new(":memory:").await.unwrap());
+    let auth_service = AuthService::new(storage, "test-secret");
+    
+    let result = auth_service
+        .register("test@example.com", "password123", "Test User")
+        .await;
+    
+    assert!(matches!(result, Err(AuthError::Validation(_))));
+}
+
+#[tokio::test]
+async fn test_register_password_missing_digit() {
+    let storage = Arc::new(SqliteUserStorage::new(":memory:").await.unwrap());
+    let auth_service = AuthService::new(storage, "test-secret");
+    
+    let result = auth_service
+        .register("test@example.com", "PasswordOnly", "Test User")
+        .await;
+    
+    assert!(matches!(result, Err(AuthError::Validation(_))));
 }

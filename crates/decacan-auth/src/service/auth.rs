@@ -40,18 +40,46 @@ impl<S: UserStorage> AuthService<S> {
             jwt_secret: jwt_secret.into(),
         }
     }
-    
+
+    /// 验证密码复杂度
+    fn validate_password(password: &str) -> AuthResult<()> {
+        if password.len() < 8 {
+            return Err(AuthError::Validation(
+                "Password must be at least 8 characters".to_string()
+            ));
+        }
+
+        // 检查是否包含至少一个大写字母
+        if !password.chars().any(|c| c.is_ascii_uppercase()) {
+            return Err(AuthError::Validation(
+                "Password must contain at least one uppercase letter".to_string()
+            ));
+        }
+
+        // 检查是否包含至少一个小写字母
+        if !password.chars().any(|c| c.is_ascii_lowercase()) {
+            return Err(AuthError::Validation(
+                "Password must contain at least one lowercase letter".to_string()
+            ));
+        }
+
+        // 检查是否包含至少一个数字
+        if !password.chars().any(|c| c.is_ascii_digit()) {
+            return Err(AuthError::Validation(
+                "Password must contain at least one digit".to_string()
+            ));
+        }
+
+        Ok(())
+    }
+
     pub async fn register(
         &self,
         email: &str,
         password: &str,
         name: &str,
     ) -> AuthResult<(User, AuthTokens)> {
-        if password.len() < 8 {
-            return Err(AuthError::Validation(
-                "Password must be at least 8 characters".to_string()
-            ));
-        }
+        Self::validate_password(password)?;
         
         if self.storage.find_user_by_email(email).await?.is_some() {
             return Err(AuthError::EmailAlreadyExists);

@@ -52,6 +52,7 @@ pub fn router() -> Router<AppState> {
         .route("/auth/register", post(register))
         .route("/auth/login", post(login))
         .route("/auth/refresh", post(refresh_token))
+        .route("/auth/logout", post(logout))
 }
 
 /// 用户注册
@@ -158,4 +159,64 @@ async fn refresh_token(
         refresh_token: tokens.refresh_token,
         expires_in: tokens.expires_in,
     }))
+}
+
+/// 用户登出
+async fn logout(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+) -> Result<axum::http::StatusCode, (axum::http::StatusCode, Json<ErrorResponse>)> {
+    // 从 header 手动提取 token
+    let auth_header = headers
+        .get("authorization")
+        .and_then(|value| value.to_str().ok())
+        .ok_or((
+            axum::http::StatusCode::UNAUTHORIZED,
+            Json(ErrorResponse {
+                error: "unauthorized".to_string(),
+                message: "Missing authorization header".to_string(),
+            }),
+        ))?;
+
+    let token = auth_header
+        .strip_prefix("Bearer ")
+        .ok_or((
+            axum::http::StatusCode::UNAUTHORIZED,
+            Json(ErrorResponse {
+                error: "unauthorized".to_string(),
+                message: "Invalid authorization format".to_string(),
+            }),
+        ))?;
+
+    // 验证 token 获取 user_id
+    let user_id = state
+        .auth_service()
+        .verify_token(token)
+        .await
+        .map_err(|e| {
+            (
+                axum::http::StatusCode::UNAUTHORIZED,
+                Json(ErrorResponse {
+                    error: "unauthorized".to_string(),
+                    message: e.to_string(),
+                }),
+            )
+        })?;
+
+    // 执行登出（撤销所有会话）
+    state
+        .auth_service()
+        .logout(&user_id)
+        .await
+        .map_err(|e| {
+            (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: "logout_error".to_string(),
+                    message: e.to_string(),
+                }),
+            )
+        })?;
+
+    Ok(axum::http::StatusCode::NO_CONTENT)
 }
