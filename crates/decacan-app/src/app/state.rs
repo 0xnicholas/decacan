@@ -147,6 +147,25 @@ impl AppState {
         self.inner.auth_service.find_user_by_email(email).await.ok().flatten()
     }
 
+    /// Create a workspace membership for testing purposes
+    pub fn create_test_membership(
+        &self,
+        workspace_id: String,
+        user_id: String,
+        role: decacan_runtime::workspace::rbac::WorkspaceRole,
+    ) -> decacan_runtime::workspace::entity::WorkspaceMembership {
+        use decacan_runtime::workspace::service::member_service::CreateMembershipInput;
+        
+        let input = CreateMembershipInput {
+            workspace_id,
+            user_id,
+            role,
+            invited_by: None,
+        };
+        
+        self.member_service().invite_member(input).expect("Failed to create test membership")
+    }
+
     async fn new_with_workspace_root(default_workspace_root: PathBuf) -> std::io::Result<Self> {
         std::fs::create_dir_all(&default_workspace_root)?;
         let (task_event_bus, _) = broadcast::channel(64);

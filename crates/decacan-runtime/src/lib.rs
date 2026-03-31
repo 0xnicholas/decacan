@@ -5,6 +5,7 @@ pub mod contract;
 pub mod events;
 pub mod execution;
 pub mod gateway;
+pub mod invocation;
 pub mod merge;
 mod outputs;
 pub mod playbook;
