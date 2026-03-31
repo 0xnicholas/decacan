@@ -63,7 +63,9 @@ pub use LegacyWorkflowStep as WorkflowStep;
 
 use std::collections::HashMap;
 
-use crate::playbook::spec::entities::{ConditionalBranch, RetryPolicy};
+use crate::playbook::spec::entities::{
+    ConditionalBranch, ErrorHandlingStrategy, FallbackStrategy, RetryPolicy,
+};
 use crate::routine::r#trait::RoutineType;
 
 /// Compiled transition for workflow execution
@@ -104,6 +106,8 @@ pub struct CompiledWorkflowStep {
     pub transition: CompiledTransition,
     pub retry_policy: Option<RetryPolicy>,
     pub timeout_seconds: Option<u32>,
+    pub error_handling: Option<ErrorHandlingStrategy>,
+    pub fallback: Option<FallbackStrategy>,
 }
 
 impl CompiledWorkflowStep {

@@ -140,10 +140,9 @@ impl AppState {
             .collect();
         let playbook_store = builtin_store_entries();
 
-        // 初始化认证服务
-        let db_path = default_workspace_root.join("auth.db");
+        // 初始化认证服务 - 使用内存数据库避免文件权限问题
         let storage = Arc::new(
-            SqliteUserStorage::new(&format!("sqlite:{}", db_path.display()))
+            SqliteUserStorage::new(":memory:")
                 .await
                 .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?
         );

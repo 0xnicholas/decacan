@@ -159,6 +159,21 @@ pub enum ErrorAction {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FallbackStrategy {
+    pub action: FallbackAction,
+    pub default_value: Option<serde_json::Value>,
+    pub alternate_step_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FallbackAction {
+    Skip,
+    UseDefault,
+    ExecuteAlternate,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CapabilityRefs {
     #[serde(default)]
     pub routines: Vec<String>,

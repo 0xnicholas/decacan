@@ -8,6 +8,7 @@ use time::OffsetDateTime;
 use tokio::time::timeout;
 
 use crate::contract::{ContractValidator, ValidationMode};
+use crate::playbook::spec::entities::{ErrorAction, FallbackAction, FallbackStrategy};
 use crate::ports::clock::ClockPort;
 use crate::ports::filesystem::FilesystemPort;
 use crate::ports::storage::StoragePort;
@@ -80,8 +81,8 @@ impl WorkflowExecutor {
                 });
             }
 
-            // Execute the routine with retry logic
-            let output = self
+            // Execute the step with error handling and fallback
+            match self
                 .execute_step_with_retry(
                     routine.as_ref(),
                     step,
@@ -91,18 +92,70 @@ impl WorkflowExecutor {
                     storage,
                     clock,
                 )
-                .await?;
+                .await
+            {
+                Ok(output) => {
+                    // Store output
+                    step_outputs.insert(step.id.clone(), output.clone());
+                    state.step_history.push(StepExecution {
+                        step_id: step.id.clone(),
+                        output: output.clone(),
+                        executed_at: clock.now_utc(),
+                        success: true,
+                    });
 
-            // Store output
-            step_outputs.insert(step.id.clone(), output.clone());
-            state.step_history.push(StepExecution {
-                step_id: step.id.clone(),
-                output: output.clone(),
-                executed_at: clock.now_utc(),
-            });
+                    // Determine next step
+                    state.current_step_id = Self::determine_next_step(step, &output)?;
+                }
+                Err(execution_error) => {
+                    // Handle error based on error handling strategy
+                    let error_action = step
+                        .error_handling
+                        .as_ref()
+                        .map(|eh| eh.on_error)
+                        .unwrap_or(ErrorAction::Fail);
 
-            // Determine next step
-            state.current_step_id = Self::determine_next_step(step, &output)?;
+                    match error_action {
+                        ErrorAction::Fail => {
+                            return Err(execution_error);
+                        }
+                        ErrorAction::Skip => {
+                            // Skip this step and continue to next
+                            state.step_history.push(StepExecution {
+                                step_id: step.id.clone(),
+                                output: serde_json::json!({"skipped": true}),
+                                executed_at: clock.now_utc(),
+                                success: false,
+                            });
+                            state.current_step_id = Self::determine_next_step(
+                                step,
+                                &serde_json::json!({"skipped": true}),
+                            )?;
+                        }
+                        ErrorAction::Retry => {
+                            // Retry is already handled in execute_step_with_retry
+                            // If we reach here, retries have been exhausted
+                            return Err(execution_error);
+                        }
+                        ErrorAction::Continue => {
+                            // Apply fallback strategy
+                            let fallback_output = self
+                                .apply_fallback(step, execution_error, &step_outputs)?;
+
+                            step_outputs.insert(step.id.clone(), fallback_output.clone());
+                            state.step_history.push(StepExecution {
+                                step_id: step.id.clone(),
+                                output: fallback_output.clone(),
+                                executed_at: clock.now_utc(),
+                                success: false,
+                            });
+
+                            state.current_step_id =
+                                Self::determine_next_step(step, &fallback_output)?;
+                        }
+                    }
+                }
+            }
         }
 
         // Workflow completed

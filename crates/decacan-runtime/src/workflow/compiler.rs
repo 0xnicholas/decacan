@@ -79,6 +79,8 @@ impl WorkflowCompiler {
             transition,
             retry_policy: step.retry_policy.clone(),
             timeout_seconds: step.timeout_seconds,
+            error_handling: None, // TODO: Add to StepDefinition
+            fallback: None,       // TODO: Add to StepDefinition
         })
     }
 
