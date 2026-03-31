@@ -6,7 +6,7 @@ use crate::artifact::service::{ArtifactService, SummaryArtifactWriteResult};
 use crate::events::execution::{ArtifactExecutionEvent, ExecutionEvent};
 use crate::events::projector::project_execution;
 use crate::events::TaskEvent;
-use crate::gateway::SemanticGatewayAdapter;
+use crate::gateway::SynthesisGatewayAdapter;
 use crate::outputs::backup::{backup_from_existing_summary, BackupResult};
 use crate::outputs::writer::{write_discovery_output, write_summary_output};
 use crate::playbook::registry::{DISCOVER_TOPICS_PLAYBOOK_KEY, SUMMARY_PLAYBOOK_KEY};
@@ -16,10 +16,10 @@ use crate::ports::storage::StoragePort;
 use crate::routine::entity::RoutineKind;
 use crate::routine::registry::get_routine;
 use crate::run::entity::Run;
-use crate::semantic::executor::{
+use crate::synthesis::executor::{
     InvocationContext, InvocationOutcome, InvocationState, ResumeAction,
 };
-use crate::semantic::local_models::{DiscoverySemanticModel, SummarySemanticModel};
+use crate::synthesis::local_models::{DiscoverySynthesisModel, SummarySynthesisModel};
 use crate::workflow::entity::Workflow;
 
 #[derive(Debug, Clone)]
@@ -27,7 +27,7 @@ pub(crate) struct RoutineExecutionContext {
     pub workspace_root: PathBuf,
     pub selected_markdown_path: Option<PathBuf>,
     pub source_material: Option<String>,
-    pub semantic_state: Option<InvocationState>,
+    pub synthesis_state: Option<InvocationState>,
     pub generated_content: Option<String>,
     pub backup_result: Option<BackupResult>,
     pub written_output_path: Option<PathBuf>,
@@ -41,7 +41,7 @@ impl RoutineExecutionContext {
             workspace_root: workspace_root.into(),
             selected_markdown_path: None,
             source_material: None,
-            semantic_state: None,
+            synthesis_state: None,
             generated_content: None,
             backup_result: None,
             written_output_path: None,
@@ -56,8 +56,8 @@ pub(crate) enum RoutineExecutionError {
     MissingRoutine { step_name: String },
     UnsupportedPlaybook { playbook_key: String },
     Filesystem(String),
-    SemanticBlocked(String),
-    SemanticFailed(String),
+    SynthesisBlocked(String),
+    SynthesisFailed(String),
     MissingState(&'static str),
     Artifact(String),
 }
@@ -71,8 +71,8 @@ impl RoutineExecutionError {
                 format!("unsupported playbook '{playbook_key}'")
             }
             Self::Filesystem(message) => message.clone(),
-            Self::SemanticBlocked(message) => message.clone(),
-            Self::SemanticFailed(message) => message.clone(),
+            Self::SynthesisBlocked(message) => message.clone(),
+            Self::SynthesisFailed(message) => message.clone(),
             Self::MissingState(message) => message.to_string(),
             Self::Artifact(message) => message.clone(),
         }
@@ -117,7 +117,7 @@ pub(crate) fn execute_workflow<F, S, C>(
     filesystem: &F,
     storage: &S,
     clock: &C,
-    tool_gateway: SemanticGatewayAdapter,
+    tool_gateway: SynthesisGatewayAdapter,
 ) -> Result<RoutineExecutionResult, RoutineExecutionError>
 where
     F: FilesystemPort,
@@ -178,32 +178,32 @@ where
                 };
                 let invocation = match execution_profile {
                     ExecutionProfile::Summary => {
-                        crate::semantic::executor::start_summary_invocation(
+                        crate::synthesis::executor::start_summary_invocation(
                             &invocation_context,
                             &tool_gateway,
-                            &SummarySemanticModel,
+                            &SummarySynthesisModel,
                         )
                     }
                     ExecutionProfile::Discovery => {
-                        crate::semantic::executor::start_summary_invocation(
+                        crate::synthesis::executor::start_summary_invocation(
                             &invocation_context,
                             &tool_gateway,
-                            &DiscoverySemanticModel,
+                            &DiscoverySynthesisModel,
                         )
                     }
                 };
                 match invocation.outcome {
                     InvocationOutcome::Blocked(_) => {
-                        context.semantic_state = Some(invocation.state);
+                        context.synthesis_state = Some(invocation.state);
                     }
                     InvocationOutcome::Completed => {
-                        context.semantic_state = Some(invocation.state);
+                        context.synthesis_state = Some(invocation.state);
                         if let Some(candidate) = invocation.output_candidates.last() {
                             context.generated_content = Some(candidate.content.clone());
                         }
                     }
                     InvocationOutcome::Failed { reason } => {
-                        return Err(RoutineExecutionError::SemanticFailed(reason));
+                        return Err(RoutineExecutionError::SynthesisFailed(reason));
                     }
                 }
             }
@@ -220,47 +220,47 @@ where
                 };
                 let invocation_state =
                     context
-                        .semantic_state
+                        .synthesis_state
                         .clone()
                         .ok_or(RoutineExecutionError::MissingState(
-                            "semantic invocation state",
+                            "synthesis invocation state",
                         ))?;
                 let invocation = match execution_profile {
                     ExecutionProfile::Summary => {
-                        crate::semantic::executor::resume_summary_invocation(
+                        crate::synthesis::executor::resume_summary_invocation(
                             invocation_state,
                             &invocation_context,
                             ResumeAction::ToolCompleted,
                             &tool_gateway,
-                            &SummarySemanticModel,
+                            &SummarySynthesisModel,
                         )
                     }
                     ExecutionProfile::Discovery => {
-                        crate::semantic::executor::resume_summary_invocation(
+                        crate::synthesis::executor::resume_summary_invocation(
                             invocation_state,
                             &invocation_context,
                             ResumeAction::ToolCompleted,
                             &tool_gateway,
-                            &DiscoverySemanticModel,
+                            &DiscoverySynthesisModel,
                         )
                     }
                 };
                 match invocation.outcome {
                     InvocationOutcome::Completed => {
                         let candidate = invocation.output_candidates.last().cloned().ok_or(
-                            RoutineExecutionError::MissingState("semantic output candidate"),
+                            RoutineExecutionError::MissingState("synthesis output candidate"),
                         )?;
                         run.output_candidates.push(candidate.canonical_path.clone());
                         context.generated_content = Some(candidate.content);
-                        context.semantic_state = Some(invocation.state);
+                        context.synthesis_state = Some(invocation.state);
                     }
                     InvocationOutcome::Blocked(reason) => {
-                        return Err(RoutineExecutionError::SemanticBlocked(format!(
+                        return Err(RoutineExecutionError::SynthesisBlocked(format!(
                             "{reason:?}"
                         )));
                     }
                     InvocationOutcome::Failed { reason } => {
-                        return Err(RoutineExecutionError::SemanticFailed(reason));
+                        return Err(RoutineExecutionError::SynthesisFailed(reason));
                     }
                 }
             }

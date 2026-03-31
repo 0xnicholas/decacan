@@ -1,21 +1,20 @@
+use std::fmt::Debug;
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-use crate::gateway::descriptor::ToolDescriptor;
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ToolRequest {
-    pub descriptor: ToolDescriptor,
+pub struct ToolCall {
+    pub name: String,
     pub action: String,
     pub target_path: Option<PathBuf>,
     pub overwrite_existing: bool,
 }
 
-impl ToolRequest {
-    pub fn new(descriptor: ToolDescriptor, action: impl Into<String>) -> Self {
+impl ToolCall {
+    pub fn new(name: impl Into<String>, action: impl Into<String>) -> Self {
         Self {
-            descriptor,
+            name: name.into(),
             action: action.into(),
             target_path: None,
             overwrite_existing: false,
@@ -31,9 +30,18 @@ impl ToolRequest {
         self.overwrite_existing = overwrite_existing;
         self
     }
+}
 
-    pub fn with_target_path_opt(mut self, target_path: Option<PathBuf>) -> Self {
-        self.target_path = target_path;
-        self
-    }
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "status", rename_all = "snake_case")]
+pub enum ToolCallResult {
+    Allowed { reason: String },
+    ApprovalRequired { reason: String },
+    Denied { reason: String },
+}
+
+pub trait ToolProtocol {
+    type Error: Debug;
+
+    fn invoke(&self, request: ToolCall) -> Result<ToolCallResult, Self::Error>;
 }

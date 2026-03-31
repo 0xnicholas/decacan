@@ -23,11 +23,11 @@ pub enum RoutineError {
     #[error("filesystem error: {0}")]
     Filesystem(String),
 
-    #[error("semantic execution blocked: {0}")]
-    SemanticBlocked(String),
+    #[error("synthesis execution blocked: {0}")]
+    SynthesisBlocked(String),
 
-    #[error("semantic execution failed: {0}")]
-    SemanticFailed(String),
+    #[error("synthesis execution failed: {0}")]
+    SynthesisFailed(String),
 
     #[error("missing state: {0}")]
     MissingState(String),

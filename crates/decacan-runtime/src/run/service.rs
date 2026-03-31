@@ -4,7 +4,7 @@ use time::OffsetDateTime;
 
 use crate::artifact::entity::Artifact;
 use crate::events::TaskEvent;
-use crate::gateway::{SemanticGatewayAdapter, ToolGateway};
+use crate::gateway::{SynthesisGatewayAdapter, ToolGateway};
 use crate::ports::clock::ClockPort;
 use crate::ports::filesystem::FilesystemPort;
 use crate::ports::storage::StoragePort;
@@ -213,7 +213,7 @@ impl RunService {
             filesystem,
             storage,
             clock,
-            SemanticGatewayAdapter::new(ToolGateway::new(
+            SynthesisGatewayAdapter::new(ToolGateway::new(
                 run.policy_snapshot.clone(),
                 std::path::Path::new(&run.workspace_snapshot.root_path()).join("output"),
             )),
