@@ -72,17 +72,28 @@ impl WorkflowCompiler {
     fn compile_step(step: &StepDefinition) -> Result<CompiledWorkflowStep, CompileError> {
         let transition = Self::compile_transition(&step.transition)?;
 
-        let routine_ref = step.get_reference().ok_or_else(|| {
-            CompileError::InvalidWorkflow(format!("Step {} has no routine reference", step.id))
-        })?;
+        let reference = step
+            .get_reference()
+            .ok_or_else(|| CompileError::MissingStepReference {
+                step_id: step.id.clone(),
+            })?;
 
-        let routine_ref = match routine_ref.kind() {
-            crate::playbook::spec::entities::StepKind::Routine { reference } => reference,
-            _ => {
-                return Err(CompileError::InvalidWorkflow(format!(
-                    "Step {} is not a routine step",
-                    step.id
-                )))
+        // Extract routine type from any step kind (Routine, Tool, or Capability)
+        let routine_type = match reference.kind() {
+            crate::playbook::spec::entities::StepKind::Routine { reference } => RoutineType::new(
+                &reference.capability_class,
+                &reference.name,
+                &reference.version,
+            ),
+            crate::playbook::spec::entities::StepKind::Capability { id, .. } => {
+                // For capability-based steps, use a placeholder with capability namespace
+                // The actual implementation will be resolved at runtime via the resolver
+                RoutineType::new("capability", &id, "1.0.0")
+            }
+            crate::playbook::spec::entities::StepKind::Tool { name, version } => {
+                // For tool-based steps, use a placeholder with tool namespace
+                // The actual tool will be invoked at runtime
+                RoutineType::new("tool", &name, &version)
             }
         };
 
@@ -90,11 +101,7 @@ impl WorkflowCompiler {
             id: step.id.clone(),
             name: step.name.clone(),
             description: step.description.clone(),
-            routine_type: RoutineType::new(
-                &routine_ref.capability_class,
-                &routine_ref.name,
-                &routine_ref.version,
-            ),
+            routine_type,
             input_mapping: step.input_mapping.clone(),
             output_mapping: step.output_mapping.clone(),
             transition,
@@ -172,38 +179,29 @@ mod tests {
             input_schema: vec![],
             workflow: WorkflowDefinition {
                 steps: vec![
-                    StepDefinition {
-                        id: "step1".to_string(),
-                        name: "First Step".to_string(),
-                        description: "The first step".to_string(),
-                        routine: RoutineRef {
+                    StepDefinition::with_routine(
+                        "step1",
+                        "First Step",
+                        RoutineRef {
                             capability_class: "builtin".to_string(),
                             name: "noop".to_string(),
                             version: "1.0.0".to_string(),
                         },
-                        input_mapping: Default::default(),
-                        output_mapping: Default::default(),
-                        retry_policy: None,
-                        timeout_seconds: None,
-                        transition: Transition::Next {
+                        Transition::Next {
                             step_id: "step2".to_string(),
                         },
-                    },
-                    StepDefinition {
-                        id: "step2".to_string(),
-                        name: "Second Step".to_string(),
-                        description: "The second step".to_string(),
-                        routine: RoutineRef {
+                    )
+                    .with_description("The first step"),
+                    StepDefinition::with_routine(
+                        "step2",
+                        "Second Step",
+                        RoutineRef {
                             capability_class: "builtin".to_string(),
                             name: "echo".to_string(),
                             version: "1.0.0".to_string(),
                         },
-                        input_mapping: Default::default(),
-                        output_mapping: Default::default(),
-                        retry_policy: None,
-                        timeout_seconds: None,
-                        transition: Transition::End,
-                    },
+                        Transition::End,
+                    ),
                 ],
                 default_retry_policy: None,
                 error_handling: None,
@@ -234,10 +232,37 @@ mod tests {
 
     #[test]
     fn test_compile_unknown_routine() {
-        let mut spec = create_test_spec();
-        // Change to an unknown routine
-        spec.workflow.steps[0].routine.name = "unknown_routine".to_string();
-
+        let spec = PlaybookSpec {
+            metadata: PlaybookMetadata {
+                title: "Test".to_string(),
+                description: "Test".to_string(),
+                mode: PlaybookMode::Standard,
+                version: "1.0.0".to_string(),
+                tags: vec![],
+            },
+            input_schema: vec![],
+            workflow: WorkflowDefinition {
+                steps: vec![StepDefinition::with_routine(
+                    "step1",
+                    "Unknown Step",
+                    RoutineRef {
+                        capability_class: "unknown".to_string(),
+                        name: "nonexistent".to_string(),
+                        version: "1.0.0".to_string(),
+                    },
+                    Transition::End,
+                )],
+                default_retry_policy: None,
+                error_handling: None,
+            },
+            capability_refs: CapabilityRefs::default(),
+            output_contract: OutputContract {
+                primary_artifact: None,
+                secondary_artifacts: None,
+                backup_policy: BackupPolicy::None,
+            },
+            policy_profile: None,
+        };
         let registry = create_builtin_registry();
         let result = WorkflowCompiler::compile(&spec, &registry);
 
@@ -250,18 +275,47 @@ mod tests {
 
     #[test]
     fn test_compile_conditional_transition() {
-        let mut spec = create_test_spec();
-        spec.workflow.steps[0].transition = Transition::Conditional {
-            branches: vec![
-                ConditionalBranch {
-                    condition: "x > 0".to_string(),
-                    step_id: "step2".to_string(),
-                },
-                ConditionalBranch {
-                    condition: "x <= 0".to_string(),
-                    step_id: "step2".to_string(),
-                },
-            ],
+        let spec = PlaybookSpec {
+            metadata: PlaybookMetadata {
+                title: "Test".to_string(),
+                description: "Test".to_string(),
+                mode: PlaybookMode::Standard,
+                version: "1.0.0".to_string(),
+                tags: vec![],
+            },
+            input_schema: vec![],
+            workflow: WorkflowDefinition {
+                steps: vec![StepDefinition::with_routine(
+                    "step1",
+                    "Branching Step",
+                    RoutineRef {
+                        capability_class: "builtin".to_string(),
+                        name: "noop".to_string(),
+                        version: "1.0.0".to_string(),
+                    },
+                    Transition::Conditional {
+                        branches: vec![
+                            ConditionalBranch {
+                                condition: "x > 0".to_string(),
+                                step_id: "step2".to_string(),
+                            },
+                            ConditionalBranch {
+                                condition: "x <= 0".to_string(),
+                                step_id: "step2".to_string(),
+                            },
+                        ],
+                    },
+                )],
+                default_retry_policy: None,
+                error_handling: None,
+            },
+            capability_refs: CapabilityRefs::default(),
+            output_contract: OutputContract {
+                primary_artifact: None,
+                secondary_artifacts: None,
+                backup_policy: BackupPolicy::None,
+            },
+            policy_profile: None,
         };
 
         let registry = create_builtin_registry();
@@ -280,13 +334,47 @@ mod tests {
 
     #[test]
     fn test_compile_step_mappings() {
-        let mut spec = create_test_spec();
-        spec.workflow.steps[0]
-            .input_mapping
-            .insert("key1".to_string(), "value1".to_string());
-        spec.workflow.steps[0]
-            .output_mapping
-            .insert("out1".to_string(), "result1".to_string());
+        let spec = PlaybookSpec {
+            metadata: PlaybookMetadata {
+                title: "Test".to_string(),
+                description: "Test".to_string(),
+                mode: PlaybookMode::Standard,
+                version: "1.0.0".to_string(),
+                tags: vec![],
+            },
+            input_schema: vec![],
+            workflow: WorkflowDefinition {
+                steps: vec![StepDefinition::with_routine(
+                    "step1",
+                    "Mapping Step",
+                    RoutineRef {
+                        capability_class: "builtin".to_string(),
+                        name: "noop".to_string(),
+                        version: "1.0.0".to_string(),
+                    },
+                    Transition::End,
+                )
+                .with_input_mapping({
+                    let mut map = crate::playbook::spec::entities::InputMapping::new();
+                    map.insert("key1".to_string(), "value1".to_string());
+                    map
+                })
+                .with_output_mapping({
+                    let mut map = crate::playbook::spec::entities::OutputMapping::new();
+                    map.insert("out1".to_string(), "result1".to_string());
+                    map
+                })],
+                default_retry_policy: None,
+                error_handling: None,
+            },
+            capability_refs: CapabilityRefs::default(),
+            output_contract: OutputContract {
+                primary_artifact: None,
+                secondary_artifacts: None,
+                backup_policy: BackupPolicy::None,
+            },
+            policy_profile: None,
+        };
 
         let registry = create_builtin_registry();
         let result = WorkflowCompiler::compile(&spec, &registry);

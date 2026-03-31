@@ -129,8 +129,9 @@ fn test_parse_summary_spec() {
     let first_step = &spec.workflow.steps[0];
     assert_eq!(first_step.id, "scan");
     assert_eq!(first_step.name, "扫描文件");
-    assert_eq!(first_step.routine.capability_class, "builtin");
-    assert_eq!(first_step.routine.name, "scan_markdown_files");
+    let routine_ref = first_step.routine.as_ref().expect("Expected routine");
+    assert_eq!(routine_ref.capability_class, "builtin");
+    assert_eq!(routine_ref.name, "scan_markdown_files");
 
     // Check transition types
     match &spec.workflow.steps[0].transition {

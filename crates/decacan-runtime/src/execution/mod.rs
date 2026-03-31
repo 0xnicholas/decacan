@@ -619,11 +619,12 @@ mod tests {
                         id: "step1".to_string(),
                         name: "Step 1".to_string(),
                         description: "First step".to_string(),
-                        routine: RoutineRef {
+                        implementation: None,
+                        routine: Some(RoutineRef {
                             capability_class: "builtin".to_string(),
                             name: "noop".to_string(),
                             version: "1.0.0".to_string(),
-                        },
+                        }),
                         input_mapping: HashMap::new(),
                         output_mapping: HashMap::new(),
                         retry_policy: None,
@@ -634,11 +635,12 @@ mod tests {
                         id: "step2".to_string(),
                         name: "Step 2".to_string(),
                         description: "Second step".to_string(),
-                        routine: RoutineRef {
+                        implementation: None,
+                        routine: Some(RoutineRef {
                             capability_class: "builtin".to_string(),
                             name: "echo".to_string(),
                             version: "1.0.0".to_string(),
-                        },
+                        }),
                         input_mapping: [("message".to_string(), "input.message".to_string())]
                             .into_iter()
                             .collect(),

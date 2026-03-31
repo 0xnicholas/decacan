@@ -218,7 +218,7 @@ mod tests {
     fn test_implementation_ref_routine() {
         let routine = ImplementationRef::routine("builtin", "read_file", "1.0.0");
 
-        match routine {
+        match &routine {
             ImplementationRef::Routine {
                 class,
                 name,
@@ -238,7 +238,7 @@ mod tests {
     fn test_implementation_ref_tool() {
         let tool = ImplementationRef::tool("http_api", "1.0.0");
 
-        match tool {
+        match &tool {
             ImplementationRef::Tool { name, version } => {
                 assert_eq!(name, "http_api");
                 assert_eq!(version, "1.0.0");
@@ -253,7 +253,7 @@ mod tests {
     fn test_implementation_ref_skill() {
         let skill = ImplementationRef::skill("sub_workflow", "1.0.0");
 
-        match skill {
+        match &skill {
             ImplementationRef::Skill {
                 playbook_id,
                 version,

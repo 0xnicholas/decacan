@@ -18,51 +18,56 @@
 ### Task 1.1: 扩展 UserStorage trait 添加会员相关方法
 
 **Files:**
-- Modify: `crates/decacan-runtime/src/workspace/entity/storage.rs`
-- Modify: `crates/decacan-runtime/src/ports/storage.rs` (if exists)
+- Modify: `crates/decacan-auth/src/storage/mod.rs` - 扩展现有 UserStorage trait
+- Modify: `crates/decacan-auth/src/storage/sqlite.rs` - 实现方法
 
-- [ ] **Step 1: 定义 Membership storage trait 方法**
+**Architecture Note:** 将 membership 方法直接集成到已存在的 `UserStorage` trait 中，保持架构一致性。
 
-在 `storage.rs` 中添加：
+- [ ] **Step 1: 扩展 UserStorage trait**
+
+在 `crates/decacan-auth/src/storage/mod.rs` 的 `UserStorage` trait 中添加：
 
 ```rust
-use async_trait::async_trait;
-use crate::workspace::entity::{WorkspaceMembership, WorkspaceRole};
-use crate::error::WorkspaceResult;
+use decacan_runtime::workspace::entity::WorkspaceMembership;
+use decacan_runtime::workspace::rbac::WorkspaceRole;
 
 #[async_trait]
-pub trait MembershipStorage: Send + Sync {
+pub trait UserStorage: Send + Sync {
+    // ... 现有方法 ...
+    
+    /// ===== Membership Methods =====
+    
     /// 创建会员关系
     async fn create_membership(
         &self,
         membership: &WorkspaceMembership,
-    ) -> WorkspaceResult<()>;
+    ) -> AuthResult<()>;
     
     /// 根据 workspace_id 和 user_id 查找会员
     async fn find_membership(
         &self,
         workspace_id: &str,
         user_id: &str,
-    ) -> WorkspaceResult<Option<WorkspaceMembership>>;
+    ) -> AuthResult<Option<WorkspaceMembership>>;
     
-    /// 列出 workspace 的所有会员
+    /// 列出 workspace 的所有会员（包含用户信息）
     async fn list_workspace_members(
         &self,
         workspace_id: &str,
-    ) -> WorkspaceResult<Vec<WorkspaceMembership>>;
+    ) -> AuthResult<Vec<(WorkspaceMembership, User)>>;
     
     /// 更新会员角色
     async fn update_membership_role(
         &self,
         membership_id: &str,
         role: WorkspaceRole,
-    ) -> WorkspaceResult<()>;
+    ) -> AuthResult<()>;
     
     /// 删除会员
     async fn delete_membership(
         &self,
         membership_id: &str,
-    ) -> WorkspaceResult<()>;
+    ) -> AuthResult<()>;
 }
 ```
 
@@ -203,11 +208,13 @@ pub struct ErrorResponse {
 
 ```rust
 use axum::{
-    extract::{Path, State},
+    extract::{Extension, Path, State},
     http::StatusCode,
     routing::{delete, get, post, put},
     Json, Router,
 };
+use decacan_runtime::workspace::rbac::{Permission, ResourceType};
+use decacan_runtime::workspace::entity::WorkspaceMembership;
 use crate::app::state::AppState;
 use crate::middleware::auth::CurrentUser;
 
@@ -246,14 +253,14 @@ async fn list_members(
     
     let response = members
         .into_iter()
-        .map(|m| MemberResponse {
-            id: m.id,
-            user_id: m.user_id,
-            name: "...".to_string(), // 需要从 user service 获取
-            email: "...".to_string(),
-            role: m.role,
-            invited_by: m.invited_by,
-            joined_at: m.joined_at.to_string(),
+        .map(|(membership, user)| MemberResponse {
+            id: membership.id,
+            user_id: membership.user_id,
+            name: user.name,
+            email: user.email,
+            role: membership.role,
+            invited_by: membership.invited_by,
+            joined_at: membership.joined_at.to_string(),
         })
         .collect();
     
@@ -351,7 +358,73 @@ async fn update_role(
     Extension(current_user): Extension<CurrentUser>,
     Json(req): Json<UpdateRoleRequest>,
 ) -> Result<StatusCode, (StatusCode, Json<ErrorResponse>)> {
-    // 实现角色更新...
+    // 检查调用者权限：需要 Update Member 权限
+    let caller_membership = state
+        .storage
+        .find_membership(&workspace_id, &current_user.user_id)
+        .await
+        .map_err(|e| {
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse {
+                error: "internal_error".to_string(),
+                message: e.to_string(),
+            }))
+        })?
+        .ok_or((StatusCode::FORBIDDEN, Json(ErrorResponse {
+            error: "forbidden".to_string(),
+            message: "You are not a member of this workspace".to_string(),
+        })))?;
+
+    // 检查是否有更新权限
+    if !caller_membership.has_permission(&Permission::update(ResourceType::Member)) {
+        return Err((StatusCode::FORBIDDEN, Json(ErrorResponse {
+            error: "insufficient_permissions".to_string(),
+            message: "You don't have permission to update member roles".to_string(),
+        })));
+    }
+
+    // 不能更改自己的角色（避免失去管理员权限）
+    let target_membership = state
+        .storage
+        .find_membership(&workspace_id, &member_id)
+        .await
+        .map_err(|e| {
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse {
+                error: "internal_error".to_string(),
+                message: e.to_string(),
+            }))
+        })?
+        .ok_or((StatusCode::NOT_FOUND, Json(ErrorResponse {
+            error: "member_not_found".to_string(),
+            message: "Member not found in this workspace".to_string(),
+        })))?;
+
+    if target_membership.user_id == current_user.user_id {
+        return Err((StatusCode::FORBIDDEN, Json(ErrorResponse {
+            error: "cannot_update_self".to_string(),
+            message: "You cannot change your own role".to_string(),
+        })));
+    }
+
+    // 不能更改 Owner 的角色
+    if target_membership.role == WorkspaceRole::Owner {
+        return Err((StatusCode::FORBIDDEN, Json(ErrorResponse {
+            error: "cannot_update_owner".to_string(),
+            message: "Cannot change the workspace owner's role".to_string(),
+        })));
+    }
+
+    // 执行角色更新
+    state
+        .storage
+        .update_membership_role(&member_id, req.role)
+        .await
+        .map_err(|e| {
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse {
+                error: "update_failed".to_string(),
+                message: e.to_string(),
+            }))
+        })?;
+
     Ok(StatusCode::OK)
 }
 
@@ -361,7 +434,73 @@ async fn remove_member(
     Path((workspace_id, member_id)): Path<(String, String)>,
     Extension(current_user): Extension<CurrentUser>,
 ) -> Result<StatusCode, (StatusCode, Json<ErrorResponse>)> {
-    // 实现成员移除...
+    // 检查调用者权限：需要 Delete Member 权限
+    let caller_membership = state
+        .storage
+        .find_membership(&workspace_id, &current_user.user_id)
+        .await
+        .map_err(|e| {
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse {
+                error: "internal_error".to_string(),
+                message: e.to_string(),
+            }))
+        })?
+        .ok_or((StatusCode::FORBIDDEN, Json(ErrorResponse {
+            error: "forbidden".to_string(),
+            message: "You are not a member of this workspace".to_string(),
+        })))?;
+
+    if !caller_membership.has_permission(&Permission::delete(ResourceType::Member)) {
+        return Err((StatusCode::FORBIDDEN, Json(ErrorResponse {
+            error: "insufficient_permissions".to_string(),
+            message: "You don't have permission to remove members".to_string(),
+        })));
+    }
+
+    // 获取目标成员信息
+    let target_membership = state
+        .storage
+        .find_membership(&workspace_id, &member_id)
+        .await
+        .map_err(|e| {
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse {
+                error: "internal_error".to_string(),
+                message: e.to_string(),
+            }))
+        })?
+        .ok_or((StatusCode::NOT_FOUND, Json(ErrorResponse {
+            error: "member_not_found".to_string(),
+            message: "Member not found in this workspace".to_string(),
+        })))?;
+
+    // 不能移除自己
+    if target_membership.user_id == current_user.user_id {
+        return Err((StatusCode::FORBIDDEN, Json(ErrorResponse {
+            error: "cannot_remove_self".to_string(),
+            message: "You cannot remove yourself from the workspace".to_string(),
+        })));
+    }
+
+    // 不能移除 Owner
+    if target_membership.role == WorkspaceRole::Owner {
+        return Err((StatusCode::FORBIDDEN, Json(ErrorResponse {
+            error: "cannot_remove_owner".to_string(),
+            message: "Cannot remove the workspace owner".to_string(),
+        })));
+    }
+
+    // 执行删除
+    state
+        .storage
+        .delete_membership(&member_id)
+        .await
+        .map_err(|e| {
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse {
+                error: "delete_failed".to_string(),
+                message: e.to_string(),
+            }))
+        })?;
+
     Ok(StatusCode::NO_CONTENT)
 }
 ```
