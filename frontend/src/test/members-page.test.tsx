@@ -7,6 +7,37 @@ import { App } from "../app/App";
 const fetchMock = vi.fn<typeof fetch>();
 vi.stubGlobal("fetch", fetchMock);
 
+// Mock member data matching the backend API response
+const mockMembers = [
+  {
+    id: "member-1",
+    user_id: "user-1",
+    name: "Ari Mitchell",
+    email: "ari@example.com",
+    role: "admin",
+    invited_by: null,
+    joined_at: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: "member-2",
+    user_id: "user-2",
+    name: "Maya Chen",
+    email: "maya@example.com",
+    role: "editor",
+    invited_by: null,
+    joined_at: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: "member-3",
+    user_id: "user-3",
+    name: "Sam Park",
+    email: "sam@example.com",
+    role: "viewer",
+    invited_by: null,
+    joined_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+];
+
 describe("MembersPage", () => {
   beforeEach(() => {
     fetchMock.mockReset();
@@ -27,6 +58,13 @@ describe("MembersPage", () => {
         );
       }
 
+      if (url.includes("/api/workspaces/workspace-1/members") && method === "GET") {
+        return new Response(
+          JSON.stringify(mockMembers),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
       throw new Error(`Unhandled request: ${url}`);
     });
 
@@ -34,7 +72,7 @@ describe("MembersPage", () => {
 
     expect(await screen.findByRole("heading", { name: "Members" })).toBeInTheDocument();
     
-    // Wait for 300ms mock delay + rendering
+    // Wait for members to load
     await waitFor(() => {
       expect(screen.getByText("Ari Mitchell")).toBeInTheDocument();
     }, { timeout: 1000 });
@@ -43,7 +81,7 @@ describe("MembersPage", () => {
     expect(screen.getByText("Sam Park")).toBeInTheDocument();
   });
 
-  it("shows member roles and workload", async () => {
+  it("shows member roles", async () => {
     fetchMock.mockImplementation(async (input, init) => {
       const url = typeof input === "string" ? input : input.toString();
       const method = init?.method ?? "GET";
@@ -53,6 +91,13 @@ describe("MembersPage", () => {
           JSON.stringify([
             { id: "workspace-1", title: "Workspace 1", root_path: "/tmp/workspace-1" },
           ]),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      if (url.includes("/api/workspaces/workspace-1/members") && method === "GET") {
+        return new Response(
+          JSON.stringify(mockMembers),
           { status: 200, headers: { "content-type": "application/json" } },
         );
       }
@@ -69,17 +114,13 @@ describe("MembersPage", () => {
       expect(screen.queryByText("Loading members...")).not.toBeInTheDocument();
     }, { timeout: 1000 });
     
-    // Check for roles
+    // Check for roles (matching new MemberRole type)
     expect(screen.getByText("admin")).toBeInTheDocument();
-    expect(screen.getByText("lead")).toBeInTheDocument();
-    expect(screen.getByText("executor")).toBeInTheDocument();
-    
-    // Check for workload - use getAllByText since there are multiple members
-    expect(screen.getAllByText("active tasks").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText("pending approvals").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("editor")).toBeInTheDocument();
+    expect(screen.getByText("viewer")).toBeInTheDocument();
   });
 
-  it("shows recent activity for members", async () => {
+  it("shows member emails", async () => {
     fetchMock.mockImplementation(async (input, init) => {
       const url = typeof input === "string" ? input : input.toString();
       const method = init?.method ?? "GET";
@@ -89,6 +130,13 @@ describe("MembersPage", () => {
           JSON.stringify([
             { id: "workspace-1", title: "Workspace 1", root_path: "/tmp/workspace-1" },
           ]),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      if (url.includes("/api/workspaces/workspace-1/members") && method === "GET") {
+        return new Response(
+          JSON.stringify(mockMembers),
           { status: 200, headers: { "content-type": "application/json" } },
         );
       }
@@ -105,10 +153,10 @@ describe("MembersPage", () => {
       expect(screen.queryByText("Loading members...")).not.toBeInTheDocument();
     }, { timeout: 1000 });
     
-    // Check for recent activity text
-    expect(screen.getByText(/Created task TASK-001/)).toBeInTheDocument();
-    expect(screen.getByText(/Completed task TASK-002/)).toBeInTheDocument();
-    expect(screen.getByText(/Requested approval/)).toBeInTheDocument();
+    // Check for emails
+    expect(screen.getByText("ari@example.com")).toBeInTheDocument();
+    expect(screen.getByText("maya@example.com")).toBeInTheDocument();
+    expect(screen.getByText("sam@example.com")).toBeInTheDocument();
   });
 
   it("handles errors with retry", async () => {
@@ -125,6 +173,13 @@ describe("MembersPage", () => {
         );
       }
 
+      if (url.includes("/api/workspaces/error-workspace/members") && method === "GET") {
+        return new Response(
+          JSON.stringify({ error: "internal_error", message: "Failed to load members" }),
+          { status: 500, headers: { "content-type": "application/json" } },
+        );
+      }
+
       throw new Error(`Unhandled request: ${url}`);
     });
 
@@ -136,7 +191,7 @@ describe("MembersPage", () => {
 
     // Wait for error state
     await waitFor(() => {
-      expect(screen.getByText("Failed to load members")).toBeInTheDocument();
+      expect(screen.getByText(/failed/i)).toBeInTheDocument();
     }, { timeout: 1000 });
     
     expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
@@ -146,7 +201,50 @@ describe("MembersPage", () => {
     
     // Should still show error after retry (since we're still on error workspace)
     await waitFor(() => {
-      expect(screen.getByText("Failed to load members")).toBeInTheDocument();
+      expect(screen.getByText(/failed/i)).toBeInTheDocument();
     }, { timeout: 1000 });
+  });
+
+  it("opens invite modal when clicking invite button", async () => {
+    fetchMock.mockImplementation(async (input, init) => {
+      const url = typeof input === "string" ? input : input.toString();
+      const method = init?.method ?? "GET";
+
+      if (url.endsWith("/api/workspaces") && method === "GET") {
+        return new Response(
+          JSON.stringify([
+            { id: "workspace-1", title: "Workspace 1", root_path: "/tmp/workspace-1" },
+          ]),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      if (url.includes("/api/workspaces/workspace-1/members") && method === "GET") {
+        return new Response(
+          JSON.stringify(mockMembers),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      throw new Error(`Unhandled request: ${url}`);
+    });
+
+    const user = userEvent.setup();
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "Members" })).toBeInTheDocument();
+    
+    // Wait for loading to complete
+    await waitFor(() => {
+      expect(screen.queryByText("Loading members...")).not.toBeInTheDocument();
+    }, { timeout: 1000 });
+    
+    // Click invite button
+    await user.click(screen.getByRole("button", { name: "Invite Member" }));
+    
+    // Modal should open
+    expect(await screen.findByRole("heading", { name: "Invite Member" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Email")).toBeInTheDocument();
   });
 });

@@ -3,6 +3,7 @@ import { getRoleColor } from "../../shared/api/members";
 
 interface MemberCardProps {
   member: Member;
+  onRemove?: () => void;
 }
 
 function getInitials(name: string): string {
@@ -40,7 +41,7 @@ function formatRelativeTime(timestamp: string): string {
   }
 }
 
-export function MemberCard({ member }: MemberCardProps) {
+export function MemberCard({ member, onRemove }: MemberCardProps) {
   const roleColor = getRoleColor(member.role);
 
   return (
@@ -67,26 +68,40 @@ export function MemberCard({ member }: MemberCardProps) {
             {member.role}
           </span>
         </div>
+        {onRemove && (
+          <button 
+            className="btn btn-icon btn-danger"
+            onClick={onRemove}
+            aria-label={`Remove ${member.name}`}
+            title="Remove member"
+          >
+            ×
+          </button>
+        )}
       </div>
       
-      <div className="member-workload">
-        <div className="workload-item">
-          <span className="workload-value">{member.workload.activeTasks}</span>
-          <span className="workload-label">active tasks</span>
+      {member.workload && (
+        <div className="member-workload">
+          <div className="workload-item">
+            <span className="workload-value">{member.workload.activeTasks}</span>
+            <span className="workload-label">active tasks</span>
+          </div>
+          <div className="workload-item">
+            <span className="workload-value">{member.workload.pendingApprovals}</span>
+            <span className="workload-label">pending approvals</span>
+          </div>
         </div>
-        <div className="workload-item">
-          <span className="workload-value">{member.workload.pendingApprovals}</span>
-          <span className="workload-label">pending approvals</span>
-        </div>
-      </div>
+      )}
       
-      <div className="member-activity">
-        <p className="activity-label">Recent activity</p>
-        <p className="activity-description">{member.recentActivity.description}</p>
-        <time className="activity-time" dateTime={member.recentActivity.timestamp}>
-          {formatRelativeTime(member.recentActivity.timestamp)}
-        </time>
-      </div>
+      {member.recentActivity && (
+        <div className="member-activity">
+          <p className="activity-label">Recent activity</p>
+          <p className="activity-description">{member.recentActivity.description}</p>
+          <time className="activity-time" dateTime={member.recentActivity.timestamp}>
+            {formatRelativeTime(member.recentActivity.timestamp)}
+          </time>
+        </div>
+      )}
     </article>
   );
 }

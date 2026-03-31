@@ -1,4 +1,4 @@
-export type MemberRole = "admin" | "lead" | "executor" | "viewer";
+export type MemberRole = "owner" | "admin" | "editor" | "viewer";
 
 export interface MemberWorkload {
   activeTasks: number;
@@ -16,7 +16,7 @@ export interface Member {
   email: string;
   role: MemberRole;
   avatarUrl?: string;
-  workload: MemberWorkload;
-  recentActivity: MemberActivity;
+  workload?: MemberWorkload;
+  recentActivity?: MemberActivity;
   joinedAt: string;
 }

@@ -1,83 +1,73 @@
-import type { Member } from "../../entities/member/types";
+import { useAuthenticatedClient } from './authClient';
+import type { Member, MemberRole } from '../../entities/member/types';
 
-export const MOCK_MEMBERS: Member[] = [
-  {
-    id: "member-1",
-    name: "Ari Mitchell",
-    email: "ari@example.com",
-    role: "admin",
-    avatarUrl: undefined,
-    workload: {
-      activeTasks: 12,
-      pendingApprovals: 3,
-    },
-    recentActivity: {
-      description: "Created task TASK-001",
-      timestamp: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-    },
-    joinedAt: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: "member-2",
-    name: "Maya Chen",
-    email: "maya@example.com",
-    role: "lead",
-    avatarUrl: undefined,
-    workload: {
-      activeTasks: 8,
-      pendingApprovals: 5,
-    },
-    recentActivity: {
-      description: "Completed task TASK-002",
-      timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    },
-    joinedAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: "member-3",
-    name: "Sam Park",
-    email: "sam@example.com",
-    role: "executor",
-    avatarUrl: undefined,
-    workload: {
-      activeTasks: 15,
-      pendingApprovals: 1,
-    },
-    recentActivity: {
-      description: "Requested approval APPROVAL-003",
-      timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
-    },
-    joinedAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-];
+export function useMembersApi() {
+  const { fetchWithAuth } = useAuthenticatedClient();
 
-export async function fetchWorkspaceMembers(workspaceId: string): Promise<Member[]> {
-  // Simulate network delay
-  await new Promise(resolve => setTimeout(resolve, 300));
-  
-  if (workspaceId === "error-workspace") {
-    throw new Error("GET members failed with 500");
-  }
+  const fetchWorkspaceMembers = async (workspaceId: string): Promise<Member[]> => {
+    const response = await fetchWithAuth(`/api/workspaces/${workspaceId}/members`);
+    return response.json();
+  };
 
-  return [...MOCK_MEMBERS];
+  const inviteMember = async (
+    workspaceId: string,
+    email: string,
+    role: MemberRole
+  ): Promise<Member> => {
+    const response = await fetchWithAuth(`/api/workspaces/${workspaceId}/members`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, role }),
+    });
+    return response.json();
+  };
+
+  const updateMemberRole = async (
+    workspaceId: string,
+    memberId: string,
+    role: MemberRole
+  ): Promise<void> => {
+    await fetchWithAuth(`/api/workspaces/${workspaceId}/members/${memberId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role }),
+    });
+  };
+
+  const removeMember = async (
+    workspaceId: string,
+    memberId: string
+  ): Promise<void> => {
+    await fetchWithAuth(`/api/workspaces/${workspaceId}/members/${memberId}`, {
+      method: 'DELETE',
+    });
+  };
+
+  return {
+    fetchWorkspaceMembers,
+    inviteMember,
+    updateMemberRole,
+    removeMember,
+  };
 }
 
-export function getRoleLabel(role: string): string {
-  const labels: Record<string, string> = {
-    admin: "Admin",
-    lead: "Lead",
-    executor: "Executor",
-    viewer: "Viewer",
+// Keep helper functions
+export function getRoleLabel(role: MemberRole): string {
+  const labels: Record<MemberRole, string> = {
+    owner: 'Owner',
+    admin: 'Admin',
+    editor: 'Editor',
+    viewer: 'Viewer',
   };
   return labels[role] || role;
 }
 
-export function getRoleColor(role: string): string {
-  const colors: Record<string, string> = {
-    admin: "#8B4513",
-    lead: "#2D5E3E",
-    executor: "#1E4D6B",
-    viewer: "#6B5B1E",
+export function getRoleColor(role: MemberRole): string {
+  const colors: Record<MemberRole, string> = {
+    owner: '#8B4513',
+    admin: '#2D5E3E',
+    editor: '#1E4D6B',
+    viewer: '#6B5B1E',
   };
-  return colors[role] || "#181311";
+  return colors[role] || '#181311';
 }
