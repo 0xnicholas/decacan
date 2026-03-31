@@ -42,6 +42,14 @@ impl<S: UserStorage> AuthService<S> {
         }
     }
 
+    pub async fn find_user_by_id(&self, user_id: &str) -> AuthResult<Option<User>> {
+        self.storage.find_user_by_id(user_id).await
+    }
+
+    pub async fn find_user_by_email(&self, email: &str) -> AuthResult<Option<User>> {
+        self.storage.find_user_by_email(email).await
+    }
+
     /// 验证密码复杂度
     fn validate_password(password: &str) -> AuthResult<()> {
         if password.len() < 8 {

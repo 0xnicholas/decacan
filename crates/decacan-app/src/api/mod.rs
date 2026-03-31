@@ -3,6 +3,7 @@ mod artifacts;
 mod auth;
 mod deliverables;
 mod inbox;
+mod members;
 mod playbooks;
 mod tasks;
 mod traces;
@@ -24,4 +25,5 @@ pub fn router() -> Router<AppState> {
         .merge(inbox::router())
         .merge(artifacts::router())
         .merge(traces::router())
+        .merge(members::router())
 }

@@ -29,6 +29,9 @@ use decacan_runtime::ports::filesystem::FilesystemPort;
 use decacan_runtime::run::entity::Run;
 use decacan_runtime::run::service::{SummaryPlaybookE2eResult, SummaryPlaybookExecutionError};
 use decacan_runtime::task::entity::{Task, TaskStatus};
+use decacan_runtime::workspace::entity::WorkspaceMembership;
+use decacan_runtime::workspace::rbac::WorkspaceRole;
+use decacan_runtime::workspace::service::member_service::{CreateMembershipInput, MemberService, UpdateRoleInput};
 use tokio::sync::broadcast;
 
 use crate::dto::{
@@ -59,6 +62,7 @@ struct AppStateInner {
     task_events: Mutex<HashMap<String, Vec<TaskEventEnvelopeDto>>>,
     task_event_bus: broadcast::Sender<TaskEventEnvelopeDto>,
     auth_service: AuthService<SqliteUserStorage>,
+    member_service: MemberService,
 }
 
 #[derive(Debug, Clone)]
@@ -131,6 +135,18 @@ impl AppState {
         &self.inner.auth_service
     }
 
+    pub fn member_service(&self) -> &MemberService {
+        &self.inner.member_service
+    }
+
+    pub async fn find_user_by_id(&self, user_id: &str) -> Option<decacan_auth::entities::User> {
+        self.inner.auth_service.find_user_by_id(user_id).await.ok().flatten()
+    }
+
+    pub async fn find_user_by_email(&self, email: &str) -> Option<decacan_auth::entities::User> {
+        self.inner.auth_service.find_user_by_email(email).await.ok().flatten()
+    }
+
     async fn new_with_workspace_root(default_workspace_root: PathBuf) -> std::io::Result<Self> {
         std::fs::create_dir_all(&default_workspace_root)?;
         let (task_event_bus, _) = broadcast::channel(64);
@@ -172,6 +188,7 @@ impl AppState {
         };
         
         let auth_service = AuthService::new(storage, jwt_secret);
+        let member_service = MemberService::new();
 
         Ok(Self {
             inner: Arc::new(AppStateInner {
@@ -191,6 +208,7 @@ impl AppState {
                 task_events: Mutex::new(HashMap::new()),
                 task_event_bus,
                 auth_service,
+                member_service,
             }),
         })
     }
