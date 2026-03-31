@@ -1,3 +1,16 @@
-pub(crate) mod entity;
-pub(crate) mod executor;
-pub(crate) mod registry;
+pub mod contract;
+pub mod context;
+pub mod entity;
+pub mod error;
+pub mod executor;
+pub mod registry;
+
+// New trait-based routine system
+pub mod builtin;
+pub mod r#trait;
+
+// Re-exports for convenience
+pub use contract::{Contract, ContractBuilder, ValidationError};
+pub use context::{RoutineContext, RoutineState};
+pub use error::{RoutineError, RoutineResult};
+pub use r#trait::{Routine, RoutineRegistry, RoutineType};
