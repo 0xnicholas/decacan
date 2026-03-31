@@ -7,6 +7,7 @@ use thiserror::Error;
 use time::OffsetDateTime;
 use tokio::time::timeout;
 
+use crate::contract::{ContractValidator, ValidationMode};
 use crate::ports::clock::ClockPort;
 use crate::ports::filesystem::FilesystemPort;
 use crate::ports::storage::StoragePort;
@@ -17,11 +18,29 @@ use crate::workflow::entity::CompiledWorkflow;
 use crate::workflow::step::{CompiledTransition, CompiledWorkflowStep};
 
 /// Execution engine for running compiled workflows using the Routine trait
-pub struct WorkflowExecutor;
+pub struct WorkflowExecutor {
+    validation_mode: ValidationMode,
+}
 
 impl WorkflowExecutor {
+    /// Create a new executor with the given validation mode
+    pub fn new(validation_mode: ValidationMode) -> Self {
+        Self { validation_mode }
+    }
+
+    /// Create a strict executor
+    pub fn strict() -> Self {
+        Self::new(ValidationMode::Strict)
+    }
+
+    /// Create a lenient executor
+    pub fn lenient() -> Self {
+        Self::new(ValidationMode::Lenient)
+    }
+
     /// Execute a compiled workflow
     pub async fn execute<F, S, C>(
+        &self,
         workflow: &CompiledWorkflow,
         registry: &RoutineRegistry,
         filesystem: &F,
@@ -36,6 +55,7 @@ impl WorkflowExecutor {
         S::Error: std::fmt::Debug,
         C: ClockPort,
     {
+        let validator = ContractValidator::new(self.validation_mode);
         let mut state = ExecutionState::new(workflow, initial_input);
         let mut step_outputs: HashMap<String, Value> = HashMap::new();
 
@@ -52,8 +72,8 @@ impl WorkflowExecutor {
             // Prepare input for this step
             let step_input = Self::prepare_step_input(step, &state.global_input, &step_outputs);
 
-            // Validate input against contract
-            if let Err(errors) = routine.validate_input(&step_input) {
+            // Validate input against contract using the validator
+            if let Err(errors) = validator.validate_input(routine.input_contract(), &step_input) {
                 return Err(ExecutionError::InputValidation {
                     step_id: step.id.clone(),
                     errors,
@@ -61,16 +81,17 @@ impl WorkflowExecutor {
             }
 
             // Execute the routine with retry logic
-            let output = Self::execute_step_with_retry(
-                routine.as_ref(),
-                step,
-                &mut state.context,
-                step_input,
-                filesystem,
-                storage,
-                clock,
-            )
-            .await?;
+            let output = self
+                .execute_step_with_retry(
+                    routine.as_ref(),
+                    step,
+                    &mut state.context,
+                    step_input,
+                    filesystem,
+                    storage,
+                    clock,
+                )
+                .await?;
 
             // Store output
             step_outputs.insert(step.id.clone(), output.clone());
@@ -92,8 +113,9 @@ impl WorkflowExecutor {
         })
     }
 
-    /// Execute a single step with retry logic
+    /// Execute a single step with retry logic and output validation
     async fn execute_step_with_retry<F, S, C>(
+        &self,
         routine: &dyn Routine,
         step: &CompiledWorkflowStep,
         ctx: &mut RoutineContext,
@@ -107,6 +129,7 @@ impl WorkflowExecutor {
         S: StoragePort,
         C: ClockPort,
     {
+        let validator = ContractValidator::new(self.validation_mode);
         let max_attempts = step
             .retry_policy
             .as_ref()
@@ -123,7 +146,16 @@ impl WorkflowExecutor {
             )
             .await
             {
-                Ok(Ok(output)) => return Ok(output),
+                Ok(Ok(output)) => {
+                    // Validate output against contract (always strict for output)
+                    if let Err(errors) = validator.validate_output(routine.output_contract(), &output) {
+                        return Err(ExecutionError::OutputValidation {
+                            step_id: step.id.clone(),
+                            errors,
+                        });
+                    }
+                    return Ok(output);
+                }
                 Ok(Err(e)) => {
                     last_error = Some(e);
                     if attempt < max_attempts {
@@ -409,6 +441,12 @@ pub enum ExecutionError {
 
     #[error("input validation failed for step {step_id}: {errors:?}")]
     InputValidation {
+        step_id: String,
+        errors: Vec<crate::routine::contract::ValidationError>,
+    },
+
+    #[error("output validation failed for step {step_id}: {errors:?}")]
+    OutputValidation {
         step_id: String,
         errors: Vec<crate::routine::contract::ValidationError>,
     },

@@ -1,5 +1,6 @@
 pub mod approval;
 pub mod artifact;
+pub mod contract;
 pub mod events;
 pub mod execution;
 pub mod gateway;
