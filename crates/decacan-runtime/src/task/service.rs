@@ -115,7 +115,6 @@ mod tests {
         );
         let workflow = Workflow::new_for_test(
             "workflow-1",
-            &playbook.id,
             vec![
                 WorkflowStep::new_for_test(
                     "step-1",
@@ -178,7 +177,7 @@ mod tests {
             "task-1",
             "workspace-1",
             "playbook-1",
-            Workflow::new_for_test("workflow-1", "playbook-1", Vec::new()).version_id,
+            Workflow::new_for_test("workflow-1", Vec::new()).version_id,
         );
 
         cancel_before_run(&mut task).unwrap();

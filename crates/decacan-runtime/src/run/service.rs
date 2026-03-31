@@ -283,7 +283,6 @@ mod tests {
         );
         let workflow = Workflow::new_for_test(
             "workflow-1",
-            "playbook-1",
             vec![WorkflowStep::new_for_test(
                 "step-1",
                 "draft_summary",

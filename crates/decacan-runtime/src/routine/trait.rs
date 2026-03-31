@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
@@ -34,7 +35,7 @@ pub trait Routine: Send + Sync {
 }
 
 /// Unique identifier for a routine
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct RoutineType {
     pub capability_class: String,
     pub name: String,
