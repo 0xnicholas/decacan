@@ -1648,9 +1648,9 @@ fn task_id_sequence(task_id: &str) -> u64 {
 mod tests {
     use super::*;
 
-    #[test]
-    fn finish_execution_ignores_stale_run_results() {
-        let state = AppState::new_for_test();
+    #[tokio::test]
+    async fn finish_execution_ignores_stale_run_results() {
+        let state = AppState::new_for_test().await;
         let handle_id = state
             .fork_playbook_from_store("store-entry-summary")
             .expect("store entry should fork")
