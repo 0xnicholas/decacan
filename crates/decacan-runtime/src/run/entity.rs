@@ -3,6 +3,8 @@ use time::OffsetDateTime;
 
 use crate::playbook::entity::Playbook;
 use crate::policy::entity::PolicyProfile;
+use crate::team::assignment::RoleAssignment;
+use crate::team::entity::TeamSpecId;
 use crate::workflow::entity::Workflow;
 use crate::workspace::entity::Workspace;
 
@@ -89,5 +91,47 @@ impl Run {
             workspace_snapshot,
             playbook_snapshot,
         )
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ParallelRoleGroupState {
+    team_spec_id: TeamSpecId,
+    assignments: Vec<RoleAssignment>,
+}
+
+impl ParallelRoleGroupState {
+    pub fn new(team_spec_id: TeamSpecId) -> Self {
+        Self {
+            team_spec_id,
+            assignments: Vec::new(),
+        }
+    }
+
+    pub fn add_assignment(&mut self, assignment: RoleAssignment) {
+        self.assignments.push(assignment);
+    }
+
+    pub fn assignments(&self) -> &[RoleAssignment] {
+        &self.assignments
+    }
+
+    pub fn all_required_completed(&self) -> bool {
+        !self.assignments.is_empty()
+            && self.assignments.iter().all(|a| {
+                matches!(
+                    a.status(),
+                    crate::team::assignment::AssignmentStatus::Completed { .. }
+                )
+            })
+    }
+
+    pub fn any_failed(&self) -> bool {
+        self.assignments.iter().any(|a| {
+            matches!(
+                a.status(),
+                crate::team::assignment::AssignmentStatus::Failed { .. }
+            )
+        })
     }
 }
