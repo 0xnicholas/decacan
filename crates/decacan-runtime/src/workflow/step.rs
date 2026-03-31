@@ -1,3 +1,4 @@
+use crate::team::entity::TeamSpecId;
 use serde::{Deserialize, Serialize};
 
 /// Legacy workflow step type - used by existing code
@@ -10,6 +11,57 @@ pub enum WorkflowStepType {
     Psi,
     Approval,
     Branch,
+}
+
+/// Extended workflow step type with team execution support
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ExtendedWorkflowStepType {
+    Deterministic,
+    Tool,
+    Routine,
+    Psi,
+    Approval,
+    Branch,
+    ParallelRoleGroup(ParallelRoleGroupConfig),
+    Merge(MergeConfig),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ParallelRoleGroupConfig {
+    team_spec_id: TeamSpecId,
+    completion_mode: CompletionMode,
+}
+
+impl ParallelRoleGroupConfig {
+    pub fn new(team_spec_id: TeamSpecId) -> Self {
+        Self {
+            team_spec_id,
+            completion_mode: CompletionMode::AllRequired,
+        }
+    }
+
+    pub fn team_spec_id(&self) -> &TeamSpecId {
+        &self.team_spec_id
+    }
+
+    pub fn completion_mode(&self) -> &CompletionMode {
+        &self.completion_mode
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum CompletionMode {
+    AllRequired, // MVP only supports this
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MergeConfig {
+    strategy: MergeStrategy,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum MergeStrategy {
+    Concatenate, // Default for MVP
 }
 
 /// Legacy workflow step - used by existing code

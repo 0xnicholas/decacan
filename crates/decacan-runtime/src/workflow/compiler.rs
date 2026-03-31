@@ -45,17 +45,24 @@ impl WorkflowCompiler {
         registry: &RoutineRegistry,
     ) -> Result<(), CompileError> {
         for step in &workflow.steps {
-            let routine_type = RoutineType::new(
-                &step.routine.capability_class,
-                &step.routine.name,
-                &step.routine.version,
-            );
+            if let Some(reference) = step.get_reference() {
+                if let crate::playbook::spec::entities::StepKind::Routine {
+                    reference: routine_ref,
+                } = reference.kind()
+                {
+                    let routine_type = RoutineType::new(
+                        &routine_ref.capability_class,
+                        &routine_ref.name,
+                        &routine_ref.version,
+                    );
 
-            if !registry.contains(&routine_type) {
-                return Err(CompileError::UnknownRoutine {
-                    step_id: step.id.clone(),
-                    routine: routine_type,
-                });
+                    if !registry.contains(&routine_type) {
+                        return Err(CompileError::UnknownRoutine {
+                            step_id: step.id.clone(),
+                            routine: routine_type,
+                        });
+                    }
+                }
             }
         }
         Ok(())
@@ -65,14 +72,28 @@ impl WorkflowCompiler {
     fn compile_step(step: &StepDefinition) -> Result<CompiledWorkflowStep, CompileError> {
         let transition = Self::compile_transition(&step.transition)?;
 
+        let routine_ref = step.get_reference().ok_or_else(|| {
+            CompileError::InvalidWorkflow(format!("Step {} has no routine reference", step.id))
+        })?;
+
+        let routine_ref = match routine_ref.kind() {
+            crate::playbook::spec::entities::StepKind::Routine { reference } => reference,
+            _ => {
+                return Err(CompileError::InvalidWorkflow(format!(
+                    "Step {} is not a routine step",
+                    step.id
+                )))
+            }
+        };
+
         Ok(CompiledWorkflowStep {
             id: step.id.clone(),
             name: step.name.clone(),
             description: step.description.clone(),
             routine_type: RoutineType::new(
-                &step.routine.capability_class,
-                &step.routine.name,
-                &step.routine.version,
+                &routine_ref.capability_class,
+                &routine_ref.name,
+                &routine_ref.version,
             ),
             input_mapping: step.input_mapping.clone(),
             output_mapping: step.output_mapping.clone(),
@@ -123,6 +144,9 @@ pub enum CompileError {
 
     #[error("invalid workflow: {0}")]
     InvalidWorkflow(String),
+
+    #[error("missing step reference in step '{step_id}'")]
+    MissingStepReference { step_id: String },
 }
 
 #[cfg(test)]
