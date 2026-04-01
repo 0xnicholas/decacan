@@ -99,6 +99,9 @@ describe("WorkspaceShell", () => {
   it("shows an account hub entry in the top bar", async () => {
     renderAppAtRoute("/workspaces/workspace-1");
 
-    expect(await screen.findByRole("link", { name: "Account Hub" })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "Account Hub" })).toHaveAttribute(
+      "href",
+      "http://localhost:3001",
+    );
   });
 });
