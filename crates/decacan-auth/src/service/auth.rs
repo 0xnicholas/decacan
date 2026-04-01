@@ -11,12 +11,14 @@ use uuid::Uuid;
 
 use crate::entities::*;
 use crate::error::{AuthError, AuthResult};
+use crate::rate_limit::RateLimiter;
 use crate::storage::UserStorage;
 
 #[derive(Debug, Clone)]
 pub struct AuthService<S: UserStorage> {
     storage: Arc<S>,
     jwt_secret: String,
+    rate_limiter: RateLimiter,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -39,6 +41,20 @@ impl<S: UserStorage> AuthService<S> {
         Self {
             storage,
             jwt_secret: jwt_secret.into(),
+            rate_limiter: RateLimiter::default(),
+        }
+    }
+
+    /// Create AuthService with custom rate limiter configuration
+    pub fn with_rate_limiter(
+        storage: Arc<S>,
+        jwt_secret: impl Into<String>,
+        rate_limiter: RateLimiter,
+    ) -> Self {
+        Self {
+            storage,
+            jwt_secret: jwt_secret.into(),
+            rate_limiter,
         }
     }
 
@@ -50,7 +66,7 @@ impl<S: UserStorage> AuthService<S> {
         self.storage.find_user_by_email(email).await
     }
 
-    /// 验证密码复杂度
+    /// Validate password complexity
     fn validate_password(password: &str) -> AuthResult<()> {
         if password.len() < 8 {
             return Err(AuthError::Validation(
@@ -58,21 +74,21 @@ impl<S: UserStorage> AuthService<S> {
             ));
         }
 
-        // 检查是否包含至少一个大写字母
+        // Check for at least one uppercase letter
         if !password.chars().any(|c| c.is_ascii_uppercase()) {
             return Err(AuthError::Validation(
                 "Password must contain at least one uppercase letter".to_string()
             ));
         }
 
-        // 检查是否包含至少一个小写字母
+        // Check for at least one lowercase letter
         if !password.chars().any(|c| c.is_ascii_lowercase()) {
             return Err(AuthError::Validation(
                 "Password must contain at least one lowercase letter".to_string()
             ));
         }
 
-        // 检查是否包含至少一个数字
+        // Check for at least one digit
         if !password.chars().any(|c| c.is_ascii_digit()) {
             return Err(AuthError::Validation(
                 "Password must contain at least one digit".to_string()
@@ -116,11 +132,17 @@ impl<S: UserStorage> AuthService<S> {
         Ok((user, tokens))
     }
     
+    /// Login with rate limiting protection
     pub async fn login(
         &self,
         email: &str,
         password: &str,
     ) -> AuthResult<(User, AuthTokens)> {
+        // Check rate limit first
+        if !self.rate_limiter.check(email) {
+            return Err(AuthError::RateLimited);
+        }
+        
         let user = self.storage
             .find_user_by_email(email)
             .await?
@@ -130,8 +152,13 @@ impl<S: UserStorage> AuthService<S> {
             .ok_or(AuthError::InvalidCredentials)?;
         
         if !verify_password(password, hash)? {
+            // Record failed attempt
+            self.rate_limiter.record_attempt(email);
             return Err(AuthError::InvalidCredentials);
         }
+        
+        // Clear rate limit on successful login
+        self.rate_limiter.clear(email);
         
         self.storage.update_last_login(&user.id).await?;
         let tokens = self.generate_tokens(&user.id).await?;
@@ -159,10 +186,10 @@ impl<S: UserStorage> AuthService<S> {
         &self,
         refresh_token: &str,
     ) -> AuthResult<AuthTokens> {
-        // 1. 验证 refresh token 格式
+        // 1. Verify refresh token format
         let claims = self.verify_token(refresh_token).await?;
         
-        // 2. 检查数据库中是否存在且未过期
+        // 2. Check database for valid session
         let session = self.storage
             .find_session_by_refresh_token(refresh_token)
             .await?
@@ -172,10 +199,10 @@ impl<S: UserStorage> AuthService<S> {
             return Err(AuthError::TokenExpired);
         }
         
-        // 3. 撤销旧的 session（token rotation）
+        // 3. Revoke old session (token rotation)
         self.storage.revoke_session(&session.id).await?;
         
-        // 4. 生成新 tokens
+        // 4. Generate new tokens
         let tokens = self.generate_tokens(&claims).await?;
         
         Ok(tokens)

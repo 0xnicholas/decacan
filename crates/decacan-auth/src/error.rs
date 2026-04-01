@@ -14,6 +14,8 @@ pub enum AuthError {
     TokenExpired,
     #[error("insufficient permissions")]
     InsufficientPermissions,
+    #[error("rate limited - too many attempts, please try again later")]
+    RateLimited,
     #[error("validation error: {0}")]
     Validation(String),
     #[error("storage error: {0}")]
