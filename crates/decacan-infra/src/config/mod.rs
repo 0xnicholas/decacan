@@ -1,5 +1,7 @@
+pub mod loader;
 pub mod sources;
 
+pub use loader::ConfigLoader;
 pub use sources::{ConfigError, InfraConfig};
 
 // 保留向后兼容的简单配置
