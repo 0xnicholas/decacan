@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use crate::entities::WorkspaceRole;
+use crate::WorkspaceRole;
 use crate::error::AuthResult;
 
 #[async_trait]

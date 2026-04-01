@@ -56,29 +56,8 @@ pub struct OAuthState {
     pub created_at: OffsetDateTime,
 }
 
-/// Workspace 角色（供 runtime 使用）
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum WorkspaceRole {
-    Owner,
-    Admin,
-    Editor,
-    Viewer,
-}
-
-impl WorkspaceRole {
-    pub fn can_manage_members(&self) -> bool {
-        matches!(self, Self::Owner | Self::Admin)
-    }
-
-    pub fn can_edit_playbooks(&self) -> bool {
-        matches!(self, Self::Owner | Self::Admin | Self::Editor)
-    }
-
-    pub fn can_run_tasks(&self) -> bool {
-        matches!(self, Self::Owner | Self::Admin | Self::Editor)
-    }
-}
+// WorkspaceRole 已从本地定义移除，现从 decacan_runtime::workspace::rbac 重新导出
+// 以统一工作区角色定义并支持 Guest 角色
 
 impl User {
     pub fn new(id: impl Into<String>, email: impl Into<String>, name: impl Into<String>) -> Self {
