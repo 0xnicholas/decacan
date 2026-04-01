@@ -150,11 +150,11 @@ describe("App", () => {
         throw new Error(`Launch should not fork playbooks: ${method} ${url}`);
       }
 
-      if (url.endsWith("/api/playbooks/pb-1/draft") && method === "PUT") {
+      if (url.endsWith("/api/studio/playbooks/pb-1/draft") && method === "PUT") {
         throw new Error(`Launch should not save drafts: ${method} ${url}`);
       }
 
-      if (url.endsWith("/api/playbooks/pb-1/publish") && method === "POST") {
+      if (url.endsWith("/api/studio/playbooks/pb-1/publish") && method === "POST") {
         throw new Error(`Launch should not publish playbooks: ${method} ${url}`);
       }
 
