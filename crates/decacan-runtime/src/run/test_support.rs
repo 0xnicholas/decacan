@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use async_trait::async_trait;
 use time::OffsetDateTime;
 
 use crate::playbook::registry::{
@@ -100,10 +101,11 @@ impl MemoryStorageForTest {
     }
 }
 
+#[async_trait]
 impl StoragePort for MemoryStorageForTest {
     type Error = Infallible;
 
-    fn put(&self, key: &str, value: &str) -> Result<(), Self::Error> {
+    async fn put(&self, key: &str, value: &str) -> Result<(), Self::Error> {
         let mut values = self
             .values
             .write()
@@ -112,7 +114,7 @@ impl StoragePort for MemoryStorageForTest {
         Ok(())
     }
 
-    fn get(&self, key: &str) -> Result<Option<String>, Self::Error> {
+    async fn get(&self, key: &str) -> Result<Option<String>, Self::Error> {
         let values = self
             .values
             .read()

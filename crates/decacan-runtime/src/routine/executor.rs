@@ -1,5 +1,5 @@
 use std::fmt::Debug;
-use std::path::{Path, PathBuf};
+use tokio::runtime::Handle;use std::path::{Path, PathBuf};
 
 use crate::artifact::entity::Artifact;
 use crate::artifact::service::{ArtifactService, SummaryArtifactWriteResult};
@@ -120,11 +120,11 @@ pub(crate) fn execute_workflow<F, S, C>(
     tool_gateway: SynthesisGatewayAdapter,
 ) -> Result<RoutineExecutionResult, RoutineExecutionError>
 where
-    F: FilesystemPort,
+    F: FilesystemPort + Sync,
     F::Error: Debug,
-    S: StoragePort,
+    S: StoragePort + Sync,
     S::Error: Debug,
-    C: ClockPort,
+    C: ClockPort + Sync,
 {
     let mut context = RoutineExecutionContext::new(run.workspace_snapshot.root_path().to_string());
     let artifact_service = ArtifactService::new(filesystem, storage, clock);
@@ -303,16 +303,20 @@ where
                     .clone()
                     .ok_or(RoutineExecutionError::MissingState("written output path"))?;
                 let artifact_result = match execution_profile {
-                    ExecutionProfile::Summary => artifact_service
-                        .register_written_summary_artifacts(
-                            &run.task_id,
-                            &written_output_path,
-                            context.backup_result.clone(),
-                        )
-                        .map_err(|error| RoutineExecutionError::Artifact(format!("{error:?}")))?,
-                    ExecutionProfile::Discovery => artifact_service
-                        .register_written_discovery_artifact(&run.task_id, &written_output_path)
-                        .map_err(|error| RoutineExecutionError::Artifact(format!("{error:?}")))?,
+                    ExecutionProfile::Summary => Handle::current().block_on(async {
+                            artifact_service
+                                .register_written_summary_artifacts(
+                                    &run.task_id,
+                                    &written_output_path,
+                                    context.backup_result.clone(),
+                                )
+                                .await
+                        }).map_err(|error| RoutineExecutionError::Artifact(format!("{error:?}")))?,
+                    ExecutionProfile::Discovery => Handle::current().block_on(async {
+                            artifact_service
+                                .register_written_discovery_artifact(&run.task_id, &written_output_path)
+                                .await
+                        }).map_err(|error| RoutineExecutionError::Artifact(format!("{error:?}")))?,
                 };
                 let primary_artifact = artifact_result.primary_artifact.clone();
                 let occurred_at = clock.now_utc();

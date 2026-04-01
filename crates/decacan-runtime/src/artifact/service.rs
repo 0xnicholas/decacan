@@ -90,13 +90,13 @@ impl<'a, F, S, C> ArtifactService<'a, F, S, C> {
 
 impl<'a, F, S, C> ArtifactService<'a, F, S, C>
 where
-    F: FilesystemPort,
+    F: FilesystemPort + Sync,
     F::Error: Debug,
-    S: StoragePort,
+    S: StoragePort + Sync,
     S::Error: Debug,
-    C: ClockPort,
+    C: ClockPort + Sync,
 {
-    pub fn write_discovery_artifact(
+    pub async fn write_discovery_artifact(
         &self,
         command: DiscoveryArtifactCommand,
     ) -> Result<SummaryArtifactWriteResult, ArtifactServiceError> {
@@ -110,9 +110,10 @@ where
             &ArtifactRegistrationSpec::discovery(),
             None,
         )
+        .await
     }
 
-    pub fn write_summary_artifact(
+    pub async fn write_summary_artifact(
         &self,
         command: SummaryArtifactCommand,
     ) -> Result<SummaryArtifactWriteResult, ArtifactServiceError> {
@@ -135,9 +136,10 @@ where
             &ArtifactRegistrationSpec::summary(),
             backup_result,
         )
+        .await
     }
 
-    pub(crate) fn register_written_summary_artifacts(
+    pub(crate) async fn register_written_summary_artifacts(
         &self,
         task_id: &str,
         written_path: &Path,
@@ -149,9 +151,10 @@ where
             &ArtifactRegistrationSpec::summary(),
             backup_result,
         )
+        .await
     }
 
-    pub(crate) fn register_written_discovery_artifact(
+    pub(crate) async fn register_written_discovery_artifact(
         &self,
         task_id: &str,
         written_path: &Path,
@@ -162,9 +165,10 @@ where
             &ArtifactRegistrationSpec::discovery(),
             None,
         )
+        .await
     }
 
-    fn register_written_artifact(
+    async fn register_written_artifact(
         &self,
         task_id: &str,
         written_path: &Path,
@@ -173,7 +177,7 @@ where
     ) -> Result<SummaryArtifactWriteResult, ArtifactServiceError> {
         let now = self.clock.now_utc();
         let primary_artifact = build_primary_artifact(task_id, written_path, &spec.primary, now);
-        let primary_storage_key = store_artifact(self.storage, &primary_artifact)?;
+        let primary_storage_key = store_artifact(self.storage, &primary_artifact).await?;
 
         let mut backup_artifact = None;
         let mut backup_storage_key = None;
@@ -197,8 +201,8 @@ where
                 to_artifact_id: primary_artifact.id.clone(),
                 kind: ArtifactRelationKind::BackupOf,
             };
-            let stored_backup_key = store_artifact(self.storage, &backup)?;
-            store_relation(self.storage, &relation)?;
+            let stored_backup_key = store_artifact(self.storage, &backup).await?;
+            store_relation(self.storage, &relation).await?;
 
             backup_storage_key = Some(stored_backup_key);
             backup_artifact = Some(backup);
@@ -320,7 +324,7 @@ fn build_backup_artifact(
     }
 }
 
-fn store_artifact<S>(storage: &S, artifact: &Artifact) -> Result<String, ArtifactServiceError>
+async fn store_artifact<S>(storage: &S, artifact: &Artifact) -> Result<String, ArtifactServiceError>
 where
     S: StoragePort,
     S::Error: Debug,
@@ -330,11 +334,12 @@ where
         .map_err(|error| ArtifactServiceError::Serialization(error.to_string()))?;
     storage
         .put(&key, &value)
+        .await
         .map_err(|error| ArtifactServiceError::Storage(format!("{error:?}")))?;
     Ok(key)
 }
 
-fn store_relation<S>(storage: &S, relation: &ArtifactRelation) -> Result<(), ArtifactServiceError>
+async fn store_relation<S>(storage: &S, relation: &ArtifactRelation) -> Result<(), ArtifactServiceError>
 where
     S: StoragePort,
     S::Error: Debug,
@@ -344,6 +349,7 @@ where
         .map_err(|error| ArtifactServiceError::Serialization(error.to_string()))?;
     storage
         .put(&key, &value)
+        .await
         .map_err(|error| ArtifactServiceError::Storage(format!("{error:?}")))?;
     Ok(())
 }

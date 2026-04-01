@@ -41,11 +41,11 @@ pub fn execute_standard_summary_playbook<F, S, C>(
     clock: &C,
 ) -> Result<SummaryPlaybookE2eResult, SummaryPlaybookExecutionError>
 where
-    F: FilesystemPort,
+    F: FilesystemPort + Sync,
     F::Error: std::fmt::Debug,
-    S: StoragePort,
+    S: StoragePort + Sync,
     S::Error: std::fmt::Debug,
-    C: ClockPort,
+    C: ClockPort + Sync,
 {
     RunService::execute_standard_summary_playbook(task, run, filesystem, storage, clock)
 }
@@ -58,11 +58,11 @@ pub fn execute_discovery_playbook<F, S, C>(
     clock: &C,
 ) -> Result<SummaryPlaybookE2eResult, SummaryPlaybookExecutionError>
 where
-    F: FilesystemPort,
+    F: FilesystemPort + Sync,
     F::Error: std::fmt::Debug,
-    S: StoragePort,
+    S: StoragePort + Sync,
     S::Error: std::fmt::Debug,
-    C: ClockPort,
+    C: ClockPort + Sync,
 {
     RunService::execute_discovery_playbook(task, run, filesystem, storage, clock)
 }
@@ -163,11 +163,11 @@ impl RunService {
         clock: &C,
     ) -> Result<SummaryPlaybookE2eResult, SummaryPlaybookExecutionError>
     where
-        F: FilesystemPort,
+        F: FilesystemPort + Sync,
         F::Error: std::fmt::Debug,
-        S: StoragePort,
+        S: StoragePort + Sync,
         S::Error: std::fmt::Debug,
-        C: ClockPort,
+        C: ClockPort + Sync,
     {
         Self::execute_playbook(task, run, filesystem, storage, clock)
     }
@@ -180,11 +180,11 @@ impl RunService {
         clock: &C,
     ) -> Result<SummaryPlaybookE2eResult, SummaryPlaybookExecutionError>
     where
-        F: FilesystemPort,
+        F: FilesystemPort + Sync,
         F::Error: std::fmt::Debug,
-        S: StoragePort,
+        S: StoragePort + Sync,
         S::Error: std::fmt::Debug,
-        C: ClockPort,
+        C: ClockPort + Sync,
     {
         Self::execute_playbook(task, run, filesystem, storage, clock)
     }
@@ -197,11 +197,11 @@ impl RunService {
         clock: &C,
     ) -> Result<SummaryPlaybookE2eResult, SummaryPlaybookExecutionError>
     where
-        F: FilesystemPort,
+        F: FilesystemPort + Sync,
         F::Error: std::fmt::Debug,
-        S: StoragePort,
+        S: StoragePort + Sync,
         S::Error: std::fmt::Debug,
-        C: ClockPort,
+        C: ClockPort + Sync,
     {
         if task.status == crate::task::entity::TaskStatus::Created {
             begin_planning(task)?;
