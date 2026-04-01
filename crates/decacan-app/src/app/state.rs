@@ -999,7 +999,7 @@ output_contract:
                 prepared.task_id.clone(),
                 StoredTask {
                     id: prepared.task_id.clone(),
-                    workspace_id: "workspace-1".to_owned(),
+                    workspace_id: request.workspace_id.clone(),
                     playbook_key: prepared.runtime_run.playbook_snapshot.key.clone(),
                     input_payload: request.input_payload,
                     playbook_handle_id: request.playbook_handle_id,
@@ -2015,6 +2015,59 @@ mod tests {
 
         assert_eq!(stored.runtime_run.id, second.runtime_run.id);
         assert_eq!(stored.status, "running");
+    }
+
+    #[tokio::test]
+    async fn create_task_execution_persists_requested_workspace_id() {
+        let state = AppState::new_for_test_with_workspaces(vec![
+            (
+                "workspace-1".to_owned(),
+                "Default Workspace".to_owned(),
+                "/workspace".to_owned(),
+            ),
+            (
+                "workspace-2".to_owned(),
+                "Second Workspace".to_owned(),
+                "/workspace-2".to_owned(),
+            ),
+        ])
+        .await
+        .expect("test state should build");
+
+        let handle_id = state
+            .fork_playbook_from_store("store-entry-summary")
+            .expect("store entry should fork")
+            .handle
+            .playbook_handle_id;
+        let publishable = state
+            .save_playbook_draft(
+                &handle_id,
+                "metadata:\n  title: valid draft\ncapability_refs:\n  routines:\n    - builtin.scan_markdown_files\n  tools:\n    - builtin.workspace.read\n    - builtin.artifact.write\n  validators:\n    - builtin.output_contract.summary\nexecution_profile: single\n".to_owned(),
+            )
+            .expect("draft should save");
+        assert!(publishable.health_report.publishable);
+        let published = state
+            .publish_playbook_draft(&handle_id)
+            .expect("draft should publish");
+        let version_id = published
+            .response
+            .version
+            .expect("publish should create a version")
+            .playbook_version_id;
+
+        let response = state
+            .create_task_execution(CreateTaskRequest {
+                workspace_id: "workspace-2".to_owned(),
+                playbook_handle_id: handle_id,
+                playbook_version_id: version_id,
+                input_payload: "alpha\nbeta".to_owned(),
+            })
+            .await
+            .expect("task creation should succeed");
+
+        assert_eq!(response.task.workspace_id, "workspace-2");
+        assert!(state.has_task_in_workspace("workspace-2", &response.task.id));
+        assert!(!state.has_task_in_workspace("workspace-1", &response.task.id));
     }
 
     #[tokio::test]
