@@ -84,8 +84,8 @@ describe('DashboardPage', () => {
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText(/account hub/i)).not.toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Work Queue' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Workspaces' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Work Queue' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Workspaces' })).toBeInTheDocument();
     expect(screen.getByText('Approval needed for Summary')).toBeInTheDocument();
     expect(screen.getByText('Default Workspace')).toBeInTheDocument();
 
