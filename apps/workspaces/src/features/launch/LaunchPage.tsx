@@ -2,11 +2,8 @@ import { useEffect, useState } from "react";
 
 import type { PlaybookCard, Workspace } from "../../entities/playbook/types";
 import {
-  fetchPlaybookStore,
+  fetchPublishedPlaybooks,
   fetchWorkspaces,
-  forkPlaybook,
-  publishPlaybook,
-  savePlaybookDraft,
 } from "../../shared/api/catalog";
 import {
   createTask,
@@ -39,7 +36,7 @@ export function LaunchPage({ workspaceId }: LaunchPageProps) {
     async function loadCatalog() {
       const [workspaceResponse, playbookResponse] = await Promise.all([
         fetchWorkspaces(),
-        fetchPlaybookStore(),
+        fetchPublishedPlaybooks(),
       ]);
 
       if (!isActive) {
@@ -71,7 +68,8 @@ export function LaunchPage({ workspaceId }: LaunchPageProps) {
 
     const nextPreview = await createTaskPreview({
       workspace_id: selectedWorkspaceId,
-      playbook_key: selectedPlaybook.key,
+      playbook_handle_id: selectedPlaybook.playbook_handle_id,
+      playbook_version_id: selectedPlaybook.playbook_version_id,
       input: goal.trim(),
     });
 
@@ -86,43 +84,10 @@ export function LaunchPage({ workspaceId }: LaunchPageProps) {
     setIsStarting(true);
 
     try {
-      // 1. Fork playbook from store
-      const forkResponse = await forkPlaybook({
-        store_entry_id: selectedPlaybook.store_entry_id,
-      });
-
-      const handleId = forkResponse.handle.playbook_handle_id;
-
-      // 2. Save draft with proper configuration
-      const specDocument = `metadata:
-  title: ${selectedPlaybook.title}
-capability_refs:
-  routines:
-    - builtin.scan_markdown_files
-  tools:
-    - builtin.workspace.read
-    - builtin.artifact.write
-  validators:
-    - builtin.output_contract.summary
-execution_profile: single
-`;
-
-      await savePlaybookDraft(handleId, { spec_document: specDocument });
-
-      // 3. Publish playbook to get version
-      const publishResponse = await publishPlaybook(handleId);
-
-      if (!publishResponse.version) {
-        throw new Error("Failed to publish playbook");
-      }
-
-      const versionId = publishResponse.version.playbook_version_id;
-
-      // 4. Create task with handle_id and version_id
       const response = await createTask({
         workspace_id: selectedWorkspaceId,
-        playbook_handle_id: handleId,
-        playbook_version_id: versionId,
+        playbook_handle_id: selectedPlaybook.playbook_handle_id,
+        playbook_version_id: selectedPlaybook.playbook_version_id,
         input_payload: goal.trim(),
       });
 

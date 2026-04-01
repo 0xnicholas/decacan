@@ -26,6 +26,7 @@ pub use playbook::{
     CreatePlaybookRequestDto, CreatePlaybookResponseDto, DraftHealthIssueDto, DraftHealthReportDto,
     ForkPlaybookRequestDto, ForkPlaybookResponseDto, PlaybookDetailDto, PlaybookDraftDto,
     PlaybookDto, PlaybookHandleDto, PlaybookStudioListItemDto, PlaybookVersionDto,
+    PublishedPlaybookDto,
     PublishPlaybookResponseDto, SavePlaybookDraftRequestDto, SavePlaybookDraftResponseDto,
     StoreEntryDto, UpdatePlaybookRequestDto, UpdatePlaybookResponseDto,
 };

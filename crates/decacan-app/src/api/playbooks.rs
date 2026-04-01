@@ -7,8 +7,9 @@ use crate::app::state::{AppState, PlaybookLifecycleError};
 use crate::dto::{
     CreatePlaybookRequestDto, CreatePlaybookResponseDto, ForkPlaybookRequestDto,
     ForkPlaybookResponseDto, PlaybookDetailDto, PlaybookDto, PlaybookStudioListItemDto,
-    PublishPlaybookResponseDto, SavePlaybookDraftRequestDto, SavePlaybookDraftResponseDto,
-    StoreEntryDto, UpdatePlaybookRequestDto, UpdatePlaybookResponseDto,
+    PublishPlaybookResponseDto, PublishedPlaybookDto, SavePlaybookDraftRequestDto,
+    SavePlaybookDraftResponseDto, StoreEntryDto, UpdatePlaybookRequestDto,
+    UpdatePlaybookResponseDto,
 };
 
 pub(super) fn router() -> Router<AppState> {
@@ -29,6 +30,7 @@ pub(super) fn router() -> Router<AppState> {
             "/api/studio/playbooks/:handle_id/publish",
             post(publish_playbook),
         )
+        .route("/api/published-playbooks", get(list_published_playbooks))
         .route("/api/playbook-store", get(list_playbook_store))
         .route("/api/playbooks/fork", post(fork_playbook))
         .route(
@@ -56,6 +58,10 @@ async fn list_studio_playbooks(
 
 async fn list_playbook_store(State(state): State<AppState>) -> Json<Vec<StoreEntryDto>> {
     Json(state.list_playbook_store())
+}
+
+async fn list_published_playbooks(State(state): State<AppState>) -> Json<Vec<PublishedPlaybookDto>> {
+    Json(state.list_published_playbooks())
 }
 
 async fn create_playbook(

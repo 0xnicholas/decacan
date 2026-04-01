@@ -45,10 +45,11 @@ use crate::dto::{
     CreateTeamResponseDto, DraftHealthIssueDto, DraftHealthReportDto, ForkPlaybookResponseDto,
     ListTeamsResponseDto, PermissionDto, PlaybookDetailDto, PlaybookDraftDto, PlaybookDto,
     PlaybookHandleDto, PlaybookStudioListItemDto, PlaybookVersionDto, PublishPlaybookResponseDto,
-    RetryTaskRequest, SavePlaybookDraftResponseDto, StoreEntryDto, TaskAgentMessageDto,
-    TaskCollaborationDto, TaskDetailDto, TaskDto, TaskEventEnvelopeDto, TaskInstructionActionDto,
-    TaskPlanDto, TaskPreviewDto, TaskPreviewRequest, TaskSummaryDto, TeamRoleDto, TeamSpecDto,
-    UpdatePlaybookRequestDto, UpdatePlaybookResponseDto, UpdateTeamRequestDto,
+    PublishedPlaybookDto, RetryTaskRequest, SavePlaybookDraftResponseDto, StoreEntryDto,
+    TaskAgentMessageDto, TaskCollaborationDto, TaskDetailDto, TaskDto, TaskEventEnvelopeDto,
+    TaskInstructionActionDto, TaskPlanDto, TaskPreviewDto, TaskPreviewRequest, TaskSummaryDto,
+    TeamRoleDto, TeamSpecDto, UpdatePlaybookRequestDto, UpdatePlaybookResponseDto,
+    UpdateTeamRequestDto,
     UserPermissionsResponseDto, WorkspaceDto, WorkspacePermissionDto,
 };
 use crate::middleware::CurrentUser;
@@ -414,6 +415,36 @@ impl AppState {
             .iter()
             .cloned()
             .map(store_entry_to_dto)
+            .collect()
+    }
+
+    pub fn list_published_playbooks(&self) -> Vec<PublishedPlaybookDto> {
+        self.inner
+            .lifecycle_playbooks
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .values()
+            .filter_map(|stored| {
+                let version = stored.versions.last()?.clone();
+                let store_entry_id = stored.handle.source_store_entry_id.as_deref()?;
+                let playbook_key = playbook_key_for_store_entry(store_entry_id)?;
+                let playbook = self
+                    .inner
+                    .playbooks
+                    .iter()
+                    .find(|playbook| playbook.key == playbook_key)?
+                    .clone();
+
+                Some(PublishedPlaybookDto {
+                    playbook_handle_id: stored.handle.playbook_handle_id.clone(),
+                    playbook_version_id: version.playbook_version_id.to_string(),
+                    title: playbook.title,
+                    summary: playbook.summary,
+                    mode_label: playbook.mode_label,
+                    expected_output_label: playbook.expected_output_label,
+                    expected_output_path: playbook.expected_output_path,
+                })
+            })
             .collect()
     }
 
@@ -1008,7 +1039,11 @@ output_contract:
             return Err(CreateTaskError::WorkspaceNotFound);
         }
 
-        let preview = preview_registered_playbook(&request.playbook_key)
+        let (playbook_key, _) = self.resolve_bound_playbook_version_ids(
+            &request.playbook_handle_id,
+            &request.playbook_version_id,
+        )?;
+        let preview = preview_registered_playbook(&playbook_key)
             .map_err(map_registered_playbook_error)?;
 
         Ok(TaskPreviewDto {
@@ -1295,18 +1330,29 @@ output_contract:
         &self,
         request: &CreateTaskRequest,
     ) -> Result<(String, PlaybookVersion), CreateTaskError> {
+        self.resolve_bound_playbook_version_ids(
+            &request.playbook_handle_id,
+            &request.playbook_version_id,
+        )
+    }
+
+    fn resolve_bound_playbook_version_ids(
+        &self,
+        playbook_handle_id: &str,
+        playbook_version_id: &str,
+    ) -> Result<(String, PlaybookVersion), CreateTaskError> {
         let playbooks = self
             .inner
             .lifecycle_playbooks
             .lock()
             .unwrap_or_else(|e| e.into_inner());
         let stored = playbooks
-            .get(&request.playbook_handle_id)
+            .get(playbook_handle_id)
             .ok_or(CreateTaskError::InvalidPlaybookBinding)?;
         let version = stored
             .versions
             .iter()
-            .find(|version| version.playbook_version_id.to_string() == request.playbook_version_id)
+            .find(|version| version.playbook_version_id.to_string() == playbook_version_id)
             .ok_or(CreateTaskError::InvalidPlaybookBinding)?;
         let store_entry_id = stored
             .handle

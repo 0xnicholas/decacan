@@ -71,7 +71,7 @@ describe("App", () => {
         );
       }
 
-      if (url.endsWith("/api/playbook-store") && method === "GET") {
+      if (url.endsWith("/api/published-playbooks") && method === "GET") {
         return new Response(JSON.stringify([]), {
           status: 200,
           headers: { "content-type": "application/json" },
@@ -87,7 +87,10 @@ describe("App", () => {
     expect(screen.queryByLabelText("Select workspace")).not.toBeInTheDocument();
   });
 
-  it("creates a task from preview and redirects to the task route", async () => {
+  it("creates a task from published playbook preview and redirects to the task route", async () => {
+    let createTaskPreviewRequest: Record<string, unknown> | null = null;
+    let createTaskRequest: Record<string, unknown> | null = null;
+
     fetchMock.mockImplementation(async (input, init) => {
       const url = typeof input === "string" ? input : input.toString();
       const method = init?.method ?? "GET";
@@ -105,11 +108,12 @@ describe("App", () => {
         );
       }
 
-      if (url.endsWith("/api/playbook-store") && method === "GET") {
+      if (url.endsWith("/api/published-playbooks") && method === "GET") {
         return new Response(
           JSON.stringify([
             {
-              key: "总结资料",
+              playbook_handle_id: "pb-1",
+              playbook_version_id: "version-1",
               title: "Summary",
               summary: "Create a concise summary from markdown notes.",
               mode_label: "标准模式",
@@ -122,6 +126,10 @@ describe("App", () => {
       }
 
       if (url.endsWith("/api/task-previews") && method === "POST") {
+        createTaskPreviewRequest = JSON.parse(String(init?.body ?? "{}")) as Record<
+          string,
+          unknown
+        >;
         return new Response(
           JSON.stringify({
             preview_id: "preview-1",
@@ -139,47 +147,19 @@ describe("App", () => {
       }
 
       if (url.endsWith("/api/playbooks/fork") && method === "POST") {
-        return new Response(
-          JSON.stringify({
-            handle: {
-              playbook_handle_id: "pb-1",
-              title: "Summary",
-            },
-            draft: {
-              draft_id: "draft-1",
-            },
-          }),
-          { status: 201, headers: { "content-type": "application/json" } },
-        );
+        throw new Error(`Launch should not fork playbooks: ${method} ${url}`);
       }
 
       if (url.endsWith("/api/playbooks/pb-1/draft") && method === "PUT") {
-        return new Response(
-          JSON.stringify({
-            draft: {
-              draft_id: "draft-1",
-            },
-            health_report: {
-              publishable: true,
-            },
-          }),
-          { status: 200, headers: { "content-type": "application/json" } },
-        );
+        throw new Error(`Launch should not save drafts: ${method} ${url}`);
       }
 
       if (url.endsWith("/api/playbooks/pb-1/publish") && method === "POST") {
-        return new Response(
-          JSON.stringify({
-            version: {
-              playbook_version_id: "version-1",
-              version_number: 1,
-            },
-          }),
-          { status: 200, headers: { "content-type": "application/json" } },
-        );
+        throw new Error(`Launch should not publish playbooks: ${method} ${url}`);
       }
 
       if (url.endsWith("/api/tasks") && method === "POST") {
+        createTaskRequest = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
         return new Response(
           JSON.stringify({
             task: {
@@ -275,6 +255,19 @@ describe("App", () => {
     await screen.findByText("Plan preview");
 
     await user.click(screen.getByRole("button", { name: "Start task" }));
+
+    expect(createTaskPreviewRequest).toMatchObject({
+      workspace_id: "workspace-1",
+      playbook_handle_id: "pb-1",
+      playbook_version_id: "version-1",
+      input: "Summarize notes",
+    });
+    expect(createTaskRequest).toMatchObject({
+      workspace_id: "workspace-1",
+      playbook_handle_id: "pb-1",
+      playbook_version_id: "version-1",
+      input_payload: "Summarize notes",
+    });
 
     await waitFor(() => {
       expect(window.location.pathname).toBe("/tasks/task-1");

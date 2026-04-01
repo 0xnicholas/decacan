@@ -3,7 +3,8 @@ import { getJson, postJson } from "./client";
 
 export interface TaskPreviewRequest {
   workspace_id: string;
-  playbook_key: string;
+  playbook_handle_id: string;
+  playbook_version_id: string;
   input: string;
 }
 
