@@ -9,3 +9,8 @@ logging:
     path: logs/decacan-dev.log
     rotation: daily
     max_files: 3
+
+postgres:
+  url: postgres://postgres:postgres@localhost/decacan_dev
+  max_connections: 5
+  auto_migrate: true
