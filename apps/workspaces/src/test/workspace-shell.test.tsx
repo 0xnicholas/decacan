@@ -103,5 +103,6 @@ describe("WorkspaceShell", () => {
       "href",
       "http://localhost:3001",
     );
+    expect(screen.queryByRole("link", { name: "Account Hub" })).not.toBeInTheDocument();
   });
 });

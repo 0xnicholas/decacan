@@ -78,7 +78,12 @@ describe('DashboardPage', () => {
 
     expect(await screen.findByRole('heading', { name: 'My Work' })).toBeInTheDocument();
     expect(screen.queryByText('Welcome to Decacan Admin')).not.toBeInTheDocument();
-    expect(screen.getByText(/from one account-level console/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Track approvals, recent tasks, and the workspaces you move across from one account-level console.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/account hub/i)).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Work Queue' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Workspaces' })).toBeInTheDocument();
     expect(screen.getByText('Approval needed for Summary')).toBeInTheDocument();
@@ -102,6 +107,7 @@ describe('DashboardPage', () => {
 
     expect(await screen.findByText('Console Unavailable')).toBeInTheDocument();
     expect(screen.getByText('Account API unavailable')).toBeInTheDocument();
+    expect(screen.queryByText(/account hub/i)).not.toBeInTheDocument();
     expect(screen.queryByText('Loading console')).not.toBeInTheDocument();
   });
 });
