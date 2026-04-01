@@ -18,6 +18,17 @@ pub(super) fn router() -> Router<AppState> {
             "/api/studio/playbooks",
             get(list_studio_playbooks).post(create_playbook),
         )
+        .route(
+            "/api/studio/playbooks/:handle_id",
+            get(get_playbook)
+                .put(update_playbook)
+                .delete(delete_playbook),
+        )
+        .route("/api/studio/playbooks/:handle_id/draft", put(save_playbook_draft))
+        .route(
+            "/api/studio/playbooks/:handle_id/publish",
+            post(publish_playbook),
+        )
         .route("/api/playbook-store", get(list_playbook_store))
         .route("/api/playbooks/fork", post(fork_playbook))
         .route(

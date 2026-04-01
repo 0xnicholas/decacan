@@ -5,7 +5,6 @@ import { Badge } from '@/components/ui/badge';
 import { Save, Play, Eye, AlertCircle } from 'lucide-react';
 import { YamlEditor } from './YamlEditor';
 import { VisualPreview } from './VisualPreview';
-import { Playbook } from '../types/playbook.types';
 import { usePlaybookStore } from '../stores/playbookStore';
 
 interface PlaybookEditorProps {
@@ -14,28 +13,27 @@ interface PlaybookEditorProps {
 }
 
 export function PlaybookEditor({ playbookId, isCreating }: PlaybookEditorProps) {
-  const { selectedPlaybook, fetchPlaybooks, updatePlaybook, createPlaybook } = usePlaybookStore();
+  const { selectedPlaybook, fetchPlaybookById, savePlaybookDraft, createPlaybook } = usePlaybookStore();
   const [yamlContent, setYamlContent] = useState('');
-  const [validationErrors, setValidationErrors] = useState<any[]>([]);
+  const [validationErrors, setValidationErrors] = useState<unknown[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (playbookId) {
-      fetchPlaybooks();
+      void fetchPlaybookById(playbookId);
     } else if (isCreating) {
       // Initialize with template for new playbook
       setYamlContent(getPlaybookTemplate());
     }
-  }, [playbookId, isCreating, fetchPlaybooks]);
+  }, [playbookId, isCreating, fetchPlaybookById]);
 
   useEffect(() => {
     if (selectedPlaybook && !isCreating) {
-      // Convert playbook to YAML format
-      setYamlContent(playbookToYaml(selectedPlaybook));
+      setYamlContent(selectedPlaybook.specDocument);
     }
   }, [selectedPlaybook, isCreating]);
 
-  const handleValidate = useCallback((errors: any[]) => {
+  const handleValidate = useCallback((errors: unknown[]) => {
     setValidationErrors(errors);
   }, []);
 
@@ -43,16 +41,14 @@ export function PlaybookEditor({ playbookId, isCreating }: PlaybookEditorProps) 
     setIsSaving(true);
     try {
       // TODO: Parse YAML and save
-      // For now, just save as string content
       if (isCreating) {
         await createPlaybook({
-          name: 'New Playbook',
-          description: 'Created from editor'
+          name: extractMetadataField(yamlContent, 'title') || 'New Playbook',
+          description: extractMetadataField(yamlContent, 'description'),
+          specDocument: yamlContent,
         });
       } else if (playbookId) {
-        await updatePlaybook(playbookId, {
-          // Parse YAML and update fields
-        });
+        await savePlaybookDraft(playbookId, yamlContent);
       }
     } finally {
       setIsSaving(false);
@@ -117,6 +113,11 @@ export function PlaybookEditor({ playbookId, isCreating }: PlaybookEditorProps) 
   );
 }
 
+function extractMetadataField(specDocument: string, field: 'description' | 'title'): string {
+  const match = specDocument.match(new RegExp(`^\\s*${field}:\\s*"?([^"\\n]+)"?`, 'm'));
+  return match?.[1]?.trim() ?? '';
+}
+
 function getPlaybookTemplate(): string {
   return `# Playbook Configuration
 name: New Playbook
@@ -148,21 +149,5 @@ teamSpecId: research-team
 variables:
   input_path: ./docs
   output_format: markdown
-`;
-}
-
-function playbookToYaml(playbook: Playbook): string {
-  // Simple conversion - in production, use a proper YAML library
-  return `# Playbook: ${playbook.name}
-# Version: ${playbook.version}
-# Status: ${playbook.status}
-
-name: ${playbook.name}
-description: ${playbook.description}
-version: ${playbook.version}
-
-${playbook.workflow ? 'workflow:\n  steps:\n' + playbook.workflow.steps.map(s => `    - id: ${s.id}\n      name: ${s.name}\n      type: ${s.type}`).join('\n') : '# No workflow defined'}
-
-${playbook.teamSpecId ? `teamSpecId: ${playbook.teamSpecId}` : '# teamSpecId: ~'}
 `;
 }

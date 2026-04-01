@@ -1,29 +1,33 @@
 import { create } from 'zustand';
-import { PlaybookStore, Playbook } from '../types/playbook.types';
+import { playbookApi } from '../api/playbookApi';
+import type { Playbook, PlaybookFilter, PlaybookStore } from '../types/playbook.types';
+
+function updatePlaybookCollection(playbooks: Playbook[], next: Playbook): Playbook[] {
+  const existing = playbooks.find((playbook) => playbook.id === next.id);
+
+  if (!existing) {
+    return [next, ...playbooks];
+  }
+
+  return playbooks.map((playbook) => (playbook.id === next.id ? next : playbook));
+}
 
 export const usePlaybookStore = create<PlaybookStore>((set, get) => ({
   playbooks: [],
   selectedPlaybook: null,
+  filters: {},
   isLoading: false,
   error: null,
 
   fetchPlaybooks: async () => {
     set({ isLoading: true, error: null });
     try {
-      // TODO: Replace with actual API call
-      // const response = await fetch('/api/playbooks');
-      // const data = await response.json();
-      // set({ playbooks: data, isLoading: false });
-      
-      // Mock data for now
-      set({ 
-        playbooks: [],
-        isLoading: false 
-      });
+      const playbooks = await playbookApi.listPlaybooks(get().filters);
+      set({ playbooks, isLoading: false });
     } catch (error) {
-      set({ 
+      set({
         error: error instanceof Error ? error.message : 'Failed to fetch playbooks',
-        isLoading: false 
+        isLoading: false,
       });
     }
   },
@@ -31,44 +35,17 @@ export const usePlaybookStore = create<PlaybookStore>((set, get) => ({
   fetchPlaybookById: async (id: string) => {
     set({ isLoading: true, error: null });
     try {
-      // TODO: Replace with actual API call
-      // const response = await fetch(`/api/playbooks/${id}`);
-      // const data = await response.json();
-      // set({ selectedPlaybook: data, isLoading: false });
-      // return data;
-      
-      // Mock data for now
-      const mockPlaybook: Playbook = {
-        id,
-        name: 'Sample Playbook',
-        description: 'A sample playbook for testing',
-        version: '1.0.0',
-        status: 'draft',
-        workflow: {
-          steps: [
-            {
-              id: 'step-1',
-              name: 'Initial Step',
-              type: 'routine',
-              config: { capability: 'scan_files' },
-              nextSteps: ['step-2']
-            },
-            {
-              id: 'step-2',
-              name: 'Process Results',
-              type: 'routine',
-              config: { capability: 'generate_summary' },
-              nextSteps: []
-            }
-          ]
-        }
-      };
-      set({ selectedPlaybook: mockPlaybook, isLoading: false });
-      return mockPlaybook;
+      const playbook = await playbookApi.getPlaybook(id);
+      set((state) => ({
+        playbooks: updatePlaybookCollection(state.playbooks, playbook),
+        selectedPlaybook: playbook,
+        isLoading: false,
+      }));
+      return playbook;
     } catch (error) {
-      set({ 
+      set({
         error: error instanceof Error ? error.message : 'Failed to fetch playbook',
-        isLoading: false 
+        isLoading: false,
       });
       return null;
     }
@@ -77,33 +54,17 @@ export const usePlaybookStore = create<PlaybookStore>((set, get) => ({
   createPlaybook: async (data: Partial<Playbook>) => {
     set({ isLoading: true, error: null });
     try {
-      // TODO: Replace with actual API call
-      // const response = await fetch('/api/playbooks', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(data)
-      // });
-      // const newPlaybook = await response.json();
-      
-      // Mock data for now
-      const newPlaybook: Playbook = {
-        id: `playbook-${Date.now()}`,
-        name: data.name || 'New Playbook',
-        description: data.description || '',
-        version: '0.1.0',
-        status: 'draft',
-        ...data
-      };
-      
-      set(state => ({ 
-        playbooks: [...state.playbooks, newPlaybook],
-        isLoading: false 
+      const newPlaybook = await playbookApi.createPlaybook(data);
+      set((state) => ({
+        playbooks: updatePlaybookCollection(state.playbooks, newPlaybook),
+        selectedPlaybook: newPlaybook,
+        isLoading: false,
       }));
       return newPlaybook;
     } catch (error) {
-      set({ 
+      set({
         error: error instanceof Error ? error.message : 'Failed to create playbook',
-        isLoading: false 
+        isLoading: false,
       });
       throw error;
     }
@@ -112,31 +73,55 @@ export const usePlaybookStore = create<PlaybookStore>((set, get) => ({
   updatePlaybook: async (id: string, data: Partial<Playbook>) => {
     set({ isLoading: true, error: null });
     try {
-      // TODO: Replace with actual API call
-      // const response = await fetch(`/api/playbooks/${id}`, {
-      //   method: 'PUT',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(data)
-      // });
-      // const updatedPlaybook = await response.json();
-      
-      // Mock update for now
-      const updatedPlaybook: Playbook = {
-        ...get().selectedPlaybook,
-        id,
-        ...data
-      } as Playbook;
-      
-      set(state => ({ 
-        playbooks: state.playbooks.map(p => p.id === id ? updatedPlaybook : p),
+      const updatedPlaybook = await playbookApi.updatePlaybook(id, data);
+      set((state) => ({
+        playbooks: updatePlaybookCollection(state.playbooks, updatedPlaybook),
         selectedPlaybook: updatedPlaybook,
-        isLoading: false 
+        isLoading: false,
       }));
       return updatedPlaybook;
     } catch (error) {
-      set({ 
+      set({
         error: error instanceof Error ? error.message : 'Failed to update playbook',
-        isLoading: false 
+        isLoading: false,
+      });
+      throw error;
+    }
+  },
+
+  savePlaybookDraft: async (id: string, specDocument: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const updatedPlaybook = await playbookApi.savePlaybookDraft(id, specDocument);
+      set((state) => ({
+        playbooks: updatePlaybookCollection(state.playbooks, updatedPlaybook),
+        selectedPlaybook: updatedPlaybook,
+        isLoading: false,
+      }));
+      return updatedPlaybook;
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to save playbook draft',
+        isLoading: false,
+      });
+      throw error;
+    }
+  },
+
+  publishPlaybook: async (id: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const publishedPlaybook = await playbookApi.publishPlaybook(id);
+      set((state) => ({
+        playbooks: updatePlaybookCollection(state.playbooks, publishedPlaybook),
+        selectedPlaybook: state.selectedPlaybook?.id === id ? publishedPlaybook : state.selectedPlaybook,
+        isLoading: false,
+      }));
+      return publishedPlaybook;
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to publish playbook',
+        isLoading: false,
       });
       throw error;
     }
@@ -145,18 +130,16 @@ export const usePlaybookStore = create<PlaybookStore>((set, get) => ({
   deletePlaybook: async (id: string) => {
     set({ isLoading: true, error: null });
     try {
-      // TODO: Replace with actual API call
-      // await fetch(`/api/playbooks/${id}`, { method: 'DELETE' });
-      
-      set(state => ({ 
-        playbooks: state.playbooks.filter(p => p.id !== id),
+      await playbookApi.deletePlaybook(id);
+      set((state) => ({
+        playbooks: state.playbooks.filter((playbook) => playbook.id !== id),
         selectedPlaybook: state.selectedPlaybook?.id === id ? null : state.selectedPlaybook,
-        isLoading: false 
+        isLoading: false,
       }));
     } catch (error) {
-      set({ 
+      set({
         error: error instanceof Error ? error.message : 'Failed to delete playbook',
-        isLoading: false 
+        isLoading: false,
       });
       throw error;
     }
@@ -164,5 +147,11 @@ export const usePlaybookStore = create<PlaybookStore>((set, get) => ({
 
   selectPlaybook: (playbook: Playbook | null) => {
     set({ selectedPlaybook: playbook });
-  }
+  },
+
+  setFilters: (filters: Partial<PlaybookFilter>) => {
+    const nextFilters = { ...get().filters, ...filters };
+    set({ filters: nextFilters });
+    void get().fetchPlaybooks();
+  },
 }));
