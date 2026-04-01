@@ -1,3 +1,5 @@
+export type ConsolePermission = 'console.home' | 'studio.playbooks';
+
 export interface User {
   id: string;
   email: string;
@@ -11,6 +13,8 @@ export interface AuthState {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  canViewConsoleHome: boolean;
+  canManagePlaybooks: boolean;
 }
 
 export interface LoginCredentials {
@@ -21,5 +25,5 @@ export interface LoginCredentials {
 export interface AuthContextType extends AuthState {
   login: (credentials: LoginCredentials) => Promise<void>;
   logout: () => void;
-  hasPermission: (permission: string) => boolean;
+  hasPermission: (permission: ConsolePermission | string) => boolean;
 }

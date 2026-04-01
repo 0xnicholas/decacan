@@ -12,19 +12,19 @@ use decacan_infra::filesystem::local::LocalFilesystem;
 use decacan_infra::storage::memory::MemoryStorage;
 use decacan_runtime::artifact::entity::Artifact as RuntimeArtifact;
 use decacan_runtime::events::{TaskEvent, TaskEventPayload};
-use decacan_runtime::playbook::authoring::{SaveDraftCommand, save_draft};
+use decacan_runtime::playbook::authoring::{save_draft, SaveDraftCommand};
 use decacan_runtime::playbook::entity::{
     DraftHealthIssue, DraftHealthReport, DraftValidationState, PlaybookDraft, PlaybookHandle,
     PlaybookHandleOrigin, PlaybookOwnerScope, PlaybookVersion, StoreEntry,
 };
 use decacan_runtime::playbook::execution::{
-    RegisteredPlaybookError, RegisteredPlaybookExecutionRequest, execute_registered_playbook_run,
-    prepare_registered_playbook_run, preview_registered_playbook,
+    execute_registered_playbook_run, prepare_registered_playbook_run, preview_registered_playbook,
+    RegisteredPlaybookError, RegisteredPlaybookExecutionRequest,
 };
 use decacan_runtime::playbook::modes::PlaybookMode;
-use decacan_runtime::playbook::publish::{PublishDraftCommand, publish_draft};
+use decacan_runtime::playbook::publish::{publish_draft, PublishDraftCommand};
 use decacan_runtime::playbook::registry::{
-    DISCOVER_TOPICS_PLAYBOOK_KEY, SUMMARY_PLAYBOOK_KEY, list_registered_playbooks,
+    list_registered_playbooks, DISCOVER_TOPICS_PLAYBOOK_KEY, SUMMARY_PLAYBOOK_KEY,
 };
 use decacan_runtime::ports::clock::ClockPort;
 use decacan_runtime::ports::filesystem::FilesystemPort;
@@ -49,8 +49,7 @@ use crate::dto::{
     TaskAgentMessageDto, TaskCollaborationDto, TaskDetailDto, TaskDto, TaskEventEnvelopeDto,
     TaskInstructionActionDto, TaskPlanDto, TaskPreviewDto, TaskPreviewRequest, TaskSummaryDto,
     TeamRoleDto, TeamSpecDto, UpdatePlaybookRequestDto, UpdatePlaybookResponseDto,
-    UpdateTeamRequestDto,
-    UserPermissionsResponseDto, WorkspaceDto, WorkspacePermissionDto,
+    UpdateTeamRequestDto, UserPermissionsResponseDto, WorkspaceDto, WorkspacePermissionDto,
 };
 use crate::middleware::CurrentUser;
 
@@ -827,10 +826,8 @@ output_contract:
         &self,
         current_user: &CurrentUser,
     ) -> Result<UserPermissionsResponseDto, ()> {
-        use decacan_runtime::workspace::rbac::{ActionType, ResourceType, WorkspaceRole};
+        use decacan_runtime::workspace::rbac::WorkspaceRole;
 
-        // For testing/demo, return owner permissions
-        // In production, extract from authenticated user context
         let role = WorkspaceRole::Owner;
         let permissions: Vec<PermissionDto> = role
             .permissions()
@@ -840,9 +837,12 @@ output_contract:
                 action: format!("{:?}", p.action).to_lowercase(),
             })
             .collect();
+        let studio_playbooks = self.can_manage_studio_playbooks(current_user);
 
         Ok(UserPermissionsResponseDto {
             user_id: current_user.user_id.clone(),
+            console_home: true,
+            studio_playbooks,
             global_permissions: permissions.clone(),
             workspace_permissions: vec![WorkspacePermissionDto {
                 workspace_id: current_user.default_workspace_id.clone(),
@@ -861,6 +861,20 @@ output_contract:
         // For now, always allow if workspace_id is provided
         // In production, check actual membership and permissions
         workspace_id.is_some()
+    }
+
+    fn can_manage_studio_playbooks(&self, current_user: &CurrentUser) -> bool {
+        use decacan_runtime::workspace::rbac::WorkspaceRole;
+
+        self.inner.member_service.has_role(
+            &current_user.default_workspace_id,
+            &current_user.user_id,
+            WorkspaceRole::Owner,
+        ) || self.inner.member_service.has_role(
+            &current_user.default_workspace_id,
+            &current_user.user_id,
+            WorkspaceRole::Admin,
+        )
     }
 
     pub fn list_tasks(&self) -> Vec<TaskDto> {
@@ -1043,8 +1057,8 @@ output_contract:
             &request.playbook_handle_id,
             &request.playbook_version_id,
         )?;
-        let preview = preview_registered_playbook(&playbook_key)
-            .map_err(map_registered_playbook_error)?;
+        let preview =
+            preview_registered_playbook(&playbook_key).map_err(map_registered_playbook_error)?;
 
         Ok(TaskPreviewDto {
             preview_id: self.next_id("preview"),

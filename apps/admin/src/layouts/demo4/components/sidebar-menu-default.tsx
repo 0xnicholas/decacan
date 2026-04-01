@@ -1,11 +1,12 @@
 'use client';
 
-import { JSX, useCallback } from 'react';
+import { JSX, useCallback, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { MENU_SIDEBAR } from '@/config/menu.config';
+import { filterMenuByPermission, MENU_SIDEBAR } from '@/config/menu.config';
 import { MenuConfig, MenuItem } from '@/config/types';
 import { cn } from '@/lib/utils';
 import { useMenu } from '@/hooks/use-menu';
+import { useAuth } from '@/features/auth/auth-context';
 import {
   AccordionMenu,
   AccordionMenuClassNames,
@@ -20,6 +21,7 @@ import { Badge } from '@/components/ui/badge';
 
 export function SidebarMenuDefault() {
   const { pathname } = useLocation();
+  const { hasPermission, loading } = useAuth();
 
   // Memoize matchPath to prevent unnecessary re-renders
   const matchPath = useCallback(
@@ -211,7 +213,15 @@ export function SidebarMenuDefault() {
 
   // Memoize the menu to prevent unnecessary re-renders
   const { getChildren } = useMenu(pathname);
-  const menuItems = getChildren(MENU_SIDEBAR, 0);
+  const visibleMenu = useMemo(
+    () => filterMenuByPermission(MENU_SIDEBAR, hasPermission),
+    [hasPermission],
+  );
+  const menuItems = getChildren(visibleMenu, 0);
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <AccordionMenu

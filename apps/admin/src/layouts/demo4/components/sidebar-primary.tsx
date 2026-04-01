@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AppsDropdownMenu } from '@/partials/topbar/apps-dropdown-menu';
 import { ChatSheet } from '@/partials/topbar/chat-sheet';
 import { UserDropdownMenu } from '@/partials/topbar/user-dropdown-menu';
@@ -14,6 +14,7 @@ import { getHeight } from '@/lib/dom';
 import { toAbsoluteUrl } from '@/lib/helpers';
 import { cn } from '@/lib/utils';
 import { useViewport } from '@/hooks/use-viewport';
+import { useAuth } from '@/features/auth/auth-context';
 import { Button } from '@/components/ui/button';
 import {
   Tooltip,
@@ -27,6 +28,7 @@ interface MenuItem {
   tooltip: string;
   path: string;
   rootPath?: string;
+  requiredPermission?: 'console.home' | 'studio.playbooks';
 }
 
 const menuItems: MenuItem[] = [
@@ -53,6 +55,12 @@ export function SidebarPrimary() {
   const [viewportHeight] = useViewport();
   const scrollableOffset = 80;
   const { pathname } = useLocation();
+  const { hasPermission, loading } = useAuth();
+
+  const visibleMenuItems = useMemo(
+    () => menuItems.filter((item) => !item.requiredPermission || hasPermission(item.requiredPermission)),
+    [hasPermission],
+  );
 
   useEffect(() => {
     if (headerRef.current && footerRef.current) {
@@ -66,10 +74,10 @@ export function SidebarPrimary() {
     }
   }, [viewportHeight]);
 
-  const [selectedMenuItem, setSelectedMenuItem] = useState(menuItems[0]);
+  const [selectedMenuItem, setSelectedMenuItem] = useState(visibleMenuItems[0]);
 
   useEffect(() => {
-    menuItems.forEach((item) => {
+    visibleMenuItems.forEach((item) => {
       if (
         item.rootPath === pathname ||
         (item.rootPath && pathname.includes(item.rootPath))
@@ -77,7 +85,15 @@ export function SidebarPrimary() {
         setSelectedMenuItem(item);
       }
     });
-  }, [pathname]);
+  }, [pathname, visibleMenuItems]);
+
+  useEffect(() => {
+    setSelectedMenuItem(visibleMenuItems[0]);
+  }, [visibleMenuItems]);
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <TooltipProvider>
@@ -105,7 +121,7 @@ export function SidebarPrimary() {
             className="kt-scrollable-y-hover grow gap-2.5 shrink-0 flex ps-4 flex-col"
             style={{ height: `${scrollableHeight}px` }}
           >
-            {menuItems.map((item, index) => (
+            {visibleMenuItems.map((item, index) => (
               <Tooltip key={index}>
                 <TooltipTrigger asChild>
                   <Button

@@ -11,17 +11,43 @@ import {
 } from 'lucide-react';
 import { type MenuConfig } from './types';
 
+export type MenuPermission = 'console.home' | 'studio.playbooks';
+
+export function filterMenuByPermission(
+  items: MenuConfig,
+  hasPermission: (permission: MenuPermission) => boolean,
+): MenuConfig {
+  return items.flatMap((item) => {
+    if (item.requiredPermission && !hasPermission(item.requiredPermission)) {
+      return [];
+    }
+
+    if (item.children) {
+      const children = filterMenuByPermission(item.children, hasPermission);
+      if (!children.length) {
+        return [];
+      }
+
+      return [{ ...item, children }];
+    }
+
+    return [item];
+  });
+}
+
 export const MENU_SIDEBAR: MenuConfig = [
   { heading: 'Overview' },
   {
     title: 'Console',
     icon: LayoutDashboard,
     path: '/',
+    requiredPermission: 'console.home',
   },
   { heading: 'Configuration' },
   {
     title: 'Playbook Studio',
     icon: Book,
+    requiredPermission: 'studio.playbooks',
     children: [
       { title: 'All Playbooks', path: '/playbooks' },
       { title: 'Create New', path: '/playbooks/new' },
@@ -76,6 +102,7 @@ export const MENU_SIDEBAR_COMPACT: MenuConfig = [
     title: 'Console',
     icon: LayoutGrid,
     path: '/',
+    requiredPermission: 'console.home',
   },
   // TODO: Enable when Users feature is implemented
   // {

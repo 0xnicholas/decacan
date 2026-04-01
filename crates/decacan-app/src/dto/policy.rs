@@ -9,6 +9,8 @@ pub struct PermissionDto {
 #[derive(Debug, Clone, Serialize)]
 pub struct UserPermissionsResponseDto {
     pub user_id: String,
+    pub console_home: bool,
+    pub studio_playbooks: bool,
     pub global_permissions: Vec<PermissionDto>,
     pub workspace_permissions: Vec<WorkspacePermissionDto>,
 }
