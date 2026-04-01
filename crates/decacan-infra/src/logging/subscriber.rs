@@ -11,19 +11,11 @@ pub fn init_logging(config: &LoggingConfig) -> Result<(), LoggingInitError> {
     let env_filter =
         EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(&config.level));
 
-    // 构建基础订阅者
-    let subscriber = tracing_subscriber::registry().with(env_filter);
+    let stdout_layer = config
+        .stdout
+        .then(|| Layer::new().with_writer(io::stdout).with_ansi(true).json());
 
-    // 添加 stdout 层
-    let subscriber = if config.stdout {
-        let stdout_layer = Layer::new().with_writer(io::stdout).with_ansi(true).json();
-        subscriber.with(stdout_layer)
-    } else {
-        subscriber.with(None)
-    };
-
-    // 添加文件层
-    if config.file.enabled {
+    let file_layer = if config.file.enabled {
         let rotation = match config.file.rotation {
             RotationConfig::Minutely => Rotation::MINUTELY,
             RotationConfig::Hourly => Rotation::HOURLY,
@@ -32,13 +24,16 @@ pub fn init_logging(config: &LoggingConfig) -> Result<(), LoggingInitError> {
         };
 
         let file_appender = RollingFileAppender::new(rotation, "logs", "decacan.log");
-
-        let file_layer = Layer::new().with_writer(file_appender).json();
-
-        subscriber.with(file_layer).try_init()?;
+        Some(Layer::new().with_writer(file_appender).json())
     } else {
-        subscriber.try_init()?;
-    }
+        None
+    };
+
+    tracing_subscriber::registry()
+        .with(env_filter)
+        .with(stdout_layer)
+        .with(file_layer)
+        .try_init()?;
 
     Ok(())
 }

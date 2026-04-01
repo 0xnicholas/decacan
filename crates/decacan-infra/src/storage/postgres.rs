@@ -1,9 +1,9 @@
 use crate::config::PostgresConfig;
-use async_trait::async_trait;
 use decacan_runtime::ports::storage::StoragePort;
 use sqlx::{Pool, Postgres, Row};
 use std::error::Error;
 use std::fmt;
+use std::future::Future;
 
 pub struct PostgresStorage {
     pool: Pool<Postgres>,
@@ -78,13 +78,35 @@ impl PostgresStorage {
 
         Ok(())
     }
-}
 
-#[async_trait]
-impl StoragePort for PostgresStorage {
-    type Error = PostgresStorageError;
+    fn block_on<F, T>(&self, future: F) -> Result<T, PostgresStorageError>
+    where
+        F: Future<Output = Result<T, PostgresStorageError>> + Send,
+        T: Send,
+    {
+        std::thread::scope(|scope| {
+            scope
+                .spawn(move || {
+                    tokio::runtime::Builder::new_current_thread()
+                        .enable_all()
+                        .build()
+                        .map_err(|error| {
+                            PostgresStorageError::QueryError(format!(
+                                "Failed to create tokio runtime: {error}"
+                            ))
+                        })?
+                        .block_on(future)
+                })
+                .join()
+                .map_err(|_| {
+                    PostgresStorageError::QueryError(
+                        "Postgres runtime worker thread panicked".to_string(),
+                    )
+                })?
+        })
+    }
 
-    async fn put(&self, key: &str, value: &str) -> Result<(), Self::Error> {
+    pub async fn put(&self, key: &str, value: &str) -> Result<(), PostgresStorageError> {
         sqlx::query(
             r#"
             INSERT INTO storage_kv (key, value, updated_at)
@@ -101,7 +123,7 @@ impl StoragePort for PostgresStorage {
         Ok(())
     }
 
-    async fn get(&self, key: &str) -> Result<Option<String>, Self::Error> {
+    pub async fn get(&self, key: &str) -> Result<Option<String>, PostgresStorageError> {
         let row = sqlx::query("SELECT value FROM storage_kv WHERE key = $1")
             .bind(key)
             .fetch_optional(&self.pool)
@@ -114,5 +136,17 @@ impl StoragePort for PostgresStorage {
             }
             None => Ok(None),
         }
+    }
+}
+
+impl StoragePort for PostgresStorage {
+    type Error = PostgresStorageError;
+
+    fn put(&self, key: &str, value: &str) -> Result<(), Self::Error> {
+        self.block_on(PostgresStorage::put(self, key, value))
+    }
+
+    fn get(&self, key: &str) -> Result<Option<String>, Self::Error> {
+        self.block_on(PostgresStorage::get(self, key))
     }
 }
