@@ -1,6 +1,19 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { AuthContextType, AuthState, LoginCredentials, User } from './auth.types';
 
+// Development mode configuration
+const DEV_MODE_SKIP_AUTH = true;
+
+const MOCK_USER: User = {
+  id: 'dev-user-001',
+  email: 'dev@decacan.local',
+  name: 'Developer',
+  permissions: ['admin', 'read', 'write', 'delete'],
+  role: 'admin',
+};
+
+const MOCK_TOKEN = 'dev-mode-mock-token';
+
 // Extended interface for backward compatibility with existing routing
 interface ExtendedAuthContextType extends AuthContextType {
   user: User | null;
@@ -21,6 +34,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   });
 
   useEffect(() => {
+    // Development mode: auto-login with mock user
+    if (DEV_MODE_SKIP_AUTH) {
+      localStorage.setItem('token', MOCK_TOKEN);
+      setState({
+        user: MOCK_USER,
+        token: MOCK_TOKEN,
+        isAuthenticated: true,
+        isLoading: false,
+      });
+      return;
+    }
+
     // Check token validity on mount
     const token = localStorage.getItem('token');
     if (token) {
@@ -47,6 +72,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const login = async (credentials: LoginCredentials) => {
+    // Development mode: skip API call, auto-login
+    if (DEV_MODE_SKIP_AUTH) {
+      localStorage.setItem('token', MOCK_TOKEN);
+      setState({
+        user: MOCK_USER,
+        token: MOCK_TOKEN,
+        isAuthenticated: true,
+        isLoading: false,
+      });
+      return;
+    }
+
     const response = await fetch('http://localhost:3000/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -81,6 +118,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const verify = useCallback(async () => {
+    // Development mode: always authenticated
+    if (DEV_MODE_SKIP_AUTH) {
+      setState(s => ({ ...s, isLoading: false, isAuthenticated: true }));
+      return;
+    }
+
     const token = localStorage.getItem('token');
     if (token) {
       await validateToken(token);
