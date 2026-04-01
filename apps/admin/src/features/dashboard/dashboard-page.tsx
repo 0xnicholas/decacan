@@ -40,7 +40,7 @@ export function DashboardPage() {
       <section className="space-y-2">
         <h1 className="text-3xl font-semibold text-mono">My Work</h1>
         <p className="max-w-3xl text-sm text-muted-foreground">
-          Track approvals, recent tasks, and the workspaces you move across from one account-level console.
+          Track approvals, recent tasks, and the workspaces you manage from a single console.
         </p>
       </section>
 

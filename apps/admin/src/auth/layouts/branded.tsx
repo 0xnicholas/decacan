@@ -35,14 +35,9 @@ export function BrandedLayout() {
             </Link>
 
             <div className="flex flex-col gap-3">
-              <h3 className="text-2xl font-semibold text-mono">Secure Console Access</h3>
+              <h3 className="text-2xl font-semibold text-mono">Console Access</h3>
               <div className="text-base font-medium text-secondary-foreground">
-                A robust authentication gateway ensuring
-                <br /> secure&nbsp;
-                <span className="text-mono font-semibold">
-                  efficient user access
-                </span>
-                &nbsp;to the Console experience.
+                A secure authentication gateway for the Console experience.
               </div>
             </div>
           </div>

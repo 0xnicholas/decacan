@@ -80,7 +80,7 @@ describe('DashboardPage', () => {
     expect(screen.queryByText('Welcome to Decacan Admin')).not.toBeInTheDocument();
     expect(
       screen.getByText(
-        'Track approvals, recent tasks, and the workspaces you move across from one account-level console.',
+        'Track approvals, recent tasks, and the workspaces you manage from a single console.',
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText(/account hub/i)).not.toBeInTheDocument();
