@@ -45,7 +45,7 @@ export function TopBar({
           className="w-fit px-3.5 py-2 border border-foreground/14 rounded-full bg-surface text-inherit no-underline"
           href={accountHubUrl}
         >
-          Account Hub
+          Console
         </a>
         <div className="px-3 py-1.5 border border-foreground/14 rounded-full bg-surface">
           Workspace User
