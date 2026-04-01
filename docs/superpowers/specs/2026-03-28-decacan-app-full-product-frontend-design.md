@@ -1,5 +1,9 @@
 # Decacan App Full Product Frontend Design
 
+Status note (2026-04-01):
+
+This document remains relevant for the workspace execution surface, but it does not define the newer account-level hub boundary. For the current relationship between `apps/workspaces` and `apps/admin`, read [2026-04-01-decacan-account-hub-and-workspace-boundaries-design.md](/Users/nicholasl/Documents/build-whatever/decacan/docs/superpowers/specs/2026-04-01-decacan-account-hub-and-workspace-boundaries-design.md) first.
+
 Date: 2026-03-28
 Stage: Full product frontend design
 Status: Approved for planning

@@ -1,5 +1,9 @@
 # Decacan App Frontend Design
 
+Status note (2026-04-01):
+
+This document still reflects the early workspace execution surface, but it predates the formal split between the workspace-first product and the account-level hub. For current top-level surface ownership, read [2026-04-01-decacan-account-hub-and-workspace-boundaries-design.md](/Users/nicholasl/Documents/build-whatever/decacan/docs/superpowers/specs/2026-04-01-decacan-account-hub-and-workspace-boundaries-design.md) first.
+
 Date: 2026-03-28
 Stage: Frontend design
 Status: Approved for planning

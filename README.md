@@ -79,8 +79,8 @@ Store
 
 | App | Purpose |
 |-----|---------|
-| `apps/workspaces` | Main workbench for task execution and workspace management |
-| `apps/admin` | System administration dashboard |
+| `apps/workspaces` | Default workspace-scoped execution surface for tasks, deliverables, approvals, and collaboration |
+| `apps/admin` | Account-level hub for cross-workspace work aggregation plus playbook design and publishing |
 
 ### Documentation
 
