@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use decacan_runtime::ports::storage::StoragePort;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -34,16 +35,17 @@ impl std::fmt::Display for SqliteStoragePlaceholderError {
 
 impl std::error::Error for SqliteStoragePlaceholderError {}
 
+#[async_trait]
 impl StoragePort for SqliteStoragePlaceholder {
     type Error = SqliteStoragePlaceholderError;
 
-    fn put(&self, _key: &str, _value: &str) -> Result<(), Self::Error> {
+    async fn put(&self, _key: &str, _value: &str) -> Result<(), Self::Error> {
         Err(SqliteStoragePlaceholderError::Placeholder(
             self.reason.clone(),
         ))
     }
 
-    fn get(&self, _key: &str) -> Result<Option<String>, Self::Error> {
+    async fn get(&self, _key: &str) -> Result<Option<String>, Self::Error> {
         Err(SqliteStoragePlaceholderError::Placeholder(
             self.reason.clone(),
         ))
@@ -56,12 +58,12 @@ mod tests {
     use super::SqliteStoragePlaceholderError;
     use decacan_runtime::ports::storage::StoragePort;
 
-    #[test]
-    fn placeholder_storage_returns_explicit_placeholder_error() {
+    #[tokio::test]
+    async fn placeholder_storage_returns_explicit_placeholder_error() {
         let storage = SqliteStoragePlaceholder::new("placeholder only");
 
         assert_eq!(
-            storage.put("key", "value"),
+            storage.put("key", "value").await,
             Err(SqliteStoragePlaceholderError::Placeholder(
                 "placeholder only".to_string()
             ))

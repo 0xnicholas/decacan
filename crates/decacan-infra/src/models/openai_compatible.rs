@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use decacan_runtime::ports::model::ModelPort;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -35,10 +36,11 @@ impl std::fmt::Display for OpenAiCompatibleModelPlaceholderError {
 
 impl std::error::Error for OpenAiCompatibleModelPlaceholderError {}
 
+#[async_trait]
 impl ModelPort for OpenAiCompatibleModelPlaceholder {
     type Error = OpenAiCompatibleModelPlaceholderError;
 
-    fn complete(&self, _prompt: &str) -> Result<String, Self::Error> {
+    async fn complete(&self, _prompt: &str) -> Result<String, Self::Error> {
         Err(OpenAiCompatibleModelPlaceholderError::Placeholder(
             self.reason.clone(),
         ))
@@ -51,12 +53,12 @@ mod tests {
     use super::OpenAiCompatibleModelPlaceholderError;
     use decacan_runtime::ports::model::ModelPort;
 
-    #[test]
-    fn placeholder_model_returns_explicit_placeholder_error() {
+    #[tokio::test]
+    async fn placeholder_model_returns_explicit_placeholder_error() {
         let model = OpenAiCompatibleModelPlaceholder::new("placeholder only");
 
         assert_eq!(
-            model.complete("prompt"),
+            model.complete("prompt").await,
             Err(OpenAiCompatibleModelPlaceholderError::Placeholder(
                 "placeholder only".to_string()
             ))

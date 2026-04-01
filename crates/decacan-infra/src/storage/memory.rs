@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::convert::Infallible;
 use std::sync::{Arc, RwLock};
 
+use async_trait::async_trait;
 use decacan_runtime::ports::storage::StoragePort;
 
 #[derive(Debug, Clone, Default)]
@@ -15,23 +16,24 @@ impl MemoryStorage {
     }
 }
 
+#[async_trait]
 impl StoragePort for MemoryStorage {
     type Error = Infallible;
 
-    fn put(&self, key: &str, value: &str) -> Result<(), Self::Error> {
+    async fn put(&self, key: &str, value: &str) -> Result<(), Self::Error> {
         let mut values = self
             .values
             .write()
-            .expect("memory storage lock should not be poisoned");
+            .unwrap_or_else(|e| e.into_inner());
         values.insert(key.to_string(), value.to_string());
         Ok(())
     }
 
-    fn get(&self, key: &str) -> Result<Option<String>, Self::Error> {
+    async fn get(&self, key: &str) -> Result<Option<String>, Self::Error> {
         let values = self
             .values
             .read()
-            .expect("memory storage lock should not be poisoned");
+            .unwrap_or_else(|e| e.into_inner());
         Ok(values.get(key).cloned())
     }
 }
