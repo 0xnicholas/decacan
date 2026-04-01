@@ -167,6 +167,16 @@ VITE_ACCOUNT_HUB_URL=http://localhost:3001
 
 If unset, `apps/workspaces` defaults the Account Hub link to `http://localhost:3001`.
 
+`apps/admin` also hands users back into the workspace execution surface. If you run the workspace app on a non-default origin, set:
+
+```bash
+VITE_WORKSPACES_APP_URL=http://localhost:5173
+```
+
+If unset, `apps/admin` defaults workspace links to `http://localhost:5173`. In local development the repo now reserves:
+- `apps/admin` on `http://localhost:3001`
+- `apps/workspaces` on `http://localhost:5173`
+
 ## Configuration
 
 The platform uses a layered configuration system:

@@ -91,7 +91,7 @@ describe('DashboardPage', () => {
     expect(finishedWorkCard).not.toBeNull();
     expect(within(runningWorkCard as HTMLElement).getByText('1')).toBeInTheDocument();
     expect(within(finishedWorkCard as HTMLElement).getByText('1')).toBeInTheDocument();
-    expect(workspaceLink).toHaveAttribute('href', '/workspaces?workspaceId=workspace-1');
+    expect(workspaceLink).toHaveAttribute('href', 'http://localhost:5173/workspaces/workspace-1');
   });
 
   it('shows an error card without leaving the loading state visible', async () => {

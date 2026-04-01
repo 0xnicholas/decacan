@@ -1,5 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { buildWorkspaceAppUrl } from '@/shared/config/workspacesApp';
 import type { AccountWorkspace } from '../types/accountHub.types';
 
 type WorkspaceListPanelProps = {
@@ -36,7 +37,7 @@ export function WorkspaceListPanel({ defaultWorkspaceId, workspaces }: Workspace
                 <a
                   aria-label={`Open ${workspace.title}`}
                   className="text-sm font-medium text-primary hover:underline"
-                  href={`/workspaces?workspaceId=${workspace.id}`}
+                  href={buildWorkspaceAppUrl(workspace.id)}
                 >
                   Open
                 </a>
