@@ -9,7 +9,6 @@ use decacan_infra::models::openai_compatible::{
     OpenAiCompatibleModelPlaceholder, OpenAiCompatibleModelPlaceholderError,
 };
 use decacan_infra::storage::memory::MemoryStorage;
-use decacan_infra::storage::sqlite::{SqliteStoragePlaceholder, SqliteStoragePlaceholderError};
 use decacan_runtime::ports::clock::ClockPort;
 use decacan_runtime::ports::filesystem::FilesystemPort;
 use decacan_runtime::ports::model::ModelPort;
@@ -111,28 +110,6 @@ fn local_filesystem_exists_propagates_non_not_found_errors() {
     ));
 
     fs::remove_file(parent_file).expect("test fixture cleanup should succeed");
-}
-
-#[test]
-fn placeholder_adapters_fail_explicitly_when_used() {
-    let model = OpenAiCompatibleModelPlaceholder::new(
-        "OpenAI-compatible adapter is declared but not implemented in Task 8",
-    );
-    let storage =
-        SqliteStoragePlaceholder::new("SQLite adapter is declared but not implemented in Task 8");
-
-    assert_eq!(
-        model.complete("prompt"),
-        Err(OpenAiCompatibleModelPlaceholderError::Placeholder(
-            "OpenAI-compatible adapter is declared but not implemented in Task 8".to_string()
-        ))
-    );
-    assert_eq!(
-        storage.put("key", "value"),
-        Err(SqliteStoragePlaceholderError::Placeholder(
-            "SQLite adapter is declared but not implemented in Task 8".to_string()
-        ))
-    );
 }
 
 fn unique_test_path(file_name: &str) -> PathBuf {

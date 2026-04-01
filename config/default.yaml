@@ -15,3 +15,18 @@ postgres:
   url: postgres://postgres:postgres@localhost/decacan
   max_connections: 10
   auto_migrate: false
+
+models:
+  default_provider: openai
+  fallback_chain: [openai, anthropic]
+  providers:
+    openai:
+      api_key: "${OPENAI_API_KEY}"
+      base_url: https://api.openai.com/v1
+      default_model: gpt-4
+      timeout_seconds: 60
+    anthropic:
+      api_key: "${ANTHROPIC_API_KEY}"
+      base_url: https://api.anthropic.com/v1
+      default_model: claude-3-opus-20240229
+      timeout_seconds: 60
