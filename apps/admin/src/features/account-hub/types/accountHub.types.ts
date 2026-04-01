@@ -1,7 +1,6 @@
 export interface AccountWorkspace {
   id: string;
   title: string;
-  root_path: string;
 }
 
 export interface AccountWorkItem {

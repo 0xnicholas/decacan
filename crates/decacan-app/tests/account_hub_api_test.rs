@@ -61,6 +61,8 @@ async fn account_home_returns_cross_workspace_work_summary() {
         json["workspaces"][1]["id"],
         Value::String("workspace-2".to_owned())
     );
+    assert!(json["workspaces"][0].get("root_path").is_none());
+    assert!(json["workspaces"][1].get("root_path").is_none());
     assert!(json.get("waiting_on_me").is_some());
     assert!(json["waiting_on_me"].is_array());
     assert!(json.get("recent_tasks").is_some());

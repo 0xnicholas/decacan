@@ -88,6 +88,7 @@ describe('DashboardPage', () => {
     expect(await screen.findByRole('heading', { name: 'Workspaces' })).toBeInTheDocument();
     expect(screen.getByText('Approval needed for Summary')).toBeInTheDocument();
     expect(screen.getByText('Default Workspace')).toBeInTheDocument();
+    expect(screen.queryByText('/tmp/workspace-1')).not.toBeInTheDocument();
 
     const runningWorkCard = screen.getByText('Running Work').closest('[data-slot="card"]');
     const finishedWorkCard = screen.getByText('Finished Work').closest('[data-slot="card"]');

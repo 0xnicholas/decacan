@@ -1,5 +1,5 @@
-mod activity;
 mod account;
+mod activity;
 mod approval;
 mod artifact;
 mod deliverable;
@@ -11,10 +11,10 @@ pub mod team;
 pub mod trace;
 mod workspace;
 
-pub use activity::ActivityDto;
 pub use account::{
     AccountHomeDto, AccountPlaybookShortcutDto, AccountTaskSummaryDto, AccountWorkItemDto,
 };
+pub use activity::ActivityDto;
 pub use approval::{ApprovalDto, ApprovalRequestDto};
 pub use artifact::{ArtifactContentDto, ArtifactDto};
 pub use deliverable::{
@@ -27,8 +27,7 @@ pub use playbook::{
     ForkPlaybookRequestDto, ForkPlaybookResponseDto, PlaybookDetailDto, PlaybookDraftDto,
     PlaybookDto, PlaybookHandleDto, PlaybookStudioListItemDto, PlaybookVersionDto,
     PublishPlaybookResponseDto, SavePlaybookDraftRequestDto, SavePlaybookDraftResponseDto,
-    StoreEntryDto,
-    UpdatePlaybookRequestDto, UpdatePlaybookResponseDto,
+    StoreEntryDto, UpdatePlaybookRequestDto, UpdatePlaybookResponseDto,
 };
 pub use policy::{
     CheckPermissionRequestDto, CheckPermissionResponseDto, PermissionDto,
@@ -49,6 +48,6 @@ pub use trace::{
     VersionStatsResponse,
 };
 pub use workspace::{
-    WorkspaceDeliverableDto, WorkspaceDto, WorkspaceHomeAttentionItemDto, WorkspaceHomeDto,
-    WorkspaceTaskHealthDto,
+    AccountWorkspaceDto, WorkspaceDeliverableDto, WorkspaceDto, WorkspaceHomeAttentionItemDto,
+    WorkspaceHomeDto, WorkspaceTaskHealthDto,
 };

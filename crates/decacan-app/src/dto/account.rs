@@ -1,11 +1,11 @@
 use serde::{Deserialize, Serialize};
 
-use super::{PlaybookDto, TaskDto, WorkspaceDto};
+use super::{AccountWorkspaceDto, PlaybookDto, TaskDto};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AccountHomeDto {
     pub default_workspace_id: String,
-    pub workspaces: Vec<WorkspaceDto>,
+    pub workspaces: Vec<AccountWorkspaceDto>,
     pub waiting_on_me: Vec<AccountWorkItemDto>,
     pub recent_tasks: Vec<AccountTaskSummaryDto>,
     pub playbook_shortcuts: Vec<AccountPlaybookShortcutDto>,

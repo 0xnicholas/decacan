@@ -12,19 +12,19 @@ use decacan_infra::filesystem::local::LocalFilesystem;
 use decacan_infra::storage::memory::MemoryStorage;
 use decacan_runtime::artifact::entity::Artifact as RuntimeArtifact;
 use decacan_runtime::events::{TaskEvent, TaskEventPayload};
-use decacan_runtime::playbook::authoring::{save_draft, SaveDraftCommand};
+use decacan_runtime::playbook::authoring::{SaveDraftCommand, save_draft};
 use decacan_runtime::playbook::entity::{
     DraftHealthIssue, DraftHealthReport, DraftValidationState, PlaybookDraft, PlaybookHandle,
     PlaybookHandleOrigin, PlaybookOwnerScope, PlaybookVersion, StoreEntry,
 };
 use decacan_runtime::playbook::execution::{
-    execute_registered_playbook_run, prepare_registered_playbook_run, preview_registered_playbook,
-    RegisteredPlaybookError, RegisteredPlaybookExecutionRequest,
+    RegisteredPlaybookError, RegisteredPlaybookExecutionRequest, execute_registered_playbook_run,
+    prepare_registered_playbook_run, preview_registered_playbook,
 };
 use decacan_runtime::playbook::modes::PlaybookMode;
-use decacan_runtime::playbook::publish::{publish_draft, PublishDraftCommand};
+use decacan_runtime::playbook::publish::{PublishDraftCommand, publish_draft};
 use decacan_runtime::playbook::registry::{
-    list_registered_playbooks, DISCOVER_TOPICS_PLAYBOOK_KEY, SUMMARY_PLAYBOOK_KEY,
+    DISCOVER_TOPICS_PLAYBOOK_KEY, SUMMARY_PLAYBOOK_KEY, list_registered_playbooks,
 };
 use decacan_runtime::ports::clock::ClockPort;
 use decacan_runtime::ports::filesystem::FilesystemPort;
@@ -338,9 +338,17 @@ impl AppState {
         }
     }
 
-    pub(crate) fn workspaces_for_user(&self, _current_user: &CurrentUser) -> Vec<WorkspaceDto> {
+    pub(crate) fn workspaces_for_user(
+        &self,
+        _current_user: &CurrentUser,
+    ) -> Vec<crate::dto::AccountWorkspaceDto> {
         // Home should expose the user's visible workspace list, not collapse it to the default.
-        self.inner.workspaces.clone()
+        self.inner
+            .workspaces
+            .clone()
+            .into_iter()
+            .map(crate::dto::AccountWorkspaceDto::from)
+            .collect()
     }
 
     pub(crate) fn recent_tasks_for_user(
@@ -1761,8 +1769,7 @@ fn instruction_definitions() -> Vec<InstructionDefinition> {
                 instruction: "Suggest the next structured actions for this task.".to_owned(),
             },
             summary: "Next-step options ready",
-            detail:
-                "1) Confirm latest approval status. 2) Review output artifact. 3) Close with final timeline check.",
+            detail: "1) Confirm latest approval status. 2) Review output artifact. 3) Close with final timeline check.",
         },
     ]
 }
