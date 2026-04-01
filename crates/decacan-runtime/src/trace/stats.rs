@@ -1,4 +1,4 @@
-use crate::storage::trace_store::TraceStore;
+use crate::storage::trace_store::{TraceStore, TraceStoreError};
 use crate::trace::entities::*;
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -9,7 +9,7 @@ impl VersionStatsCalculator {
     pub async fn calculate(
         store: &TraceStore,
         version_id: Uuid,
-    ) -> Result<VersionExecutionStats, rusqlite::Error> {
+    ) -> Result<VersionExecutionStats, TraceStoreError> {
         // Query would be implemented here
         // For now, return placeholder
         Ok(VersionExecutionStats {
