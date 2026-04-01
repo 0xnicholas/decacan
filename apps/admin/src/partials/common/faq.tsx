@@ -16,28 +16,20 @@ export type FaqItems = Array<FaqItem>;
 export function Faq() {
   const items: FaqItems = [
     {
-      title: 'How is pricing determined for each plan ?',
-      text: "Metronic embraces flexible licensing options that empower you to choose the perfect fit for your project's needs and budget. Understanding the factors influencing each plan's pricing helps you make an informed decision. Metronic embraces flexible licensing options that empower you to choose the perfect fit for your project's needs and budget. Understanding the factors influencing each plan's pricing helps you make an informed decision. Metronic embraces flexible licensing options that empower you to choose the perfect fit for your project's needs and budget. Understanding the factors influencing each plan's pricing helps you make an informed decision",
+      title: 'How do I get started?',
+      text: 'Getting started is easy. Simply navigate to the Dashboard to view your overview, or go to Playbook Studio to create and manage your playbooks.',
     },
     {
-      title: 'What payment methods are accepted for subscriptions ?',
-      text: "Metronic embraces flexible licensing options that empower you to choose the perfect fit for your project's needs and budget. Understanding the factors influencing each plan's pricing helps you make an informed decision",
+      title: 'What is a Playbook?',
+      text: 'A Playbook is a predefined workflow or set of instructions that can be executed to automate tasks and processes within your system.',
     },
     {
-      title: 'Are there any hidden fees in the pricing ?',
-      text: "Metronic embraces flexible licensing options that empower you to choose the perfect fit for your project's needs and budget. Understanding the factors influencing each plan's pricing helps you make an informed decision",
+      title: 'How do I create a new Playbook?',
+      text: 'Navigate to Playbook Studio and click "Create New". You can define your playbook using YAML or the visual editor.',
     },
     {
-      title: 'Is there a discount for annual subscriptions ?',
-      text: "Metronic embraces flexible licensing options that empower you to choose the perfect fit for your project's needs and budget. Understanding the factors influencing each plan's pricing helps you make an informed decision",
-    },
-    {
-      title: 'Do you offer refunds on subscription cancellations ?',
-      text: "Metronic embraces flexible licensing options that empower you to choose the perfect fit for your project's needs and budget. Understanding the factors influencing each plan's pricing helps you make an informed decision",
-    },
-    {
-      title: 'Can I add extra features to my current plan ?',
-      text: "Metronic embraces flexible licensing options that empower you to choose the perfect fit for your project's needs and budget. Understanding the factors influencing each plan's pricing helps you make an informed decision",
+      title: 'Where can I find documentation?',
+      text: 'Documentation is available in the Docs section. You can access it from the footer links or contact support for assistance.',
     },
   ];
 

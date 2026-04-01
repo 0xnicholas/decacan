@@ -74,8 +74,8 @@ export function SignInPage() {
   const form = useForm<SigninSchemaType>({
     resolver: zodResolver(getSigninSchema()),
     defaultValues: {
-      email: 'demo@kt.com',
-      password: 'demo123',
+      email: '',
+      password: '',
       rememberMe: true,
     },
   });
@@ -156,16 +156,6 @@ export function SignInPage() {
             Welcome back! Log in with your credentials.
           </p>
         </div>
-
-        <Alert appearance="light" size="sm" close={false}>
-          <AlertIcon>
-            <AlertCircle className="text-primary" />
-          </AlertIcon>
-          <AlertTitle className="text-accent-foreground">
-            Use <strong>demo@kt.com</strong> username and {` `}
-            <strong>demo123</strong> password for demo access.
-          </AlertTitle>
-        </Alert>
 
         <div className="flex flex-col gap-3.5">
           <Button

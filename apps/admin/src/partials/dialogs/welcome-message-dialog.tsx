@@ -38,7 +38,7 @@ export function WelcomeMessageDialog({
           </div>
 
           <h3 className="text-lg font-medium text-mono text-center mb-3">
-            Welcome to Metronic
+            Welcome
           </h3>
 
           <div className="text-sm text-center text-secondary-foreground mb-7">
@@ -48,7 +48,7 @@ export function WelcomeMessageDialog({
 
           <div className="flex justify-center mb-2">
             <Link to="/" className="btn btn-primary flex justify-center">
-              Show me around
+              Get Started
             </Link>
           </div>
 
@@ -56,7 +56,7 @@ export function WelcomeMessageDialog({
             to="/"
             className="text-sm font-medium text-secondary-foreground hover:text-primary py-3"
           >
-            Skip the tour
+            Skip
           </Link>
         </DialogBody>
       </DialogContent>

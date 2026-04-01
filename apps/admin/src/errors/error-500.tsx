@@ -29,14 +29,7 @@ export function Error500() {
       </h3>
 
       <div className="text-base text-center text-secondary-foreground mb-10">
-        Server error occurred. Please try again later or &nbsp;
-        <a
-          href="https://devs.keenthemes.com"
-          className="text-primary font-medium hover:text-primary-active"
-        >
-          Contact Us
-        </a>
-        &nbsp; for assistance.
+        Server error occurred. Please try again later.
       </div>
 
       <Button asChild>

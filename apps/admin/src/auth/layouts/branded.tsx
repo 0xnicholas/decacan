@@ -44,7 +44,7 @@ export function BrandedLayout() {
                 <span className="text-mono font-semibold">
                   efficient user access
                 </span>
-                &nbsp;to the Metronic
+                &nbsp;to the platform
                 <br /> Dashboard interface.
               </div>
             </div>

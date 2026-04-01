@@ -42,7 +42,7 @@ export function Help() {
         }
         more={{
           title: 'Contact Support',
-          url: 'https://devs.keenthemes.com/unresolved',
+          url: '#',
         }}
       />
     </div>
