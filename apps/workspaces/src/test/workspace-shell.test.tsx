@@ -96,10 +96,10 @@ describe("WorkspaceShell", () => {
     expect(window.location.pathname).toBe("/workspaces/workspace-2/tasks");
   });
 
-  it("shows an account hub entry in the top bar", async () => {
+  it("shows a console entry in the top bar", async () => {
     renderAppAtRoute("/workspaces/workspace-1");
 
-    expect(await screen.findByRole("link", { name: "Account Hub" })).toHaveAttribute(
+    expect(await screen.findByRole("link", { name: "Console" })).toHaveAttribute(
       "href",
       "http://localhost:3001",
     );

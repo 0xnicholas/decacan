@@ -73,11 +73,12 @@ describe('DashboardPage', () => {
     });
   });
 
-  it('shows the account hub summary content with stable navigation and status totals', async () => {
+  it('shows the console summary content with stable navigation and status totals', async () => {
     render(<DashboardPage />);
 
     expect(await screen.findByRole('heading', { name: 'My Work' })).toBeInTheDocument();
     expect(screen.queryByText('Welcome to Decacan Admin')).not.toBeInTheDocument();
+    expect(screen.getByText(/from one account-level console/i)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Work Queue' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Workspaces' })).toBeInTheDocument();
     expect(screen.getByText('Approval needed for Summary')).toBeInTheDocument();
@@ -99,8 +100,8 @@ describe('DashboardPage', () => {
 
     render(<DashboardPage />);
 
-    expect(await screen.findByText('Account Hub Unavailable')).toBeInTheDocument();
+    expect(await screen.findByText('Console Unavailable')).toBeInTheDocument();
     expect(screen.getByText('Account API unavailable')).toBeInTheDocument();
-    expect(screen.queryByText('Loading account hub')).not.toBeInTheDocument();
+    expect(screen.queryByText('Loading console')).not.toBeInTheDocument();
   });
 });
