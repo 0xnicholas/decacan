@@ -4,17 +4,10 @@ import { ChatSheet } from '@/partials/topbar/chat-sheet';
 import { UserDropdownMenu } from '@/partials/topbar/user-dropdown-menu';
 import {
   BarChart3,
-  Bell,
-  CheckSquare,
-  Code,
+  Book,
   LayoutGrid,
   MessageCircleMore,
-  MessageSquare,
   Settings,
-  Shield,
-  ShoppingCart,
-  UserCircle,
-  Users,
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { getHeight } from '@/lib/dom';
@@ -39,11 +32,18 @@ interface MenuItem {
 const menuItems: MenuItem[] = [
   { icon: BarChart3, tooltip: 'Dashboard', path: '/', rootPath: '/' },
   {
-    icon: Settings,
-    tooltip: 'Settings',
-    path: '/settings',
-    rootPath: '/settings',
+    icon: Book,
+    tooltip: 'Playbook Studio',
+    path: '/playbooks',
+    rootPath: '/playbooks',
   },
+  // TODO: Enable when Settings is implemented
+  // {
+  //   icon: Settings,
+  //   tooltip: 'Settings',
+  //   path: '/settings',
+  //   rootPath: '/settings',
+  // },
 ];
 
 export function SidebarPrimary() {
