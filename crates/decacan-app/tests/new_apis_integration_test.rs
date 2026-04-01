@@ -24,11 +24,13 @@ mod playbook_api_tests {
             .method("POST")
             .uri("/api/playbooks")
             .header("content-type", "application/json")
-            .body(Body::from(r#"{
+            .body(Body::from(
+                r#"{
                 "title": "Test Playbook",
                 "description": "A test playbook",
                 "mode": "standard"
-            }"#))
+            }"#,
+            ))
             .unwrap();
 
         let response = app.oneshot(request).await.unwrap();
@@ -44,11 +46,13 @@ mod playbook_api_tests {
             .method("POST")
             .uri("/api/playbooks")
             .header("content-type", "application/json")
-            .body(Body::from(r#"{
+            .body(Body::from(
+                r#"{
                 "title": "My Playbook",
                 "description": "Test description",
                 "mode": "standard"
-            }"#))
+            }"#,
+            ))
             .unwrap();
 
         let create_response = app.clone().oneshot(create_request).await.unwrap();
@@ -74,11 +78,13 @@ mod playbook_api_tests {
             .method("POST")
             .uri("/api/playbooks")
             .header("content-type", "application/json")
-            .body(Body::from(r#"{
+            .body(Body::from(
+                r#"{
                 "title": "Original Title",
                 "description": "Original description",
                 "mode": "standard"
-            }"#))
+            }"#,
+            ))
             .unwrap();
 
         let create_response = app.clone().oneshot(create_request).await.unwrap();
@@ -89,9 +95,11 @@ mod playbook_api_tests {
             .method("PUT")
             .uri("/api/playbooks/pb-nonexistent")
             .header("content-type", "application/json")
-            .body(Body::from(r#"{
+            .body(Body::from(
+                r#"{
                 "title": "Updated Title"
-            }"#))
+            }"#,
+            ))
             .unwrap();
 
         let update_response = app.oneshot(update_request).await.unwrap();
@@ -139,7 +147,8 @@ mod team_api_tests {
             .method("POST")
             .uri("/api/teams")
             .header("content-type", "application/json")
-            .body(Body::from(r#"{
+            .body(Body::from(
+                r#"{
                 "name": "Engineering Team",
                 "description": "Core engineering team",
                 "roles": [
@@ -151,7 +160,8 @@ mod team_api_tests {
                     }
                 ],
                 "lead_role_id": "team-1-role-1"
-            }"#))
+            }"#,
+            ))
             .unwrap();
 
         let response = app.oneshot(request).await.unwrap();

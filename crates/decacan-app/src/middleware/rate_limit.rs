@@ -10,7 +10,7 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 /// 简单的内存速率限制器
-/// 
+///
 /// 每个 IP 每分钟最多 5 次请求
 #[derive(Debug, Clone)]
 pub struct RateLimiter {
@@ -32,23 +32,23 @@ impl RateLimiter {
     pub fn check(&self, ip: &str) -> bool {
         let now = Instant::now();
         let mut requests = self.requests.lock().unwrap();
-        
+
         // 获取或创建该 IP 的请求记录
         let timestamps = requests.entry(ip.to_string()).or_default();
-        
+
         // 清理过期的请求记录
         timestamps.retain(|&t| now.duration_since(t) < self.window);
-        
+
         // 检查是否超过限制
         if timestamps.len() >= self.max_requests {
             return false;
         }
-        
+
         // 记录本次请求
         timestamps.push(now);
         true
     }
-    
+
     /// 创建认证端点专用的速率限制器
     /// 每分钟 5 次请求
     pub fn auth_limiter() -> Self {
@@ -57,7 +57,7 @@ impl RateLimiter {
 }
 
 /// 速率限制中间件
-/// 
+///
 /// 使用：`.layer(middleware::from_fn_with_state(rate_limiter, rate_limit_middleware))`
 pub async fn rate_limit_middleware(
     ConnectInfo(addr): ConnectInfo<SocketAddr>,

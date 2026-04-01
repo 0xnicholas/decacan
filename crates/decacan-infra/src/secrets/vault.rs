@@ -32,10 +32,7 @@ impl VaultSecretsSource {
 impl SecretsPort for VaultSecretsSource {
     type Error = SecretsError;
 
-    async fn get(
-        &self,
-        _key: &str,
-    ) -> Result<Option<String>, Self::Error> {
+    async fn get(&self, _key: &str) -> Result<Option<String>, Self::Error> {
         // 预留：将来实现 Vault API 调用
         Err(SecretsError::VaultError(
             "Vault integration not yet implemented".to_string(),

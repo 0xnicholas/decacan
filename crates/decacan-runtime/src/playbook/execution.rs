@@ -57,13 +57,19 @@ pub enum RegisteredPlaybookError {
 pub fn preview_registered_playbook(
     playbook_key: &str,
 ) -> Result<RegisteredPlaybookPreview, RegisteredPlaybookError> {
-    let playbook = get_registered_playbook(playbook_key).ok_or(RegisteredPlaybookError::UnknownPlaybook)?;
-    let workflow = compile_playbook(&playbook).ok_or(RegisteredPlaybookError::UnsupportedPlaybook)?;
+    let playbook =
+        get_registered_playbook(playbook_key).ok_or(RegisteredPlaybookError::UnknownPlaybook)?;
+    let workflow =
+        compile_playbook(&playbook).ok_or(RegisteredPlaybookError::UnsupportedPlaybook)?;
     let contract =
         artifact_contract(playbook_key).ok_or(RegisteredPlaybookError::UnsupportedPlaybook)?;
 
     Ok(RegisteredPlaybookPreview {
-        plan_steps: workflow.steps.into_iter().map(|step| step.purpose).collect(),
+        plan_steps: workflow
+            .steps
+            .into_iter()
+            .map(|step| step.purpose)
+            .collect(),
         expected_artifact_label: contract.label.to_owned(),
         expected_artifact_path: contract.canonical_path.to_owned(),
     })
@@ -72,14 +78,11 @@ pub fn preview_registered_playbook(
 pub fn prepare_registered_playbook_run(
     request: RegisteredPlaybookExecutionRequest,
 ) -> Result<PreparedRegisteredPlaybookRun, RegisteredPlaybookError> {
-    let playbook =
-        get_registered_playbook(&request.playbook_key).ok_or(RegisteredPlaybookError::UnknownPlaybook)?;
-    let workflow = compile_playbook(&playbook).ok_or(RegisteredPlaybookError::UnsupportedPlaybook)?;
-    let workspace = Workspace::new(
-        request.workspace_id,
-        "Workspace",
-        request.workspace_root,
-    );
+    let playbook = get_registered_playbook(&request.playbook_key)
+        .ok_or(RegisteredPlaybookError::UnknownPlaybook)?;
+    let workflow =
+        compile_playbook(&playbook).ok_or(RegisteredPlaybookError::UnsupportedPlaybook)?;
+    let workspace = Workspace::new(request.workspace_id, "Workspace", request.workspace_root);
     let policy = PolicyProfile::new_default(
         format!("policy-{}", request.run_id),
         &workspace.id,
@@ -91,9 +94,16 @@ pub fn prepare_registered_playbook_run(
         playbook.id.clone(),
         request.playbook_version_id,
     );
-    let run = Run::new(request.run_id, &task.id, workflow, policy, workspace, playbook);
-    let contract =
-        artifact_contract(&request.playbook_key).ok_or(RegisteredPlaybookError::UnsupportedPlaybook)?;
+    let run = Run::new(
+        request.run_id,
+        &task.id,
+        workflow,
+        policy,
+        workspace,
+        playbook,
+    );
+    let contract = artifact_contract(&request.playbook_key)
+        .ok_or(RegisteredPlaybookError::UnsupportedPlaybook)?;
 
     Ok(PreparedRegisteredPlaybookRun {
         pending_artifact: PendingArtifactExpectation {
@@ -121,8 +131,12 @@ where
     C: ClockPort,
 {
     match run.playbook_snapshot.key.as_str() {
-        SUMMARY_PLAYBOOK_KEY => execute_standard_summary_playbook(task, run, filesystem, storage, clock),
-        DISCOVER_TOPICS_PLAYBOOK_KEY => execute_discovery_playbook(task, run, filesystem, storage, clock),
+        SUMMARY_PLAYBOOK_KEY => {
+            execute_standard_summary_playbook(task, run, filesystem, storage, clock)
+        }
+        DISCOVER_TOPICS_PLAYBOOK_KEY => {
+            execute_discovery_playbook(task, run, filesystem, storage, clock)
+        }
         other => Err(SummaryPlaybookExecutionError::Routine(format!(
             "unsupported playbook {other}"
         ))),

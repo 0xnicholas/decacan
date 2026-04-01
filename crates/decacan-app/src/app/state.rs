@@ -23,29 +23,32 @@ use decacan_runtime::playbook::execution::{
 };
 use decacan_runtime::playbook::modes::PlaybookMode;
 use decacan_runtime::playbook::publish::{publish_draft, PublishDraftCommand};
-use decacan_runtime::ports::clock::ClockPort;
 use decacan_runtime::playbook::registry::{
     list_registered_playbooks, DISCOVER_TOPICS_PLAYBOOK_KEY, SUMMARY_PLAYBOOK_KEY,
 };
+use decacan_runtime::ports::clock::ClockPort;
 use decacan_runtime::ports::filesystem::FilesystemPort;
 use decacan_runtime::run::entity::Run;
 use decacan_runtime::run::service::{SummaryPlaybookE2eResult, SummaryPlaybookExecutionError};
 use decacan_runtime::task::entity::{Task, TaskStatus};
 use decacan_runtime::workspace::entity::WorkspaceMembership;
 use decacan_runtime::workspace::rbac::WorkspaceRole;
-use decacan_runtime::workspace::service::member_service::{CreateMembershipInput, MemberService, UpdateRoleInput};
+use decacan_runtime::workspace::service::member_service::{
+    CreateMembershipInput, MemberService, UpdateRoleInput,
+};
 use tokio::sync::broadcast;
 
 use crate::dto::{
-    ApprovalDto, ArtifactContentDto, ArtifactDto, CreatePlaybookRequestDto, CreatePlaybookResponseDto,
-    CreateTaskAcceptedResponse, CreateTaskRequest, CreateTeamRequestDto, CreateTeamResponseDto,
-    DraftHealthIssueDto, DraftHealthReportDto, ForkPlaybookResponseDto, ListTeamsResponseDto,
-    PermissionDto, PlaybookDetailDto, PlaybookDraftDto, PlaybookDto, PlaybookHandleDto,
-    PlaybookVersionDto, PublishPlaybookResponseDto, RetryTaskRequest, SavePlaybookDraftResponseDto,
-    StoreEntryDto, TaskAgentMessageDto, TaskCollaborationDto, TaskDetailDto, TaskDto,
-    TaskEventEnvelopeDto, TaskInstructionActionDto, TaskPlanDto, TaskPreviewDto, TaskPreviewRequest,
-    TaskSummaryDto, TeamRoleDto, TeamSpecDto, UpdatePlaybookRequestDto, UpdatePlaybookResponseDto,
-    UpdateTeamRequestDto, UserPermissionsResponseDto, WorkspaceDto, WorkspacePermissionDto,
+    ApprovalDto, ArtifactContentDto, ArtifactDto, CreatePlaybookRequestDto,
+    CreatePlaybookResponseDto, CreateTaskAcceptedResponse, CreateTaskRequest, CreateTeamRequestDto,
+    CreateTeamResponseDto, DraftHealthIssueDto, DraftHealthReportDto, ForkPlaybookResponseDto,
+    ListTeamsResponseDto, PermissionDto, PlaybookDetailDto, PlaybookDraftDto, PlaybookDto,
+    PlaybookHandleDto, PlaybookVersionDto, PublishPlaybookResponseDto, RetryTaskRequest,
+    SavePlaybookDraftResponseDto, StoreEntryDto, TaskAgentMessageDto, TaskCollaborationDto,
+    TaskDetailDto, TaskDto, TaskEventEnvelopeDto, TaskInstructionActionDto, TaskPlanDto,
+    TaskPreviewDto, TaskPreviewRequest, TaskSummaryDto, TeamRoleDto, TeamSpecDto,
+    UpdatePlaybookRequestDto, UpdatePlaybookResponseDto, UpdateTeamRequestDto,
+    UserPermissionsResponseDto, WorkspaceDto, WorkspacePermissionDto,
 };
 
 #[derive(Clone)]
@@ -151,11 +154,21 @@ impl AppState {
     }
 
     pub async fn find_user_by_id(&self, user_id: &str) -> Option<decacan_auth::entities::User> {
-        self.inner.auth_service.find_user_by_id(user_id).await.ok().flatten()
+        self.inner
+            .auth_service
+            .find_user_by_id(user_id)
+            .await
+            .ok()
+            .flatten()
     }
 
     pub async fn find_user_by_email(&self, email: &str) -> Option<decacan_auth::entities::User> {
-        self.inner.auth_service.find_user_by_email(email).await.ok().flatten()
+        self.inner
+            .auth_service
+            .find_user_by_email(email)
+            .await
+            .ok()
+            .flatten()
     }
 
     /// Create a workspace membership for testing purposes
@@ -166,15 +179,17 @@ impl AppState {
         role: decacan_runtime::workspace::rbac::WorkspaceRole,
     ) -> decacan_runtime::workspace::entity::WorkspaceMembership {
         use decacan_runtime::workspace::service::member_service::CreateMembershipInput;
-        
+
         let input = CreateMembershipInput {
             workspace_id,
             user_id,
             role,
             invited_by: None,
         };
-        
-        self.member_service().invite_member(input).expect("Failed to create test membership")
+
+        self.member_service()
+            .invite_member(input)
+            .expect("Failed to create test membership")
     }
 
     async fn new_with_workspace_root(default_workspace_root: PathBuf) -> std::io::Result<Self> {
@@ -189,22 +204,22 @@ impl AppState {
         // 初始化认证服务
         // 检测测试模式：路径包含 "decacan-app-runtime" 或者是 .decacan-local-workspace
         let path_str = default_workspace_root.to_string_lossy();
-        let is_test_mode = path_str.contains("decacan-app-runtime") 
+        let is_test_mode = path_str.contains("decacan-app-runtime")
             || path_str.contains(".decacan-local-workspace");
-        
+
         let db_url = if is_test_mode {
             ":memory:".to_string()
         } else {
             let db_path = default_workspace_root.join("auth.db");
             format!("sqlite:{}", db_path.display())
         };
-        
+
         let storage = Arc::new(
             SqliteUserStorage::new(&db_url)
                 .await
-                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?,
         );
-        
+
         // 生产环境必须设置 JWT_SECRET，否则报错（测试模式使用默认密钥）
         let jwt_secret = if is_test_mode {
             "test-secret-key".to_string()
@@ -212,11 +227,11 @@ impl AppState {
             std::env::var("JWT_SECRET").map_err(|_| {
                 std::io::Error::new(
                     std::io::ErrorKind::InvalidInput,
-                    "JWT_SECRET environment variable must be set for production"
+                    "JWT_SECRET environment variable must be set for production",
                 )
             })?
         };
-        
+
         let auth_service = AuthService::new(storage, jwt_secret);
         let member_service = MemberService::new();
 
@@ -323,7 +338,11 @@ impl AppState {
         Ok(PlaybookDetailDto {
             handle: playbook_handle_to_dto(stored.handle),
             draft: playbook_draft_to_dto(stored.draft),
-            versions: stored.versions.into_iter().map(playbook_version_to_dto).collect(),
+            versions: stored
+                .versions
+                .into_iter()
+                .map(playbook_version_to_dto)
+                .collect(),
         })
     }
 
@@ -430,9 +449,7 @@ output_contract:
   secondary_artifacts: null
   backup_policy: none
 "#,
-            handle.title,
-            request.description,
-            request.mode
+            handle.title, request.description, request.mode
         );
 
         let draft = build_playbook_draft(draft_id, handle_id.clone(), spec_document);
@@ -521,11 +538,7 @@ output_contract:
     }
 
     pub fn list_teams(&self) -> ListTeamsResponseDto {
-        let teams = self
-            .inner
-            .teams
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
+        let teams = self.inner.teams.lock().unwrap_or_else(|e| e.into_inner());
 
         ListTeamsResponseDto {
             teams: teams.values().map(|t| t.spec.clone()).collect(),
@@ -533,11 +546,7 @@ output_contract:
     }
 
     pub fn get_team(&self, team_id: &str) -> Option<TeamSpecDto> {
-        let teams = self
-            .inner
-            .teams
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
+        let teams = self.inner.teams.lock().unwrap_or_else(|e| e.into_inner());
 
         teams.get(team_id).map(|t| t.spec.clone())
     }
@@ -576,11 +585,7 @@ output_contract:
             created_at: created_at.clone(),
         };
 
-        let mut teams = self
-            .inner
-            .teams
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
+        let mut teams = self.inner.teams.lock().unwrap_or_else(|e| e.into_inner());
 
         teams.insert(
             team_id,
@@ -593,22 +598,25 @@ output_contract:
         Ok(CreateTeamResponseDto { team: spec })
     }
 
-    pub fn update_team(&self, team_id: &str, request: UpdateTeamRequestDto) -> Result<TeamSpecDto, String> {
+    pub fn update_team(
+        &self,
+        team_id: &str,
+        request: UpdateTeamRequestDto,
+    ) -> Result<TeamSpecDto, String> {
         // Validate that at least one field is provided
-        if request.name.is_none() 
-            && request.description.is_none() 
-            && request.roles.is_none() 
-            && request.lead_role_id.is_none() {
+        if request.name.is_none()
+            && request.description.is_none()
+            && request.roles.is_none()
+            && request.lead_role_id.is_none()
+        {
             return Err("At least one field must be provided for update".to_string());
         }
 
-        let mut teams = self
-            .inner
-            .teams
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
+        let mut teams = self.inner.teams.lock().unwrap_or_else(|e| e.into_inner());
 
-        let stored = teams.get_mut(team_id).ok_or_else(|| "Team not found".to_string())?;
+        let stored = teams
+            .get_mut(team_id)
+            .ok_or_else(|| "Team not found".to_string())?;
 
         // Update roles first if provided
         if let Some(roles) = request.roles {
@@ -619,7 +627,10 @@ output_contract:
         if let Some(ref lead_role_id) = request.lead_role_id {
             let role_exists = stored.spec.roles.iter().any(|r| &r.id == lead_role_id);
             if !role_exists {
-                return Err(format!("Lead role '{}' does not exist in team roles", lead_role_id));
+                return Err(format!(
+                    "Lead role '{}' does not exist in team roles",
+                    lead_role_id
+                ));
             }
             stored.spec.lead_role_id = lead_role_id.clone();
         }
@@ -635,11 +646,7 @@ output_contract:
     }
 
     pub fn delete_team(&self, team_id: &str) -> Result<(), ()> {
-        let mut teams = self
-            .inner
-            .teams
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
+        let mut teams = self.inner.teams.lock().unwrap_or_else(|e| e.into_inner());
 
         teams.remove(team_id).ok_or(())?;
         Ok(())
@@ -663,17 +670,20 @@ output_contract:
         Ok(UserPermissionsResponseDto {
             user_id: "current-user".to_string(),
             global_permissions: permissions.clone(),
-            workspace_permissions: vec![
-                WorkspacePermissionDto {
-                    workspace_id: "workspace-1".to_string(),
-                    role: "owner".to_string(),
-                    permissions: permissions.clone(),
-                },
-            ],
+            workspace_permissions: vec![WorkspacePermissionDto {
+                workspace_id: "workspace-1".to_string(),
+                role: "owner".to_string(),
+                permissions: permissions.clone(),
+            }],
         })
     }
 
-    pub fn check_permission(&self, workspace_id: Option<&str>, resource: &str, action: &str) -> bool {
+    pub fn check_permission(
+        &self,
+        workspace_id: Option<&str>,
+        resource: &str,
+        action: &str,
+    ) -> bool {
         // For now, always allow if workspace_id is provided
         // In production, check actual membership and permissions
         workspace_id.is_some()
@@ -1003,11 +1013,7 @@ output_contract:
             detail: definition.detail.to_owned(),
         };
 
-        let mut tasks = self
-            .inner
-            .tasks
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
+        let mut tasks = self.inner.tasks.lock().unwrap_or_else(|e| e.into_inner());
         let task = tasks.get_mut(task_id)?;
         task.agent_messages.push(message.clone());
 
@@ -1508,7 +1514,11 @@ fn draft_health_report_to_dto(report: DraftHealthReport) -> DraftHealthReportDto
     DraftHealthReportDto {
         publishable: report.publishable,
         summary: report.summary,
-        issues: report.issues.into_iter().map(draft_health_issue_to_dto).collect(),
+        issues: report
+            .issues
+            .into_iter()
+            .map(draft_health_issue_to_dto)
+            .collect(),
     }
 }
 

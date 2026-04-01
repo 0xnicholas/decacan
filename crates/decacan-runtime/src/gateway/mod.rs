@@ -6,6 +6,8 @@ pub mod routine_adapter;
 mod synthesis_adapter;
 pub mod tool_gateway;
 
-pub use routine_adapter::{ToolGatewayRoutine, ToolGatewayRoutineBuilder, ToolGatewayRoutineRegistry};
+pub use routine_adapter::{
+    ToolGatewayRoutine, ToolGatewayRoutineBuilder, ToolGatewayRoutineRegistry,
+};
 pub use synthesis_adapter::SynthesisGatewayAdapter;
 pub use tool_gateway::ToolGateway;

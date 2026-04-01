@@ -29,10 +29,7 @@ fn draft_save_replaces_the_full_document() {
 
 #[test]
 fn draft_save_recomputes_health_when_document_becomes_valid() {
-    let existing_draft = sample_draft(
-        invalid_spec_document(),
-        DraftValidationState::Blocked,
-    );
+    let existing_draft = sample_draft(invalid_spec_document(), DraftValidationState::Blocked);
     let saved_at = OffsetDateTime::from_unix_timestamp(1_743_300_060)
         .expect("fixture timestamp should be valid");
 
@@ -44,7 +41,10 @@ fn draft_save_recomputes_health_when_document_becomes_valid() {
 
     assert!(result.health_report.publishable);
     assert_eq!(result.health_report.issues.len(), 0);
-    assert_eq!(result.draft.validation_state, DraftValidationState::Validated);
+    assert_eq!(
+        result.draft.validation_state,
+        DraftValidationState::Validated
+    );
     assert_eq!(result.draft.last_validated_at, Some(saved_at));
 }
 
@@ -84,7 +84,10 @@ fn publish_success_creates_immutable_playbook_version() {
         .expect("fixture timestamp should be valid");
 
     let result = publish_draft(PublishDraftCommand {
-        draft: sample_draft(valid_publish_spec_document(), DraftValidationState::Validated),
+        draft: sample_draft(
+            valid_publish_spec_document(),
+            DraftValidationState::Validated,
+        ),
         playbook_version_id: Uuid::parse_str("2f7aebaf-4c0e-4ca2-a1ad-f2dc40610b8c")
             .expect("fixture uuid should be valid"),
         version_number: 2,
@@ -110,7 +113,10 @@ fn publish_failure_returns_structured_issues() {
         .expect("fixture timestamp should be valid");
 
     let result = publish_draft(PublishDraftCommand {
-        draft: sample_draft(invalid_publish_spec_document(), DraftValidationState::Blocked),
+        draft: sample_draft(
+            invalid_publish_spec_document(),
+            DraftValidationState::Blocked,
+        ),
         playbook_version_id: Uuid::parse_str("f83a7bd5-15c3-47cb-8097-4aa0f09f4d22")
             .expect("fixture uuid should be valid"),
         version_number: 1,
@@ -136,7 +142,10 @@ fn publish_failure_creates_no_half_version_object() {
         .expect("fixture timestamp should be valid");
 
     let result = publish_draft(PublishDraftCommand {
-        draft: sample_draft(invalid_publish_spec_document(), DraftValidationState::Blocked),
+        draft: sample_draft(
+            invalid_publish_spec_document(),
+            DraftValidationState::Blocked,
+        ),
         playbook_version_id: Uuid::parse_str("fa9ff8ef-0e1f-4351-b522-d55e5c89ae6f")
             .expect("fixture uuid should be valid"),
         version_number: 5,

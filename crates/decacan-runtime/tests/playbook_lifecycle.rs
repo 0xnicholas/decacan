@@ -1,7 +1,7 @@
 use decacan_runtime::playbook::entity::{
     DraftHealthIssue, DraftHealthIssueDomain, DraftHealthIssueSeverity, DraftHealthReport,
-    DraftValidationState, PlaybookDraft, PlaybookHandle, PlaybookHandleOrigin,
-    PlaybookOwnerScope, PlaybookVersion, StoreEntry,
+    DraftValidationState, PlaybookDraft, PlaybookHandle, PlaybookHandleOrigin, PlaybookOwnerScope,
+    PlaybookVersion, StoreEntry,
 };
 use decacan_runtime::playbook::modes::PlaybookMode;
 use serde_json::{from_str, to_string};
@@ -50,7 +50,10 @@ fn playbook_handle_roundtrips_through_serde_with_basic_fields() {
 
     assert_eq!(decoded.playbook_handle_id, "handle-1");
     assert_eq!(decoded.origin, PlaybookHandleOrigin::OfficialFork);
-    assert_eq!(decoded.source_store_entry_id.as_deref(), Some("store-entry-1"));
+    assert_eq!(
+        decoded.source_store_entry_id.as_deref(),
+        Some("store-entry-1")
+    );
 }
 
 #[test]
@@ -91,8 +94,7 @@ fn playbook_version_roundtrips_through_serde_with_basic_fields() {
     };
 
     let encoded = to_string(&version).expect("playbook version should serialize");
-    let decoded: PlaybookVersion =
-        from_str(&encoded).expect("playbook version should deserialize");
+    let decoded: PlaybookVersion = from_str(&encoded).expect("playbook version should deserialize");
 
     assert_eq!(decoded.playbook_handle_id, "handle-1");
     assert_eq!(decoded.version_number, 3);
@@ -115,13 +117,15 @@ fn draft_health_report_roundtrips_through_serde_with_basic_fields() {
     };
 
     let encoded = to_string(&report).expect("health report should serialize");
-    let decoded: DraftHealthReport =
-        from_str(&encoded).expect("health report should deserialize");
+    let decoded: DraftHealthReport = from_str(&encoded).expect("health report should deserialize");
 
     assert!(!decoded.publishable);
     assert_eq!(decoded.summary, "缺少能力引用");
     assert_eq!(decoded.issues.len(), 1);
-    assert_eq!(decoded.issues[0].domain, DraftHealthIssueDomain::Capabilities);
+    assert_eq!(
+        decoded.issues[0].domain,
+        DraftHealthIssueDomain::Capabilities
+    );
 }
 
 fn sample_health_report() -> DraftHealthReport {

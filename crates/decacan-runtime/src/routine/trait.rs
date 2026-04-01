@@ -5,8 +5,8 @@ use std::sync::{Arc, RwLock};
 use crate::capability::entities::CapabilityRef;
 use crate::playbook::spec::entities::RoutineRef;
 
-use super::contract::{Contract, ValidationError};
 use super::context::RoutineContext;
+use super::contract::{Contract, ValidationError};
 use super::error::RoutineError;
 use serde_json::Value;
 
@@ -28,11 +28,7 @@ pub trait Routine: Send + Sync {
     }
 
     /// Executes the routine with the given context and input
-    async fn execute(
-        &self,
-        ctx: &mut RoutineContext,
-        input: Value,
-    ) -> Result<Value, RoutineError>;
+    async fn execute(&self, ctx: &mut RoutineContext, input: Value) -> Result<Value, RoutineError>;
 
     /// Returns the capability this routine provides (if any)
     ///
@@ -63,7 +59,11 @@ pub struct RoutineType {
 }
 
 impl RoutineType {
-    pub fn new(class: impl Into<String>, name: impl Into<String>, version: impl Into<String>) -> Self {
+    pub fn new(
+        class: impl Into<String>,
+        name: impl Into<String>,
+        version: impl Into<String>,
+    ) -> Self {
         Self {
             capability_class: class.into(),
             name: name.into(),
@@ -83,7 +83,11 @@ impl RoutineType {
 
 impl std::fmt::Display for RoutineType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}:{}@{}", self.capability_class, self.name, self.version)
+        write!(
+            f,
+            "{}:{}@{}",
+            self.capability_class, self.name, self.version
+        )
     }
 }
 
@@ -174,12 +178,12 @@ mod tests {
     fn test_registry_register_and_get() {
         let registry = RoutineRegistry::new();
         let routine = Arc::new(TestRoutine);
-        
+
         registry.register(routine.clone());
-        
+
         let routine_type = RoutineType::new("test", "noop", "1.0.0");
         let retrieved = registry.get(&routine_type);
-        
+
         assert!(retrieved.is_some());
         assert_eq!(retrieved.unwrap().routine_type(), routine_type);
     }
@@ -188,15 +192,15 @@ mod tests {
     fn test_registry_get_by_ref() {
         let registry = RoutineRegistry::new();
         let routine = Arc::new(TestRoutine);
-        
+
         registry.register(routine);
-        
+
         let routine_ref = RoutineRef {
             capability_class: "test".to_string(),
             name: "noop".to_string(),
             version: "1.0.0".to_string(),
         };
-        
+
         let retrieved = registry.get_by_ref(&routine_ref);
         assert!(retrieved.is_some());
     }
@@ -205,9 +209,9 @@ mod tests {
     fn test_registry_list_available() {
         let registry = RoutineRegistry::new();
         let routine = Arc::new(TestRoutine);
-        
+
         registry.register(routine);
-        
+
         let available = registry.list_available();
         assert_eq!(available.len(), 1);
         assert_eq!(available[0].name, "noop");
@@ -217,12 +221,12 @@ mod tests {
     fn test_registry_contains() {
         let registry = RoutineRegistry::new();
         let routine = Arc::new(TestRoutine);
-        
+
         registry.register(routine);
-        
+
         let existing = RoutineType::new("test", "noop", "1.0.0");
         let missing = RoutineType::new("test", "missing", "1.0.0");
-        
+
         assert!(registry.contains(&existing));
         assert!(!registry.contains(&missing));
     }

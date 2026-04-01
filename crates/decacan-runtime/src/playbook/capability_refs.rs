@@ -1,6 +1,4 @@
-use super::entity::{
-    DraftHealthIssue, DraftHealthIssueDomain, DraftHealthIssueSeverity,
-};
+use super::entity::{DraftHealthIssue, DraftHealthIssueDomain, DraftHealthIssueSeverity};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CapabilityRefUse {
@@ -47,7 +45,10 @@ fn declared_capability_refs(spec_document: &str) -> Vec<CapabilityRefUse> {
 
     for line in spec_document.lines() {
         let trimmed = line.trim();
-        let indent = line.chars().take_while(|character| *character == ' ').count();
+        let indent = line
+            .chars()
+            .take_while(|character| *character == ' ')
+            .count();
 
         if !in_capability_refs {
             if trimmed == "capability_refs:" {

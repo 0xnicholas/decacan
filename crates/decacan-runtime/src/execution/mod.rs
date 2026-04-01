@@ -163,8 +163,8 @@ impl WorkflowExecutor {
                         }
                         ErrorAction::Continue => {
                             // Apply fallback strategy
-                            let fallback_output = self
-                                .apply_fallback(step, execution_error, &step_outputs)?;
+                            let fallback_output =
+                                self.apply_fallback(step, execution_error, &step_outputs)?;
 
                             step_outputs.insert(step.id.clone(), fallback_output.clone());
                             state.step_history.push(StepExecution {
@@ -234,7 +234,9 @@ impl WorkflowExecutor {
             {
                 Ok(Ok(output)) => {
                     // Validate output against contract (always strict for output)
-                    if let Err(errors) = validator.validate_output(routine.output_contract(), &output) {
+                    if let Err(errors) =
+                        validator.validate_output(routine.output_contract(), &output)
+                    {
                         return Err(ExecutionError::OutputValidation {
                             step_id: step.id.clone(),
                             errors,
@@ -246,10 +248,7 @@ impl WorkflowExecutor {
                     last_error = Some(e);
                     if attempt < max_attempts {
                         // Calculate backoff delay
-                        let delay = Self::calculate_backoff(
-                            attempt,
-                            step.retry_policy.as_ref(),
-                        );
+                        let delay = Self::calculate_backoff(attempt, step.retry_policy.as_ref());
                         tokio::time::sleep(delay).await;
                     }
                 }
@@ -271,10 +270,11 @@ impl WorkflowExecutor {
     }
 
     /// Calculate backoff delay based on retry policy
-    fn calculate_backoff(attempt: u32, policy: Option<&crate::playbook::spec::entities::RetryPolicy>) -> Duration {
-        let base_delay = policy
-            .map(|p| p.initial_delay_ms)
-            .unwrap_or(1000);
+    fn calculate_backoff(
+        attempt: u32,
+        policy: Option<&crate::playbook::spec::entities::RetryPolicy>,
+    ) -> Duration {
+        let base_delay = policy.map(|p| p.initial_delay_ms).unwrap_or(1000);
 
         match policy.map(|p| p.backoff_strategy) {
             Some(crate::playbook::spec::entities::BackoffStrategy::Fixed) => {
@@ -323,7 +323,8 @@ impl WorkflowExecutor {
                     } else {
                         Err(ExecutionError::FallbackNotImplemented {
                             step_id: step.id.clone(),
-                            reason: "ExecuteAlternate requires alternate_step_id to be set".to_string(),
+                            reason: "ExecuteAlternate requires alternate_step_id to be set"
+                                .to_string(),
                         })
                     }
                 }
@@ -489,10 +490,9 @@ impl WorkflowExecutor {
         };
 
         // Try numeric comparison first
-        if let (Some(field_num), Ok(compare_num)) = (
-            field_val.as_f64(),
-            compare_value.parse::<f64>(),
-        ) {
+        if let (Some(field_num), Ok(compare_num)) =
+            (field_val.as_f64(), compare_value.parse::<f64>())
+        {
             return match op {
                 "==" => (field_num - compare_num).abs() < f64::EPSILON,
                 "!=" => (field_num - compare_num).abs() >= f64::EPSILON,
@@ -581,7 +581,10 @@ pub enum ExecutionError {
     },
 
     #[error("routine execution failed for step {step_id}: {error}")]
-    RoutineExecution { step_id: String, error: RoutineError },
+    RoutineExecution {
+        step_id: String,
+        error: RoutineError,
+    },
 
     #[error("timeout after {timeout_secs}s in step {step_id}")]
     Timeout { step_id: String, timeout_secs: u32 },
@@ -595,7 +598,9 @@ pub enum ExecutionError {
     #[error("fallback not implemented for step {step_id}: {reason}")]
     FallbackNotImplemented { step_id: String, reason: String },
 
-    #[error("capability resolution failed for step {step_id}: capability '{capability_id}' - {error}")]
+    #[error(
+        "capability resolution failed for step {step_id}: capability '{capability_id}' - {error}"
+    )]
     CapabilityResolution {
         step_id: String,
         capability_id: String,
@@ -609,9 +614,9 @@ pub enum ExecutionError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::playbook::spec::entities::*;
     use crate::routine::builtin::create_builtin_registry;
     use crate::workflow::compiler::WorkflowCompiler;
-    use crate::playbook::spec::entities::*;
 
     fn create_simple_workflow() -> CompiledWorkflow {
         let spec = PlaybookSpec {
@@ -639,7 +644,9 @@ mod tests {
                         output_mapping: HashMap::new(),
                         retry_policy: None,
                         timeout_seconds: None,
-                        transition: Transition::Next { step_id: "step2".to_string() },
+                        transition: Transition::Next {
+                            step_id: "step2".to_string(),
+                        },
                     },
                     StepDefinition {
                         id: "step2".to_string(),
@@ -722,9 +729,18 @@ mod tests {
             "count": 5
         });
 
-        assert!(WorkflowExecutor::evaluate_condition("output.count > 0", &output));
-        assert!(WorkflowExecutor::evaluate_condition("output.count == 5", &output));
-        assert!(!WorkflowExecutor::evaluate_condition("output.count < 3", &output));
+        assert!(WorkflowExecutor::evaluate_condition(
+            "output.count > 0",
+            &output
+        ));
+        assert!(WorkflowExecutor::evaluate_condition(
+            "output.count == 5",
+            &output
+        ));
+        assert!(!WorkflowExecutor::evaluate_condition(
+            "output.count < 3",
+            &output
+        ));
     }
 
     #[test]
@@ -733,8 +749,17 @@ mod tests {
             "topics": ["a", "b", "c"],
         });
 
-        assert!(WorkflowExecutor::evaluate_condition("output.topics.length > 0", &output));
-        assert!(WorkflowExecutor::evaluate_condition("output.topics.length == 3", &output));
-        assert!(!WorkflowExecutor::evaluate_condition("output.topics.length > 5", &output));
+        assert!(WorkflowExecutor::evaluate_condition(
+            "output.topics.length > 0",
+            &output
+        ));
+        assert!(WorkflowExecutor::evaluate_condition(
+            "output.topics.length == 3",
+            &output
+        ));
+        assert!(!WorkflowExecutor::evaluate_condition(
+            "output.topics.length > 5",
+            &output
+        ));
     }
 }

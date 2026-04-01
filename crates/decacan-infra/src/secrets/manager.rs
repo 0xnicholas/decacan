@@ -34,10 +34,7 @@ impl SecretsManager {
         self.sources.push(source);
     }
 
-    async fn get_from_sources(
-        &self,
-        key: &str,
-    ) -> Result<Option<String>, SecretsError> {
+    async fn get_from_sources(&self, key: &str) -> Result<Option<String>, SecretsError> {
         // 1. 首先检查缓存
         {
             let cache = self.cache.read().await;

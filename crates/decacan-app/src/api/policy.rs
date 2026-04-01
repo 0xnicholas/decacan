@@ -47,7 +47,11 @@ async fn check_permission(
 
     Json(CheckPermissionResponseDto {
         allowed,
-        reason: if allowed { None } else { Some("Permission denied".to_string()) },
+        reason: if allowed {
+            None
+        } else {
+            Some("Permission denied".to_string())
+        },
     })
 }
 
@@ -77,8 +81,5 @@ async fn get_role_permissions(
         vec![]
     };
 
-    Ok(Json(RolePermissionsResponseDto {
-        role,
-        permissions,
-    }))
+    Ok(Json(RolePermissionsResponseDto { role, permissions }))
 }

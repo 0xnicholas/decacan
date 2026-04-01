@@ -1,6 +1,6 @@
+use crate::config::PostgresConfig;
 use async_trait::async_trait;
 use decacan_runtime::ports::storage::StoragePort;
-use crate::config::PostgresConfig;
 use sqlx::{Pool, Postgres, Row};
 use std::error::Error;
 use std::fmt;
@@ -57,11 +57,10 @@ impl PostgresStorage {
         Ok(storage)
     }
 
-    async fn run_migrations(&self,
-    ) -> Result<(), PostgresStorageError> {
+    async fn run_migrations(&self) -> Result<(), PostgresStorageError> {
         // 手动运行迁移（不使用 sqlx migrate）
         let migration_sql = include_str!("../../migrations/001_init.sql");
-        
+
         sqlx::query(migration_sql)
             .execute(&self.pool)
             .await
@@ -71,14 +70,12 @@ impl PostgresStorage {
     }
 
     /// 删除键（主要用于测试清理）
-    pub async fn delete(&self,
-        key: &str,
-    ) -> Result<(), PostgresStorageError> {
+    pub async fn delete(&self, key: &str) -> Result<(), PostgresStorageError> {
         sqlx::query("DELETE FROM storage_kv WHERE key = $1")
             .bind(key)
             .execute(&self.pool)
             .await?;
-        
+
         Ok(())
     }
 }
@@ -87,17 +84,14 @@ impl PostgresStorage {
 impl StoragePort for PostgresStorage {
     type Error = PostgresStorageError;
 
-    async fn put(&self,
-        key: &str,
-        value: &str,
-    ) -> Result<(), Self::Error> {
+    async fn put(&self, key: &str, value: &str) -> Result<(), Self::Error> {
         sqlx::query(
             r#"
             INSERT INTO storage_kv (key, value, updated_at)
             VALUES ($1, $2, CURRENT_TIMESTAMP)
             ON CONFLICT (key)
             DO UPDATE SET value = $2, updated_at = CURRENT_TIMESTAMP
-            "#
+            "#,
         )
         .bind(key)
         .bind(value)
@@ -107,9 +101,7 @@ impl StoragePort for PostgresStorage {
         Ok(())
     }
 
-    async fn get(&self,
-        key: &str,
-    ) -> Result<Option<String>, Self::Error> {
+    async fn get(&self, key: &str) -> Result<Option<String>, Self::Error> {
         let row = sqlx::query("SELECT value FROM storage_kv WHERE key = $1")
             .bind(key)
             .fetch_optional(&self.pool)

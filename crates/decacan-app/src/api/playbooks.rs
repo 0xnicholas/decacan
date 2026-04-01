@@ -18,10 +18,15 @@ pub(super) fn router() -> Router<AppState> {
         .route("/api/playbooks/fork", axum::routing::post(fork_playbook))
         .route(
             "/api/playbooks/:handle_id",
-            get(get_playbook).put(update_playbook).delete(delete_playbook),
+            get(get_playbook)
+                .put(update_playbook)
+                .delete(delete_playbook),
         )
         .route("/api/playbooks/:handle_id/draft", put(save_playbook_draft))
-        .route("/api/playbooks/:handle_id/publish", axum::routing::post(publish_playbook))
+        .route(
+            "/api/playbooks/:handle_id/publish",
+            axum::routing::post(publish_playbook),
+        )
 }
 
 async fn list_playbooks(State(state): State<AppState>) -> Json<Vec<PlaybookDto>> {

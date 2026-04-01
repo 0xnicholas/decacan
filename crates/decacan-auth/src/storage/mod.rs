@@ -1,9 +1,9 @@
 pub mod sqlite;
 pub use sqlite::SqliteUserStorage;
 
-use async_trait::async_trait;
 use crate::entities::*;
 use crate::error::AuthResult;
+use async_trait::async_trait;
 use decacan_runtime::workspace::entity::WorkspaceMembership;
 use decacan_runtime::workspace::rbac::WorkspaceRole;
 
@@ -15,9 +15,7 @@ pub trait UserStorage: Send + Sync {
     async fn update_last_login(&self, id: &str) -> AuthResult<()>;
 
     async fn create_session(&self, session: &AuthSession) -> AuthResult<()>;
-    async fn find_session_by_refresh_token(
-        &self, token: &str
-    ) -> AuthResult<Option<AuthSession>>;
+    async fn find_session_by_refresh_token(&self, token: &str) -> AuthResult<Option<AuthSession>>;
     async fn revoke_session(&self, id: &str) -> AuthResult<()>;
     async fn revoke_all_user_sessions(&self, user_id: &str) -> AuthResult<()>;
     async fn cleanup_expired_sessions(&self) -> AuthResult<u64>;
@@ -27,10 +25,7 @@ pub trait UserStorage: Send + Sync {
     async fn delete_oauth_state(&self, state: &str) -> AuthResult<()>;
 
     /// Create membership relationship
-    async fn create_membership(
-        &self,
-        membership: &WorkspaceMembership,
-    ) -> AuthResult<()>;
+    async fn create_membership(&self, membership: &WorkspaceMembership) -> AuthResult<()>;
 
     /// Find membership by workspace_id and user_id
     async fn find_membership(
@@ -53,8 +48,5 @@ pub trait UserStorage: Send + Sync {
     ) -> AuthResult<()>;
 
     /// Delete membership
-    async fn delete_membership(
-        &self,
-        membership_id: &str,
-    ) -> AuthResult<()>;
+    async fn delete_membership(&self, membership_id: &str) -> AuthResult<()>;
 }

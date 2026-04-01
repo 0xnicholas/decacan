@@ -1,0 +1,115 @@
+use super::anthropic::AnthropicProvider;
+use super::config::{ModelRouterConfig, ProviderConfig};
+use super::openai::OpenAiProvider;
+use super::provider::{ModelProvider, ProviderError};
+use super::types::{ModelRequest, ModelResponse};
+use decacan_runtime::ports::model::ModelPort;
+use std::collections::HashMap;
+use thiserror::Error;
+
+pub struct ModelRouter {
+    providers: HashMap<String, Box<dyn ModelProvider>>,
+    default_provider: String,
+    fallback_chain: Vec<String>,
+}
+
+#[derive(Debug, Error, Clone, PartialEq, Eq)]
+pub enum RouterError {
+    #[error("Provider not found: {0}")]
+    ProviderNotFound(String),
+    #[error("No providers available")]
+    NoProviders,
+    #[error("Provider error: {0}")]
+    ProviderError(String),
+}
+
+impl From<ProviderError> for RouterError {
+    fn from(err: ProviderError) -> Self {
+        RouterError::ProviderError(err.to_string())
+    }
+}
+
+impl ModelRouter {
+    pub fn new(config: ModelRouterConfig) -> Result<Self, RouterError> {
+        let mut providers: HashMap<String, Box<dyn ModelProvider>> = HashMap::new();
+
+        // 初始化配置的提供商
+        for (name, provider_config) in config.providers {
+            let provider: Box<dyn ModelProvider> = match name.as_str() {
+                "openai" => Box::new(OpenAiProvider::new(provider_config)),
+                "anthropic" => Box::new(AnthropicProvider::new(provider_config)),
+                _ => continue, // 未知提供商，跳过
+            };
+            providers.insert(name, provider);
+        }
+
+        if providers.is_empty() {
+            return Err(RouterError::NoProviders);
+        }
+
+        Ok(Self {
+            providers,
+            default_provider: config.default_provider,
+            fallback_chain: config.fallback_chain,
+        })
+    }
+
+    fn get_provider(&self, name: &str) -> Result<&Box<dyn ModelProvider>, RouterError> {
+        self.providers
+            .get(name)
+            .ok_or_else(|| RouterError::ProviderNotFound(name.to_string()))
+    }
+
+    async fn try_with_fallback(&self, request: ModelRequest) -> Result<ModelResponse, RouterError> {
+        // 按 fallback 链顺序尝试
+        for provider_name in &self.fallback_chain {
+            if let Ok(provider) = self.get_provider(provider_name) {
+                match provider.complete(request.clone()).await {
+                    Ok(response) => return Ok(response),
+                    Err(ProviderError::RateLimitError(_)) | Err(ProviderError::TimeoutError(_)) => {
+                        // 可恢复错误，继续 fallback
+                        continue;
+                    }
+                    Err(e) => return Err(e.into()),
+                }
+            }
+        }
+
+        Err(RouterError::ProviderError(
+            "All providers failed".to_string(),
+        ))
+    }
+}
+
+#[async_trait::async_trait]
+impl ModelPort for ModelRouter {
+    type Error = RouterError;
+
+    async fn complete(&self, prompt: &str) -> Result<String, Self::Error> {
+        let request = ModelRequest::new(&self.default_provider, prompt);
+
+        let response = self.try_with_fallback(request).await?;
+        Ok(response.content)
+    }
+}
+
+impl ModelRouter {
+    /// 使用特定模型执行请求
+    pub async fn complete_with_model(
+        &self,
+        model: &str,
+        prompt: &str,
+    ) -> Result<String, RouterError> {
+        let request = ModelRequest::new(model, prompt);
+        let response = self.try_with_fallback(request).await?;
+        Ok(response.content)
+    }
+
+    /// 使用完整请求对象
+    pub async fn complete_request(
+        &self,
+        request: ModelRequest,
+    ) -> Result<ModelResponse, RouterError> {
+        self.try_with_fallback(request).await
+    }
+}

@@ -21,8 +21,7 @@ pub fn get_registered_playbook(key: &str) -> Option<Playbook> {
 }
 
 pub fn get_registered_summary_playbook_for_test() -> Playbook {
-    get_registered_playbook(SUMMARY_PLAYBOOK_KEY)
-        .expect("summary playbook should be registered")
+    get_registered_playbook(SUMMARY_PLAYBOOK_KEY).expect("summary playbook should be registered")
 }
 
 pub fn get_registered_discovery_playbook_for_test() -> Playbook {

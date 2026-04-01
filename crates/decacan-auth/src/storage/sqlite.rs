@@ -2,9 +2,9 @@ use async_trait::async_trait;
 use sqlx::sqlite::SqlitePool;
 use time::OffsetDateTime;
 
+use super::UserStorage;
 use crate::entities::*;
 use crate::error::{AuthError, AuthResult};
-use super::UserStorage;
 use decacan_runtime::workspace::entity::WorkspaceMembership;
 use decacan_runtime::workspace::rbac::WorkspaceRole;
 
@@ -17,12 +17,12 @@ impl SqliteUserStorage {
         let pool = SqlitePool::connect(database_url)
             .await
             .map_err(|e| AuthError::Storage(e.to_string()))?;
-        
+
         Self::migrate(&pool).await?;
-        
+
         Ok(Self { pool })
     }
-    
+
     async fn migrate(pool: &SqlitePool) -> AuthResult<()> {
         sqlx::query(
             r#"
@@ -39,12 +39,12 @@ impl SqliteUserStorage {
                 created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 last_login_at TIMESTAMP
             )
-            "#
+            "#,
         )
         .execute(pool)
         .await
         .map_err(|e| AuthError::Storage(e.to_string()))?;
-        
+
         sqlx::query(
             r#"
             CREATE TABLE IF NOT EXISTS auth_sessions (
@@ -58,12 +58,12 @@ impl SqliteUserStorage {
                 ip_address TEXT,
                 user_agent TEXT
             )
-            "#
+            "#,
         )
         .execute(pool)
         .await
         .map_err(|e| AuthError::Storage(e.to_string()))?;
-        
+
         sqlx::query(
             r#"
             CREATE TABLE IF NOT EXISTS oauth_states (
@@ -73,7 +73,7 @@ impl SqliteUserStorage {
                 created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 expires_at TIMESTAMP NOT NULL
             )
-            "#
+            "#,
         )
         .execute(pool)
         .await
@@ -92,7 +92,7 @@ impl SqliteUserStorage {
                 expires_at TIMESTAMP,
                 UNIQUE(workspace_id, user_id)
             )
-            "#
+            "#,
         )
         .execute(pool)
         .await
@@ -106,7 +106,7 @@ impl SqliteUserStorage {
         .map_err(|e| AuthError::Storage(e.to_string()))?;
 
         sqlx::query(
-            r#"CREATE INDEX IF NOT EXISTS idx_memberships_user ON workspace_memberships(user_id)"#
+            r#"CREATE INDEX IF NOT EXISTS idx_memberships_user ON workspace_memberships(user_id)"#,
         )
         .execute(pool)
         .await
@@ -125,7 +125,7 @@ impl UserStorage for SqliteUserStorage {
                                auth_provider_id, password_hash, email_verified_at,
                                created_at, last_login_at)
             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
-            "#
+            "#,
         )
         .bind(&user.id)
         .bind(&user.email)
@@ -149,34 +149,30 @@ impl UserStorage for SqliteUserStorage {
             }
             AuthError::Storage(e.to_string())
         })?;
-        
+
         Ok(())
     }
-    
+
     async fn find_user_by_id(&self, id: &str) -> AuthResult<Option<User>> {
-        let row = sqlx::query_as::<_, UserRow>(
-            "SELECT * FROM users WHERE id = ?1"
-        )
-        .bind(id)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| AuthError::Storage(e.to_string()))?;
-        
+        let row = sqlx::query_as::<_, UserRow>("SELECT * FROM users WHERE id = ?1")
+            .bind(id)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| AuthError::Storage(e.to_string()))?;
+
         Ok(row.map(|r| r.into()))
     }
-    
+
     async fn find_user_by_email(&self, email: &str) -> AuthResult<Option<User>> {
-        let row = sqlx::query_as::<_, UserRow>(
-            "SELECT * FROM users WHERE email = ?1"
-        )
-        .bind(email)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| AuthError::Storage(e.to_string()))?;
-        
+        let row = sqlx::query_as::<_, UserRow>("SELECT * FROM users WHERE email = ?1")
+            .bind(email)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| AuthError::Storage(e.to_string()))?;
+
         Ok(row.map(|r| r.into()))
     }
-    
+
     async fn update_last_login(&self, id: &str) -> AuthResult<()> {
         sqlx::query("UPDATE users SET last_login_at = ?2 WHERE id = ?1")
             .bind(id)
@@ -184,10 +180,10 @@ impl UserStorage for SqliteUserStorage {
             .execute(&self.pool)
             .await
             .map_err(|e| AuthError::Storage(e.to_string()))?;
-        
+
         Ok(())
     }
-    
+
     async fn create_session(&self, session: &AuthSession) -> AuthResult<()> {
         sqlx::query(
             r#"
@@ -195,7 +191,7 @@ impl UserStorage for SqliteUserStorage {
                 (id, user_id, access_token, refresh_token, expires_at,
                  created_at, last_used_at, ip_address, user_agent)
             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
-            "#
+            "#,
         )
         .bind(&session.id)
         .bind(&session.user_id)
@@ -209,24 +205,21 @@ impl UserStorage for SqliteUserStorage {
         .execute(&self.pool)
         .await
         .map_err(|e| AuthError::Storage(e.to_string()))?;
-        
+
         Ok(())
     }
-    
-    async fn find_session_by_refresh_token(
-        &self, token: &str
-    ) -> AuthResult<Option<AuthSession>> {
-        let row = sqlx::query_as::<_, SessionRow>(
-            "SELECT * FROM auth_sessions WHERE refresh_token = ?1"
-        )
-        .bind(token)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| AuthError::Storage(e.to_string()))?;
-        
+
+    async fn find_session_by_refresh_token(&self, token: &str) -> AuthResult<Option<AuthSession>> {
+        let row =
+            sqlx::query_as::<_, SessionRow>("SELECT * FROM auth_sessions WHERE refresh_token = ?1")
+                .bind(token)
+                .fetch_optional(&self.pool)
+                .await
+                .map_err(|e| AuthError::Storage(e.to_string()))?;
+
         Ok(row.map(|r| r.into()))
     }
-    
+
     async fn revoke_session(&self, id: &str) -> AuthResult<()> {
         sqlx::query("DELETE FROM auth_sessions WHERE id = ?1")
             .bind(id)
@@ -260,25 +253,22 @@ impl UserStorage for SqliteUserStorage {
     async fn create_oauth_state(&self, _state: &OAuthState) -> AuthResult<()> {
         todo!("OAuth state storage not yet implemented")
     }
-    
+
     async fn find_oauth_state(&self, _state: &str) -> AuthResult<Option<OAuthState>> {
         Ok(None)
     }
-    
+
     async fn delete_oauth_state(&self, _state: &str) -> AuthResult<()> {
         Ok(())
     }
 
-    async fn create_membership(
-        &self,
-        membership: &WorkspaceMembership,
-    ) -> AuthResult<()> {
+    async fn create_membership(&self, membership: &WorkspaceMembership) -> AuthResult<()> {
         sqlx::query(
             r#"
             INSERT INTO workspace_memberships
                 (id, workspace_id, user_id, role, invited_by, invited_at, joined_at, expires_at)
             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
-            "#
+            "#,
         )
         .bind(&membership.id)
         .bind(&membership.workspace_id)
@@ -308,7 +298,7 @@ impl UserStorage for SqliteUserStorage {
         user_id: &str,
     ) -> AuthResult<Option<WorkspaceMembership>> {
         let row = sqlx::query_as::<_, MembershipRow>(
-            "SELECT * FROM workspace_memberships WHERE workspace_id = ?1 AND user_id = ?2"
+            "SELECT * FROM workspace_memberships WHERE workspace_id = ?1 AND user_id = ?2",
         )
         .bind(workspace_id)
         .bind(user_id)
@@ -323,23 +313,20 @@ impl UserStorage for SqliteUserStorage {
         &self,
         workspace_id: &str,
     ) -> AuthResult<Vec<(WorkspaceMembership, User)>> {
-        let membership_rows: Vec<MembershipRow> = sqlx::query_as(
-            r#"SELECT * FROM workspace_memberships WHERE workspace_id = ?1"#
-        )
-        .bind(workspace_id)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|e| AuthError::Storage(e.to_string()))?;
+        let membership_rows: Vec<MembershipRow> =
+            sqlx::query_as(r#"SELECT * FROM workspace_memberships WHERE workspace_id = ?1"#)
+                .bind(workspace_id)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(|e| AuthError::Storage(e.to_string()))?;
 
         let mut results = Vec::with_capacity(membership_rows.len());
         for m_row in membership_rows {
-            let user_row: Option<UserRow> = sqlx::query_as(
-                r#"SELECT * FROM users WHERE id = ?1"#
-            )
-            .bind(&m_row.user_id)
-            .fetch_optional(&self.pool)
-            .await
-            .map_err(|e| AuthError::Storage(e.to_string()))?;
+            let user_row: Option<UserRow> = sqlx::query_as(r#"SELECT * FROM users WHERE id = ?1"#)
+                .bind(&m_row.user_id)
+                .fetch_optional(&self.pool)
+                .await
+                .map_err(|e| AuthError::Storage(e.to_string()))?;
 
             if let Some(user_row) = user_row {
                 results.push((m_row.into(), user_row.into()));
@@ -354,14 +341,12 @@ impl UserStorage for SqliteUserStorage {
         membership_id: &str,
         role: WorkspaceRole,
     ) -> AuthResult<()> {
-        let result = sqlx::query(
-            "UPDATE workspace_memberships SET role = ?2 WHERE id = ?1"
-        )
-        .bind(membership_id)
-        .bind(role.as_str())
-        .execute(&self.pool)
-        .await
-        .map_err(|e| AuthError::Storage(e.to_string()))?;
+        let result = sqlx::query("UPDATE workspace_memberships SET role = ?2 WHERE id = ?1")
+            .bind(membership_id)
+            .bind(role.as_str())
+            .execute(&self.pool)
+            .await
+            .map_err(|e| AuthError::Storage(e.to_string()))?;
 
         if result.rows_affected() == 0 {
             return Err(AuthError::Storage("Membership not found".to_string()));
@@ -370,10 +355,7 @@ impl UserStorage for SqliteUserStorage {
         Ok(())
     }
 
-    async fn delete_membership(
-        &self,
-        membership_id: &str,
-    ) -> AuthResult<()> {
+    async fn delete_membership(&self, membership_id: &str) -> AuthResult<()> {
         sqlx::query("DELETE FROM workspace_memberships WHERE id = ?1")
             .bind(membership_id)
             .execute(&self.pool)

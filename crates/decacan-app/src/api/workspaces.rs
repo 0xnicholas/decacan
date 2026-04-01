@@ -11,7 +11,10 @@ use super::workspace_home_builder::build_workspace_home_stub;
 pub(super) fn router() -> Router<AppState> {
     Router::new()
         .route("/api/workspaces", get(list_workspaces))
-        .route("/api/workspaces/:workspace_id/home", get(get_workspace_home))
+        .route(
+            "/api/workspaces/:workspace_id/home",
+            get(get_workspace_home),
+        )
 }
 
 async fn list_workspaces(State(state): State<AppState>) -> Json<Vec<WorkspaceDto>> {
@@ -22,7 +25,11 @@ async fn get_workspace_home(
     State(state): State<AppState>,
     Path(workspace_id): Path<String>,
 ) -> Result<Json<WorkspaceHomeDto>, StatusCode> {
-    if !state.workspaces().iter().any(|workspace| workspace.id == workspace_id) {
+    if !state
+        .workspaces()
+        .iter()
+        .any(|workspace| workspace.id == workspace_id)
+    {
         return Err(StatusCode::NOT_FOUND);
     }
 

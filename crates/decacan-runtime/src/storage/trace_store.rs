@@ -23,21 +23,19 @@ impl TraceStore {
             .max_connections(5)
             .connect("sqlite::memory:")
             .await?;
-        
+
         let store = Self { pool };
         store.run_migrations().await?;
         Ok(store)
     }
 
-    pub async fn new_with_path<P: AsRef<std::path::Path>>(
-        path: P,
-    ) -> Result<Self> {
+    pub async fn new_with_path<P: AsRef<std::path::Path>>(path: P) -> Result<Self> {
         let url = format!("sqlite:{}", path.as_ref().display());
         let pool = SqlitePoolOptions::new()
             .max_connections(5)
             .connect(&url)
             .await?;
-        
+
         let store = Self { pool };
         store.run_migrations().await?;
         Ok(store)
@@ -81,16 +79,12 @@ impl TraceStore {
         Ok(())
     }
 
-    pub async fn get_trace(
-        &self,
-        task_id: &str,
-    ) -> Result<Option<TaskExecutionTrace>> {
-        let row: Option<(String,)> = sqlx::query_as(
-            "SELECT trace_data FROM task_traces WHERE task_id = $1"
-        )
-        .bind(task_id)
-        .fetch_optional(&self.pool)
-        .await?;
+    pub async fn get_trace(&self, task_id: &str) -> Result<Option<TaskExecutionTrace>> {
+        let row: Option<(String,)> =
+            sqlx::query_as("SELECT trace_data FROM task_traces WHERE task_id = $1")
+                .bind(task_id)
+                .fetch_optional(&self.pool)
+                .await?;
 
         match row {
             Some((json,)) => {

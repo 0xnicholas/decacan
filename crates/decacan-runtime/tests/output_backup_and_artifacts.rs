@@ -65,7 +65,9 @@ fn overwriting_summary_creates_backup_and_registers_primary_and_backup_artifacts
         summary_path.to_string_lossy().to_string()
     );
 
-    let backup_artifact = result.backup_artifact.expect("backup artifact should exist");
+    let backup_artifact = result
+        .backup_artifact
+        .expect("backup artifact should exist");
     assert_eq!(backup_artifact.kind, ArtifactKind::Derived);
     assert_eq!(backup_artifact.r#type, ArtifactType::Summary);
     let backup_file_name = Path::new(&backup_artifact.physical_path)
@@ -77,7 +79,9 @@ fn overwriting_summary_creates_backup_and_registers_primary_and_backup_artifacts
     assert!(backup_file_name.ends_with(".md"));
     assert_eq!(
         PathBuf::from(&backup_artifact.physical_path),
-        workspace_root.join("output/backups").join(&backup_file_name)
+        workspace_root
+            .join("output/backups")
+            .join(&backup_file_name)
     );
 
     assert_eq!(result.relations.len(), 1);

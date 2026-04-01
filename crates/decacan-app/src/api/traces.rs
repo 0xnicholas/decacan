@@ -12,7 +12,10 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/api/tasks/:task_id/trace", get(get_task_trace))
         .route("/api/tasks/:task_id/attribution", get(get_task_attribution))
-        .route("/api/playbooks/:handle_id/versions/:version_id/stats", get(get_version_stats))
+        .route(
+            "/api/playbooks/:handle_id/versions/:version_id/stats",
+            get(get_version_stats),
+        )
 }
 
 async fn get_task_trace(

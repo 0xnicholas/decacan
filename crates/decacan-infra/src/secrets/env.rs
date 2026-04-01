@@ -24,8 +24,7 @@ impl EnvSecretsSource {
 
     pub fn load_dotenv_at(path: Option<&Path>) -> Result<(), SecretsError> {
         match path {
-            Some(p) => dotenvy::from_path(p)
-                .map_err(|e| SecretsError::LoadError(e.to_string())),
+            Some(p) => dotenvy::from_path(p).map_err(|e| SecretsError::LoadError(e.to_string())),
             None => dotenvy::dotenv()
                 .map(|_| ())
                 .map_err(|e| SecretsError::LoadError(e.to_string())),

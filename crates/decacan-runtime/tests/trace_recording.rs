@@ -47,7 +47,11 @@ async fn test_trace_persistence() {
 
     store.save_trace(&trace).await.unwrap();
 
-    let retrieved = store.get_trace(&trace.task_id).await.unwrap().expect("trace not found");
+    let retrieved = store
+        .get_trace(&trace.task_id)
+        .await
+        .unwrap()
+        .expect("trace not found");
     assert_eq!(retrieved.task_id, trace.task_id);
 }
 
@@ -60,14 +64,20 @@ async fn test_trace_integration_with_execution() {
     let recorder = TraceRecorder::new(store);
 
     // Simulate task start
-    let task_id = recorder.start_task("task-001", Uuid::new_v4(), "ws-1").await;
+    let task_id = recorder
+        .start_task("task-001", Uuid::new_v4(), "ws-1")
+        .await;
 
     // Simulate step execution
     recorder.start_step(&task_id, "scan", "扫描文件", 1).await;
-    recorder.complete_step(&task_id, "scan", json!({"files": ["a.md"]})).await;
+    recorder
+        .complete_step(&task_id, "scan", json!({"files": ["a.md"]}))
+        .await;
 
     // Complete task
-    let trace = recorder.complete_task(&task_id, TaskStatus::Succeeded).await;
+    let trace = recorder
+        .complete_task(&task_id, TaskStatus::Succeeded)
+        .await;
 
     assert_eq!(trace.step_count, 1);
     assert!(matches!(trace.overall_status, TaskStatus::Succeeded));

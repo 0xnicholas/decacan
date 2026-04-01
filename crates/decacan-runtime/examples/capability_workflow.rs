@@ -41,7 +41,7 @@ async fn main() {
     // 3. Demonstrate capability resolution
     println!("3. Creating resolver and resolving capability...");
     let resolver = SimpleResolver::new(capability_registry);
-    
+
     let resolution_result = resolver
         .resolve(
             &CapabilityRef::new("filesystem.read"),
@@ -49,9 +49,12 @@ async fn main() {
         )
         .expect("Resolution should succeed");
 
-    println!("   ✓ Primary implementation: {:?}", resolution_result.implementation);
+    println!(
+        "   ✓ Primary implementation: {:?}",
+        resolution_result.implementation
+    );
     println!("   ✓ Fallback count: {}", resolution_result.fallbacks.len());
-    
+
     for (i, fallback) in resolution_result.fallbacks.iter().enumerate() {
         println!("   ✓ Fallback {}: {:?}", i + 1, fallback);
     }
@@ -68,14 +71,12 @@ async fn main() {
         },
         input_schema: vec![],
         workflow: WorkflowDefinition {
-            steps: vec![
-                StepDefinition::with_capability(
-                    "read_config",
-                    "Read Configuration",
-                    "filesystem.read",
-                    Transition::End,
-                ),
-            ],
+            steps: vec![StepDefinition::with_capability(
+                "read_config",
+                "Read Configuration",
+                "filesystem.read",
+                Transition::End,
+            )],
             default_retry_policy: None,
             error_handling: None,
         },
@@ -91,8 +92,14 @@ async fn main() {
         policy_profile: None,
     };
 
-    println!("   ✓ Created workflow with {} steps", spec.workflow.steps.len());
-    println!("   ✓ Step uses capability: {}", spec.workflow.steps[0].uses_capability());
+    println!(
+        "   ✓ Created workflow with {} steps",
+        spec.workflow.steps.len()
+    );
+    println!(
+        "   ✓ Step uses capability: {}",
+        spec.workflow.steps[0].uses_capability()
+    );
 
     // 5. Demonstrate context-based resolution
     println!("\n5. Context-based resolution...");
@@ -104,8 +111,14 @@ async fn main() {
         .with_hint("prefer_local")
         .with_hint("fast_response");
 
-    println!("   ✓ Context has 'prefer_local' hint: {}", context.has_hint("prefer_local"));
-    println!("   ✓ Context has 'fast_response' hint: {}", context.has_hint("fast_response"));
+    println!(
+        "   ✓ Context has 'prefer_local' hint: {}",
+        context.has_hint("prefer_local")
+    );
+    println!(
+        "   ✓ Context has 'fast_response' hint: {}",
+        context.has_hint("fast_response")
+    );
 
     println!("\n=== Phase 3 Complete ===");
     println!("\nKey Achievements:");
@@ -129,9 +142,7 @@ mod tests {
             description: "Test".to_string(),
             input_contract: decacan_runtime::contract::Contract::object().build(),
             output_contract: decacan_runtime::contract::Contract::object().build(),
-            implementations: vec![
-                ImplementationRef::routine("builtin", "test", "1.0.0"),
-            ],
+            implementations: vec![ImplementationRef::routine("builtin", "test", "1.0.0")],
         };
         capability_registry.register(Arc::new(cap));
 

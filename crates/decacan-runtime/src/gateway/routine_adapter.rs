@@ -31,13 +31,13 @@ use crate::gateway::request::ToolRequest;
 use crate::gateway::result::PolicyDecision;
 use crate::gateway::tool_gateway::ToolGateway;
 use crate::ports::clock::ClockPort;
-use crate::routine::contract::Contract;
 use crate::routine::context::RoutineContext;
+use crate::routine::contract::Contract;
 use crate::routine::error::RoutineError;
 use crate::routine::r#trait::{Routine, RoutineType};
 
 /// A routine that executes through the Tool Gateway
-/// 
+///
 /// This wraps tool calls as Routine trait implementations, enabling
 /// the new execution engine to work with existing tools.
 pub struct ToolGatewayRoutine {
@@ -89,7 +89,10 @@ impl ToolGatewayRoutine {
                 .optional_field("encoding", crate::routine::contract::Contract::string())
                 .build(),
             crate::routine::contract::Contract::object()
-                .field("bytes_written", crate::routine::contract::Contract::integer())
+                .field(
+                    "bytes_written",
+                    crate::routine::contract::Contract::integer(),
+                )
                 .field("path", crate::routine::contract::Contract::path())
                 .build(),
         )
@@ -105,9 +108,13 @@ impl ToolGatewayRoutine {
                 .optional_field("recursive", crate::routine::contract::Contract::boolean())
                 .build(),
             crate::routine::contract::Contract::object()
-                .field("files", crate::routine::contract::Contract::array(
-                    crate::routine::contract::Contract::path()
-                ).build())
+                .field(
+                    "files",
+                    crate::routine::contract::Contract::array(
+                        crate::routine::contract::Contract::path(),
+                    )
+                    .build(),
+                )
                 .field("count", crate::routine::contract::Contract::integer())
                 .build(),
         )
@@ -145,11 +152,9 @@ impl ToolGatewayRoutine {
         // Build tool request from input
         let action = self.extract_action(input);
         let target_path = self.extract_target_path(input);
-        
+
         let tool_request = ToolRequest::new(
-            ToolDescriptor::new(&self.tool_name,
-                &self.tool_description,
-            ),
+            ToolDescriptor::new(&self.tool_name, &self.tool_description),
             action,
         )
         .with_overwrite_existing(self.should_overwrite(input))
@@ -163,18 +168,13 @@ impl ToolGatewayRoutine {
                 // Tool is allowed, execute it
                 self.execute_tool(input).await
             }
-            PolicyDecision::ApprovalRequired { reason } => {
-                Err(RoutineError::SynthesisBlocked(format!(
-                    "Tool '{}' requires approval: {}",
-                    self.tool_name, reason
-                )))
-            }
-            PolicyDecision::Deny { reason } => {
-                Err(RoutineError::SynthesisFailed(format!(
-                    "Tool '{}' denied: {}",
-                    self.tool_name, reason
-                )))
-            }
+            PolicyDecision::ApprovalRequired { reason } => Err(RoutineError::SynthesisBlocked(
+                format!("Tool '{}' requires approval: {}", self.tool_name, reason),
+            )),
+            PolicyDecision::Deny { reason } => Err(RoutineError::SynthesisFailed(format!(
+                "Tool '{}' denied: {}",
+                self.tool_name, reason
+            ))),
         }
     }
 
@@ -209,20 +209,17 @@ impl ToolGatewayRoutine {
     }
 
     /// Execute the actual tool logic
-    async fn execute_tool(
-        &self,
-        input: &Value,
-    ) -> Result<Value, RoutineError> {
+    async fn execute_tool(&self, input: &Value) -> Result<Value, RoutineError> {
         // This is a simplified implementation
         // In production, this would call actual tool implementations
-        
+
         match self.tool_name.as_str() {
             "workspace.read" => {
                 let path = input
                     .get("path")
                     .and_then(|v| v.as_str())
                     .ok_or_else(|| RoutineError::Execution("Missing path".to_string()))?;
-                
+
                 // Mock read operation
                 Ok(json!({
                     "content": format!("Content of {}", path),
@@ -234,11 +231,8 @@ impl ToolGatewayRoutine {
                     .get("path")
                     .and_then(|v| v.as_str())
                     .ok_or_else(|| RoutineError::Execution("Missing path".to_string()))?;
-                let content = input
-                    .get("content")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("");
-                
+                let content = input.get("content").and_then(|v| v.as_str()).unwrap_or("");
+
                 // Mock write operation
                 Ok(json!({
                     "bytes_written": content.len(),
@@ -257,19 +251,17 @@ impl ToolGatewayRoutine {
                     .get("prompt")
                     .and_then(|v| v.as_str())
                     .ok_or_else(|| RoutineError::Execution("Missing prompt".to_string()))?;
-                
+
                 // Mock semantic completion
                 Ok(json!({
                     "content": format!("Generated content for: {}", prompt),
                     "tokens_used": 100
                 }))
             }
-            _ => {
-                Err(RoutineError::Execution(format!(
-                    "Unknown tool: {}",
-                    self.tool_name
-                )))
-            }
+            _ => Err(RoutineError::Execution(format!(
+                "Unknown tool: {}",
+                self.tool_name
+            ))),
         }
     }
 }
@@ -277,11 +269,7 @@ impl ToolGatewayRoutine {
 #[async_trait]
 impl Routine for ToolGatewayRoutine {
     fn routine_type(&self) -> RoutineType {
-        RoutineType::new(
-            "tool",
-            &self.tool_name,
-            "1.0.0",
-        )
+        RoutineType::new("tool", &self.tool_name, "1.0.0")
     }
 
     fn input_contract(&self) -> &Contract {
@@ -342,12 +330,8 @@ impl ToolGatewayRoutineBuilder {
 
     /// Build the routine
     pub fn build(self) -> Result<ToolGatewayRoutine, String> {
-        let input_contract = self
-            .input_contract
-            .ok_or("Input contract is required")?;
-        let output_contract = self
-            .output_contract
-            .ok_or("Output contract is required")?;
+        let input_contract = self.input_contract.ok_or("Input contract is required")?;
+        let output_contract = self.output_contract.ok_or("Output contract is required")?;
 
         Ok(ToolGatewayRoutine::new(
             self.tool_name,
@@ -369,20 +353,18 @@ impl ToolGatewayRoutineRegistry {
         let mut registry = Self {
             routines: HashMap::new(),
         };
-        
+
         // Register built-in routines
         registry.register(ToolGatewayRoutine::read_file());
         registry.register(ToolGatewayRoutine::write_file());
         registry.register(ToolGatewayRoutine::scan_markdown());
         registry.register(ToolGatewayRoutine::semantic_complete());
-        
+
         registry
     }
 
     /// Register a routine
-    pub fn register(&mut self,
-        routine: ToolGatewayRoutine,
-    ) {
+    pub fn register(&mut self, routine: ToolGatewayRoutine) {
         self.routines.insert(routine.tool_name.clone(), routine);
     }
 
@@ -400,11 +382,11 @@ impl ToolGatewayRoutineRegistry {
     pub fn to_routine_registry(self) -> crate::routine::RoutineRegistry {
         use std::sync::Arc;
         let registry = crate::routine::RoutineRegistry::new();
-        
+
         for (_, routine) in self.routines {
             registry.register(Arc::new(routine));
         }
-        
+
         registry
     }
 }
@@ -422,7 +404,7 @@ mod tests {
     #[test]
     fn test_tool_routine_creation() {
         let routine = ToolGatewayRoutine::read_file();
-        
+
         assert_eq!(routine.tool_name(), "workspace.read");
         assert_eq!(routine.routine_type().name, "workspace.read");
         assert_eq!(routine.routine_type().capability_class, "tool");
@@ -431,7 +413,7 @@ mod tests {
     #[test]
     fn test_tool_routine_contracts() {
         let routine = ToolGatewayRoutine::write_file();
-        
+
         // Input should require path and content
         let valid_input = json!({
             "path": "/tmp/test.txt",
@@ -450,14 +432,14 @@ mod tests {
     async fn test_tool_routine_execute_read() {
         let routine = ToolGatewayRoutine::read_file();
         let mut ctx = RoutineContext::new("/tmp", "step1", "run1", "task1");
-        
+
         let input = json!({
             "path": "/tmp/test.md"
         });
-        
+
         let result = routine.execute(&mut ctx, input).await;
         assert!(result.is_ok());
-        
+
         let output = result.unwrap();
         assert!(output.get("content").is_some());
     }
@@ -466,15 +448,15 @@ mod tests {
     async fn test_tool_routine_execute_write() {
         let routine = ToolGatewayRoutine::write_file();
         let mut ctx = RoutineContext::new("/tmp", "step1", "run1", "task1");
-        
+
         let input = json!({
             "path": "/tmp/output.md",
             "content": "Hello World"
         });
-        
+
         let result = routine.execute(&mut ctx, input).await;
         assert!(result.is_ok());
-        
+
         let output = result.unwrap();
         assert_eq!(output.get("bytes_written"), Some(&json!(11)));
     }
@@ -482,7 +464,7 @@ mod tests {
     #[test]
     fn test_tool_registry() {
         let registry = ToolGatewayRoutineRegistry::new();
-        
+
         let tools = registry.list_tools();
         assert!(tools.contains(&&"workspace.read".to_string()));
         assert!(tools.contains(&&"workspace.write".to_string()));
@@ -497,15 +479,15 @@ mod tests {
             .input_contract(
                 crate::routine::contract::Contract::object()
                     .field("param", crate::routine::contract::Contract::string())
-                    .build()
+                    .build(),
             )
             .output_contract(
                 crate::routine::contract::Contract::object()
                     .field("result", crate::routine::contract::Contract::string())
-                    .build()
+                    .build(),
             )
             .build();
-        
+
         assert!(result.is_ok());
         let routine = result.unwrap();
         assert_eq!(routine.tool_name(), "custom.tool");

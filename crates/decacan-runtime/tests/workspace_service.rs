@@ -62,7 +62,10 @@ async fn test_enforce_unique_slug_per_tenant() {
 
     let result2 = service.create_workspace(input2).await;
     assert!(result2.is_err());
-    assert!(matches!(result2.unwrap_err(), WorkspaceServiceError::AlreadyExists { .. }));
+    assert!(matches!(
+        result2.unwrap_err(),
+        WorkspaceServiceError::AlreadyExists { .. }
+    ));
 }
 
 #[tokio::test]
@@ -114,14 +117,17 @@ async fn test_get_workspace() {
     };
 
     let created = service.create_workspace(input).await.unwrap();
-    
+
     let result = service.get_workspace(&created.id).await;
     assert!(result.is_ok());
     assert_eq!(result.unwrap().slug, "my-workspace");
 
     let result = service.get_workspace("non-existent-id").await;
     assert!(result.is_err());
-    assert!(matches!(result.unwrap_err(), WorkspaceServiceError::NotFound));
+    assert!(matches!(
+        result.unwrap_err(),
+        WorkspaceServiceError::NotFound
+    ));
 }
 
 #[tokio::test]
@@ -201,9 +207,9 @@ async fn test_archive_workspace() {
     };
 
     let created = service.create_workspace(input).await.unwrap();
-    
+
     service.activate_workspace(&created.id).await.unwrap();
-    
+
     let result = service.archive_workspace(&created.id).await;
     assert!(result.is_ok());
 
@@ -255,16 +261,19 @@ async fn test_delete_workspace() {
     };
 
     let created = service.create_workspace(input).await.unwrap();
-    
+
     service.activate_workspace(&created.id).await.unwrap();
     service.archive_workspace(&created.id).await.unwrap();
-    
+
     let result = service.delete_workspace(&created.id).await;
     assert!(result.is_ok());
 
     let result = service.get_workspace(&created.id).await;
     assert!(result.is_err());
-    assert!(matches!(result.unwrap_err(), WorkspaceServiceError::NotFound));
+    assert!(matches!(
+        result.unwrap_err(),
+        WorkspaceServiceError::NotFound
+    ));
 }
 
 #[tokio::test]
@@ -283,10 +292,13 @@ async fn test_invalid_state_transition_archive_draft() {
     };
 
     let created = service.create_workspace(input).await.unwrap();
-    
+
     let result = service.archive_workspace(&created.id).await;
     assert!(result.is_err());
-    assert!(matches!(result.unwrap_err(), WorkspaceServiceError::InvalidStateTransition { .. }));
+    assert!(matches!(
+        result.unwrap_err(),
+        WorkspaceServiceError::InvalidStateTransition { .. }
+    ));
 }
 
 #[tokio::test]
@@ -311,5 +323,8 @@ async fn test_invalid_state_transition_activate_deleted() {
 
     let result = service.activate_workspace(&created.id).await;
     assert!(result.is_err());
-    assert!(matches!(result.unwrap_err(), WorkspaceServiceError::NotFound));
+    assert!(matches!(
+        result.unwrap_err(),
+        WorkspaceServiceError::NotFound
+    ));
 }

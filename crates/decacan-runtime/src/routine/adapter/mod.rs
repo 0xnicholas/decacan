@@ -4,9 +4,9 @@ use serde_json::{json, Value};
 use crate::ports::clock::ClockPort;
 use crate::ports::filesystem::FilesystemPort;
 use crate::ports::storage::StoragePort;
-use crate::routine::contract::{Contract, ContractBuilder};
 use crate::routine::context::RoutineContext;
-use crate::routine::entity::{RoutineKind, Routine as OldRoutine};
+use crate::routine::contract::{Contract, ContractBuilder};
+use crate::routine::entity::{Routine as OldRoutine, RoutineKind};
 use crate::routine::error::RoutineError;
 use crate::routine::r#trait::{Routine, RoutineType};
 
@@ -30,12 +30,7 @@ where
     C: ClockPort,
 {
     /// Create a new adapter wrapping an old routine
-    pub fn new(
-        old_routine: OldRoutine,
-        filesystem: F,
-        storage: S,
-        clock: C,
-    ) -> Self {
+    pub fn new(old_routine: OldRoutine, filesystem: F, storage: S, clock: C) -> Self {
         Self {
             old_routine,
             filesystem,
@@ -58,73 +53,74 @@ where
     C: ClockPort + Send + Sync,
 {
     fn routine_type(&self) -> RoutineType {
-        RoutineType::new(
-            "legacy",
-            self.old_routine.id,
-            "1.0.0",
-        )
+        RoutineType::new("legacy", self.old_routine.id, "1.0.0")
     }
 
     fn input_contract(&self) -> &Contract {
         match self.old_routine.kind {
             RoutineKind::ScanMarkdownFiles => {
-                static CONTRACT: once_cell::sync::Lazy<Contract> = once_cell::sync::Lazy::new(|| {
-                    Contract::object()
-                        .optional_field("directory", Contract::path())
-                        .build()
-                });
+                static CONTRACT: once_cell::sync::Lazy<Contract> =
+                    once_cell::sync::Lazy::new(|| {
+                        Contract::object()
+                            .optional_field("directory", Contract::path())
+                            .build()
+                    });
                 &*CONTRACT
             }
             RoutineKind::ReadMarkdownContents => {
-                static CONTRACT: once_cell::sync::Lazy<Contract> = once_cell::sync::Lazy::new(|| {
-                    Contract::object()
-                        .field("path", Contract::path())
-                        .build()
-                });
+                static CONTRACT: once_cell::sync::Lazy<Contract> =
+                    once_cell::sync::Lazy::new(|| {
+                        Contract::object().field("path", Contract::path()).build()
+                    });
                 &*CONTRACT
             }
             RoutineKind::DiscoverTopics | RoutineKind::DiscoverThemes => {
-                static CONTRACT: once_cell::sync::Lazy<Contract> = once_cell::sync::Lazy::new(|| {
-                    Contract::object()
-                        .field("source_material", Contract::string())
-                        .optional_field("context", Contract::string())
-                        .build()
-                });
+                static CONTRACT: once_cell::sync::Lazy<Contract> =
+                    once_cell::sync::Lazy::new(|| {
+                        Contract::object()
+                            .field("source_material", Contract::string())
+                            .optional_field("context", Contract::string())
+                            .build()
+                    });
                 &*CONTRACT
             }
             RoutineKind::DraftSummary | RoutineKind::DraftDiscovery => {
-                static CONTRACT: once_cell::sync::Lazy<Contract> = once_cell::sync::Lazy::new(|| {
-                    Contract::object()
-                        .field("source_material", Contract::string())
-                        .field("topics", Contract::array(Contract::string()).build())
-                        .build()
-                });
+                static CONTRACT: once_cell::sync::Lazy<Contract> =
+                    once_cell::sync::Lazy::new(|| {
+                        Contract::object()
+                            .field("source_material", Contract::string())
+                            .field("topics", Contract::array(Contract::string()).build())
+                            .build()
+                    });
                 &*CONTRACT
             }
             RoutineKind::BackupExistingSummary => {
-                static CONTRACT: once_cell::sync::Lazy<Contract> = once_cell::sync::Lazy::new(|| {
-                    Contract::object()
-                        .field("target_path", Contract::path())
-                        .build()
-                });
+                static CONTRACT: once_cell::sync::Lazy<Contract> =
+                    once_cell::sync::Lazy::new(|| {
+                        Contract::object()
+                            .field("target_path", Contract::path())
+                            .build()
+                    });
                 &*CONTRACT
             }
             RoutineKind::WriteSummary | RoutineKind::WriteDiscovery => {
-                static CONTRACT: once_cell::sync::Lazy<Contract> = once_cell::sync::Lazy::new(|| {
-                    Contract::object()
-                        .field("content", Contract::string())
-                        .field("target_path", Contract::path())
-                        .build()
-                });
+                static CONTRACT: once_cell::sync::Lazy<Contract> =
+                    once_cell::sync::Lazy::new(|| {
+                        Contract::object()
+                            .field("content", Contract::string())
+                            .field("target_path", Contract::path())
+                            .build()
+                    });
                 &*CONTRACT
             }
             RoutineKind::RegisterArtifact => {
-                static CONTRACT: once_cell::sync::Lazy<Contract> = once_cell::sync::Lazy::new(|| {
-                    Contract::object()
-                        .field("artifact_path", Contract::path())
-                        .optional_field("metadata", Contract::object().build())
-                        .build()
-                });
+                static CONTRACT: once_cell::sync::Lazy<Contract> =
+                    once_cell::sync::Lazy::new(|| {
+                        Contract::object()
+                            .field("artifact_path", Contract::path())
+                            .optional_field("metadata", Contract::object().build())
+                            .build()
+                    });
                 &*CONTRACT
             }
         }
@@ -133,64 +129,74 @@ where
     fn output_contract(&self) -> &Contract {
         match self.old_routine.kind {
             RoutineKind::ScanMarkdownFiles => {
-                static CONTRACT: once_cell::sync::Lazy<Contract> = once_cell::sync::Lazy::new(|| {
-                    Contract::object()
-                        .field("files", Contract::array(Contract::path()).build())
-                        .field("count", Contract::integer())
-                        .build()
-                });
+                static CONTRACT: once_cell::sync::Lazy<Contract> =
+                    once_cell::sync::Lazy::new(|| {
+                        Contract::object()
+                            .field("files", Contract::array(Contract::path()).build())
+                            .field("count", Contract::integer())
+                            .build()
+                    });
                 &*CONTRACT
             }
             RoutineKind::ReadMarkdownContents => {
-                static CONTRACT: once_cell::sync::Lazy<Contract> = once_cell::sync::Lazy::new(|| {
-                    Contract::object()
-                        .field("content", Contract::string())
-                        .build()
-                });
+                static CONTRACT: once_cell::sync::Lazy<Contract> =
+                    once_cell::sync::Lazy::new(|| {
+                        Contract::object()
+                            .field("content", Contract::string())
+                            .build()
+                    });
                 &*CONTRACT
             }
             RoutineKind::DiscoverTopics | RoutineKind::DiscoverThemes => {
-                static CONTRACT: once_cell::sync::Lazy<Contract> = once_cell::sync::Lazy::new(|| {
-                    Contract::object()
-                        .field("topics", Contract::array(Contract::object().build()).build())
-                        .build()
-                });
+                static CONTRACT: once_cell::sync::Lazy<Contract> =
+                    once_cell::sync::Lazy::new(|| {
+                        Contract::object()
+                            .field(
+                                "topics",
+                                Contract::array(Contract::object().build()).build(),
+                            )
+                            .build()
+                    });
                 &*CONTRACT
             }
             RoutineKind::DraftSummary | RoutineKind::DraftDiscovery => {
-                static CONTRACT: once_cell::sync::Lazy<Contract> = once_cell::sync::Lazy::new(|| {
-                    Contract::object()
-                        .field("content", Contract::string())
-                        .field("draft_path", Contract::path())
-                        .build()
-                });
+                static CONTRACT: once_cell::sync::Lazy<Contract> =
+                    once_cell::sync::Lazy::new(|| {
+                        Contract::object()
+                            .field("content", Contract::string())
+                            .field("draft_path", Contract::path())
+                            .build()
+                    });
                 &*CONTRACT
             }
             RoutineKind::BackupExistingSummary => {
-                static CONTRACT: once_cell::sync::Lazy<Contract> = once_cell::sync::Lazy::new(|| {
-                    Contract::object()
-                        .field("backup_path", Contract::path())
-                        .optional_field("original_path", Contract::path())
-                        .build()
-                });
+                static CONTRACT: once_cell::sync::Lazy<Contract> =
+                    once_cell::sync::Lazy::new(|| {
+                        Contract::object()
+                            .field("backup_path", Contract::path())
+                            .optional_field("original_path", Contract::path())
+                            .build()
+                    });
                 &*CONTRACT
             }
             RoutineKind::WriteSummary | RoutineKind::WriteDiscovery => {
-                static CONTRACT: once_cell::sync::Lazy<Contract> = once_cell::sync::Lazy::new(|| {
-                    Contract::object()
-                        .field("written_path", Contract::path())
-                        .field("bytes_written", Contract::integer())
-                        .build()
-                });
+                static CONTRACT: once_cell::sync::Lazy<Contract> =
+                    once_cell::sync::Lazy::new(|| {
+                        Contract::object()
+                            .field("written_path", Contract::path())
+                            .field("bytes_written", Contract::integer())
+                            .build()
+                    });
                 &*CONTRACT
             }
             RoutineKind::RegisterArtifact => {
-                static CONTRACT: once_cell::sync::Lazy<Contract> = once_cell::sync::Lazy::new(|| {
-                    Contract::object()
-                        .field("artifact_id", Contract::string())
-                        .field("registered_at", Contract::string())
-                        .build()
-                });
+                static CONTRACT: once_cell::sync::Lazy<Contract> =
+                    once_cell::sync::Lazy::new(|| {
+                        Contract::object()
+                            .field("artifact_id", Contract::string())
+                            .field("registered_at", Contract::string())
+                            .build()
+                    });
                 &*CONTRACT
             }
         }
@@ -257,9 +263,7 @@ where
     }
 
     /// Create an adapter for an old routine
-    pub fn create_adapter(&self,
-        old_routine: OldRoutine,
-    ) -> RoutineAdapter<F, S, C> {
+    pub fn create_adapter(&self, old_routine: OldRoutine) -> RoutineAdapter<F, S, C> {
         RoutineAdapter::new(
             old_routine,
             self.filesystem.clone(),
@@ -314,16 +318,11 @@ mod tests {
     impl StoragePort for MockStorage {
         type Error = Infallible;
 
-        fn put(&self,
-            _key: &str,
-            _value: &str,
-        ) -> Result<(), Self::Error> {
+        fn put(&self, _key: &str, _value: &str) -> Result<(), Self::Error> {
             Ok(())
         }
 
-        fn get(&self,
-            _key: &str,
-        ) -> Result<Option<String>, Self::Error> {
+        fn get(&self, _key: &str) -> Result<Option<String>, Self::Error> {
             Ok(None)
         }
     }
@@ -345,12 +344,7 @@ mod tests {
             kind: RoutineKind::ScanMarkdownFiles,
         };
 
-        let adapter = RoutineAdapter::new(
-            old_routine,
-            MockFilesystem,
-            MockStorage,
-            MockClock,
-        );
+        let adapter = RoutineAdapter::new(old_routine, MockFilesystem, MockStorage, MockClock);
 
         let rt = adapter.routine_type();
         assert_eq!(rt.capability_class, "legacy");
@@ -365,12 +359,7 @@ mod tests {
             kind: RoutineKind::ScanMarkdownFiles,
         };
 
-        let adapter = RoutineAdapter::new(
-            old_routine,
-            MockFilesystem,
-            MockStorage,
-            MockClock,
-        );
+        let adapter = RoutineAdapter::new(old_routine, MockFilesystem, MockStorage, MockClock);
 
         // Input contract should allow optional directory
         let input = json!({});
@@ -395,12 +384,7 @@ mod tests {
             kind: RoutineKind::ScanMarkdownFiles,
         };
 
-        let adapter = RoutineAdapter::new(
-            old_routine,
-            MockFilesystem,
-            MockStorage,
-            MockClock,
-        );
+        let adapter = RoutineAdapter::new(old_routine, MockFilesystem, MockStorage, MockClock);
 
         let mut ctx = RoutineContext::new("/tmp", "step1", "run1", "task1");
         let input = json!({});
@@ -415,11 +399,7 @@ mod tests {
 
     #[test]
     fn test_factory_create_adapter() {
-        let factory = RoutineAdapterFactory::new(
-            MockFilesystem,
-            MockStorage,
-            MockClock,
-        );
+        let factory = RoutineAdapterFactory::new(MockFilesystem, MockStorage, MockClock);
 
         let old_routine = OldRoutine {
             id: "read_markdown",

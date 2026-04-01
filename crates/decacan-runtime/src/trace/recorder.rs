@@ -39,7 +39,10 @@ impl TraceRecorder {
             completed_at: None,
         };
 
-        self.active_traces.write().await.insert(task_id.clone(), trace);
+        self.active_traces
+            .write()
+            .await
+            .insert(task_id.clone(), trace);
         task_id
     }
 
@@ -72,12 +75,7 @@ impl TraceRecorder {
         }
     }
 
-    pub async fn complete_step(
-        &self,
-        task_id: &str,
-        step_id: &str,
-        output: serde_json::Value,
-    ) {
+    pub async fn complete_step(&self, task_id: &str, step_id: &str, output: serde_json::Value) {
         let mut traces = self.active_traces.write().await;
         if let Some(trace) = traces.get_mut(task_id) {
             if let Some(step) = trace.steps.iter_mut().find(|s| s.step_id == step_id) {
@@ -86,7 +84,7 @@ impl TraceRecorder {
                 step.status = StepStatus::Success;
                 // Calculate duration
                 step.duration_ms = Some(
-                    (step.completed_at.unwrap() - step.started_at).whole_milliseconds() as u64
+                    (step.completed_at.unwrap() - step.started_at).whole_milliseconds() as u64,
                 );
             }
         }
@@ -103,11 +101,7 @@ impl TraceRecorder {
         }
     }
 
-    pub async fn complete_task(
-        &self,
-        task_id: &str,
-        status: TaskStatus,
-    ) -> TaskExecutionTrace {
+    pub async fn complete_task(&self, task_id: &str, status: TaskStatus) -> TaskExecutionTrace {
         let mut traces = self.active_traces.write().await;
         let mut trace = traces.remove(task_id).expect("Task trace not found");
 

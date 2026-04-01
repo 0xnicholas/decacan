@@ -6,8 +6,8 @@ use serde::Deserialize;
 
 use crate::app::state::AppState;
 use crate::dto::{
-    DeliverableDetailDto, DeliverableDto, DeliverableLinkedTaskDto, DeliverableReviewHistoryEntryDto,
-    DeliverableReviewRequestDto, TaskEventEnvelopeDto,
+    DeliverableDetailDto, DeliverableDto, DeliverableLinkedTaskDto,
+    DeliverableReviewHistoryEntryDto, DeliverableReviewRequestDto, TaskEventEnvelopeDto,
 };
 
 const DELIVERABLE_OWNER: &str = "Ari";
@@ -126,11 +126,17 @@ async fn post_deliverable_review(
         if detail.task.workspace_id != workspace_id {
             continue;
         }
-        if !detail.artifacts.iter().any(|artifact| artifact.id == deliverable_id) {
+        if !detail
+            .artifacts
+            .iter()
+            .any(|artifact| artifact.id == deliverable_id)
+        {
             continue;
         }
 
-        let note = request.note.unwrap_or_else(|| "No reviewer note".to_owned());
+        let note = request
+            .note
+            .unwrap_or_else(|| "No reviewer note".to_owned());
         let sequence = state.next_task_sequence(&task.id);
         state.append_task_event(TaskEventEnvelopeDto {
             event_id: state.next_id("event"),
@@ -195,7 +201,10 @@ fn is_valid_review_action(action: &str) -> bool {
     review_actions().iter().any(|candidate| candidate == action)
 }
 
-fn review_history_for_task(state: &AppState, task_id: &str) -> Vec<DeliverableReviewHistoryEntryDto> {
+fn review_history_for_task(
+    state: &AppState,
+    task_id: &str,
+) -> Vec<DeliverableReviewHistoryEntryDto> {
     let mut history = state
         .list_task_events(task_id)
         .into_iter()

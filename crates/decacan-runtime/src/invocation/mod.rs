@@ -31,11 +31,11 @@ use thiserror::Error;
 pub struct ToolInput {
     /// Tool-specific parameters
     pub parameters: Value,
-    
+
     /// Authentication context (if required)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub auth: Option<ToolAuth>,
-    
+
     /// Request metadata
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<HashMap<String, String>>,
@@ -69,10 +69,10 @@ impl ToolInput {
 pub enum ToolAuth {
     /// Bearer token authentication
     Bearer { token: String },
-    
+
     /// API key authentication
     ApiKey { key: String, header: String },
-    
+
     /// Basic authentication
     Basic { username: String, password: String },
 }
@@ -82,15 +82,15 @@ pub enum ToolAuth {
 pub struct ToolOutput {
     /// Response data
     pub data: Value,
-    
+
     /// HTTP status code (for HTTP tools)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub status_code: Option<u16>,
-    
+
     /// Response headers (for HTTP tools)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub headers: Option<HashMap<String, String>>,
-    
+
     /// Execution metadata
     pub metadata: ToolOutputMetadata,
 }
@@ -100,10 +100,10 @@ pub struct ToolOutput {
 pub struct ToolOutputMetadata {
     /// Tool name that was invoked
     pub tool_name: String,
-    
+
     /// Duration in milliseconds
     pub duration_ms: u64,
-    
+
     /// Timestamp of execution
     pub executed_at: String,
 }
@@ -113,19 +113,22 @@ pub struct ToolOutputMetadata {
 pub enum ToolError {
     #[error("tool '{tool_name}' not found")]
     ToolNotFound { tool_name: String },
-    
+
     #[error("tool '{tool_name}' execution failed: {error}")]
     ExecutionFailed { tool_name: String, error: String },
-    
+
     #[error("authentication failed for tool '{tool_name}': {error}")]
     AuthenticationFailed { tool_name: String, error: String },
-    
+
     #[error("network error for tool '{tool_name}': {error}")]
     NetworkError { tool_name: String, error: String },
-    
+
     #[error("timeout invoking tool '{tool_name}' after {timeout_secs}s")]
-    Timeout { tool_name: String, timeout_secs: u32 },
-    
+    Timeout {
+        tool_name: String,
+        timeout_secs: u32,
+    },
+
     #[error("invalid input for tool '{tool_name}': {error}")]
     InvalidInput { tool_name: String, error: String },
 }
@@ -138,13 +141,13 @@ pub enum ToolError {
 pub trait Tool: Send + Sync {
     /// Get the tool name
     fn name(&self) -> &str;
-    
+
     /// Get the tool version
     fn version(&self) -> &str;
-    
+
     /// Get tool description
     fn description(&self) -> &str;
-    
+
     /// Invoke the tool with given input
     ///
     /// # Arguments
@@ -152,9 +155,7 @@ pub trait Tool: Send + Sync {
     ///
     /// # Returns
     /// Tool output or error
-    async fn invoke(&self,
-        input: &ToolInput,
-    ) -> Result<ToolOutput, ToolError>;
+    async fn invoke(&self, input: &ToolInput) -> Result<ToolOutput, ToolError>;
 }
 
 /// Tool registry for managing available tools
@@ -171,9 +172,7 @@ impl ToolRegistry {
     }
 
     /// Register a tool
-    pub fn register(&mut self,
-        tool: Box<dyn Tool>,
-    ) {
+    pub fn register(&mut self, tool: Box<dyn Tool>) {
         let name = tool.name().to_string();
         self.tools.insert(name, tool);
     }
@@ -231,7 +230,8 @@ impl ToolInvoker {
         tool_name: &str,
         input: &ToolInput,
     ) -> Result<ToolOutput, ToolError> {
-        let tool = self.registry
+        let tool = self
+            .registry
             .get(tool_name)
             .ok_or_else(|| ToolError::ToolNotFound {
                 tool_name: tool_name.to_string(),
@@ -264,10 +264,7 @@ mod tests {
             "Mock tool for testing"
         }
 
-        async fn invoke(
-            &self,
-            input: &ToolInput,
-        ) -> Result<ToolOutput, ToolError> {
+        async fn invoke(&self, input: &ToolInput) -> Result<ToolOutput, ToolError> {
             Ok(ToolOutput {
                 data: input.parameters.clone(),
                 status_code: Some(200),
@@ -307,7 +304,7 @@ mod tests {
         }));
 
         let invoker = ToolInvoker::new(Arc::new(registry));
-        
+
         let input = ToolInput::new(serde_json::json!({"message": "hello"}));
         let result = invoker.invoke("echo", &input).await;
 
@@ -321,7 +318,7 @@ mod tests {
     async fn test_tool_not_found() {
         let registry = ToolRegistry::new();
         let invoker = ToolInvoker::new(Arc::new(registry));
-        
+
         let input = ToolInput::new(serde_json::json!({}));
         let result = invoker.invoke("missing", &input).await;
 

@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
-    use decacan_infra::storage::postgres::PostgresStorage;
     use decacan_infra::config::PostgresConfig;
+    use decacan_infra::storage::postgres::PostgresStorage;
 
     // 注意：这些测试需要运行 PostgreSQL 实例
     // 使用 #[ignore] 标记，需要显式运行: cargo test -- --ignored

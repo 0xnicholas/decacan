@@ -36,7 +36,7 @@ impl CapabilityAwareExecutor {
         let resolver = Arc::new(SimpleResolver::new(capability_registry.clone()));
         let tool_registry = Arc::new(ToolRegistry::new());
         let tool_invoker = ToolInvoker::new(tool_registry.clone());
-        
+
         Self {
             base_executor,
             routine_registry,
@@ -56,7 +56,7 @@ impl CapabilityAwareExecutor {
     ) -> Self {
         let resolver = Arc::new(SimpleResolver::new(capability_registry.clone()));
         let tool_invoker = ToolInvoker::new(tool_registry.clone());
-        
+
         Self {
             base_executor,
             routine_registry,
@@ -83,22 +83,20 @@ impl CapabilityAwareExecutor {
         match routine_type.capability_class.as_str() {
             "capability" => {
                 let capability_id = &routine_type.name;
-                let resolution_context = ResolutionContext::new()
-                    .with_input(workflow_input.clone());
-                
-                let result = self.resolver
-                    .resolve(
-                        &CapabilityRef::new(capability_id),
-                        &resolution_context,
-                    )
+                let resolution_context =
+                    ResolutionContext::new().with_input(workflow_input.clone());
+
+                let result = self
+                    .resolver
+                    .resolve(&CapabilityRef::new(capability_id), &resolution_context)
                     .map_err(|e| ExecutionError::CapabilityResolution {
                         step_id: step_id.to_string(),
                         capability_id: capability_id.clone(),
                         error: e.to_string(),
                     })?;
-                
+
                 let implementation = &result.implementation;
-                
+
                 // Handle different implementation types
                 match implementation {
                     ImplementationRef::Routine { .. } => {
@@ -118,14 +116,16 @@ impl CapabilityAwareExecutor {
                             })
                         } else {
                             Err(ExecutionError::RoutineNotFound(RoutineType::new(
-                                "tool", name, "1.0.0"
+                                "tool", name, "1.0.0",
                             )))
                         }
                     }
                     ImplementationRef::Skill { playbook_id, .. } => {
                         // Skill implementation - sub-workflow
                         Err(ExecutionError::RoutineNotFound(RoutineType::new(
-                            "skill", playbook_id, "1.0.0"
+                            "skill",
+                            playbook_id,
+                            "1.0.0",
                         )))
                     }
                 }
@@ -158,15 +158,16 @@ impl CapabilityAwareExecutor {
 
 fn implementation_to_routine_type(implementation: &ImplementationRef) -> RoutineType {
     match implementation {
-        ImplementationRef::Routine { class, name, version } => {
-            RoutineType::new(class, name, version)
-        }
-        ImplementationRef::Tool { name, version } => {
-            RoutineType::new("tool", name, version)
-        }
-        ImplementationRef::Skill { playbook_id, version } => {
-            RoutineType::new("skill", playbook_id, version)
-        }
+        ImplementationRef::Routine {
+            class,
+            name,
+            version,
+        } => RoutineType::new(class, name, version),
+        ImplementationRef::Tool { name, version } => RoutineType::new("tool", name, version),
+        ImplementationRef::Skill {
+            playbook_id,
+            version,
+        } => RoutineType::new("skill", playbook_id, version),
     }
 }
 
@@ -190,9 +191,7 @@ mod tests {
             description: "Test".to_string(),
             input_contract: Contract::object().build(),
             output_contract: Contract::object().build(),
-            implementations: vec![
-                ImplementationRef::routine("builtin", "noop", "1.0.0"),
-            ],
+            implementations: vec![ImplementationRef::routine("builtin", "noop", "1.0.0")],
         };
         capability_registry.register(Arc::new(cap));
 
@@ -204,12 +203,8 @@ mod tests {
 
         let routine_type = RoutineType::new("capability", "test.capability", "1.0.0");
         let workflow_input = serde_json::json!({});
-        
-        let result = executor.resolve_step_routine(
-            &routine_type,
-            "test_step",
-            &workflow_input,
-        );
+
+        let result = executor.resolve_step_routine(&routine_type, "test_step", &workflow_input);
 
         assert!(result.is_ok());
     }
@@ -263,10 +258,7 @@ mod mock {
             "Mock tool"
         }
 
-        async fn invoke(
-            &self,
-            input: &ToolInput,
-        ) -> Result<ToolOutput, ToolError> {
+        async fn invoke(&self, input: &ToolInput) -> Result<ToolOutput, ToolError> {
             Ok(ToolOutput {
                 data: input.parameters.clone(),
                 status_code: Some(200),

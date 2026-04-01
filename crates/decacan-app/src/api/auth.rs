@@ -1,8 +1,4 @@
-use axum::{
-    extract::State,
-    routing::post,
-    Json, Router,
-};
+use axum::{extract::State, routing::post, Json, Router};
 use serde::{Deserialize, Serialize};
 
 use crate::app::state::AppState;
@@ -72,15 +68,21 @@ async fn register(
                 decacan_auth::AuthError::Validation(_) => {
                     (axum::http::StatusCode::BAD_REQUEST, "validation_error")
                 }
-                _ => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "internal_error"),
+                _ => (
+                    axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                    "internal_error",
+                ),
             };
-            
-            (status, Json(ErrorResponse {
-                error: error_code.to_string(),
-                message: e.to_string(),
-            }))
+
+            (
+                status,
+                Json(ErrorResponse {
+                    error: error_code.to_string(),
+                    message: e.to_string(),
+                }),
+            )
         })?;
-    
+
     Ok(Json(AuthResponse {
         user_id: user.id,
         email: user.email,
@@ -105,15 +107,21 @@ async fn login(
                 decacan_auth::AuthError::InvalidCredentials => {
                     (axum::http::StatusCode::UNAUTHORIZED, "invalid_credentials")
                 }
-                _ => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "internal_error"),
+                _ => (
+                    axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                    "internal_error",
+                ),
             };
-            
-            (status, Json(ErrorResponse {
-                error: error_code.to_string(),
-                message: e.to_string(),
-            }))
+
+            (
+                status,
+                Json(ErrorResponse {
+                    error: error_code.to_string(),
+                    message: e.to_string(),
+                }),
+            )
         })?;
-    
+
     Ok(Json(AuthResponse {
         user_id: user.id,
         email: user.email,
@@ -141,15 +149,21 @@ async fn refresh_token(
                 decacan_auth::AuthError::TokenExpired => {
                     (axum::http::StatusCode::UNAUTHORIZED, "token_expired")
                 }
-                _ => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "internal_error"),
+                _ => (
+                    axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                    "internal_error",
+                ),
             };
-            
-            (status, Json(ErrorResponse {
-                error: error_code.to_string(),
-                message: e.to_string(),
-            }))
+
+            (
+                status,
+                Json(ErrorResponse {
+                    error: error_code.to_string(),
+                    message: e.to_string(),
+                }),
+            )
         })?;
-    
+
     // Note: refresh token doesn't return user info, caller should use /me endpoint
     Ok(Json(AuthResponse {
         user_id: "".to_string(),
@@ -178,15 +192,13 @@ async fn logout(
             }),
         ))?;
 
-    let token = auth_header
-        .strip_prefix("Bearer ")
-        .ok_or((
-            axum::http::StatusCode::UNAUTHORIZED,
-            Json(ErrorResponse {
-                error: "unauthorized".to_string(),
-                message: "Invalid authorization format".to_string(),
-            }),
-        ))?;
+    let token = auth_header.strip_prefix("Bearer ").ok_or((
+        axum::http::StatusCode::UNAUTHORIZED,
+        Json(ErrorResponse {
+            error: "unauthorized".to_string(),
+            message: "Invalid authorization format".to_string(),
+        }),
+    ))?;
 
     // 验证 token 获取 user_id
     let user_id = state
@@ -204,19 +216,15 @@ async fn logout(
         })?;
 
     // 执行登出（撤销所有会话）
-    state
-        .auth_service()
-        .logout(&user_id)
-        .await
-        .map_err(|e| {
-            (
-                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: "logout_error".to_string(),
-                    message: e.to_string(),
-                }),
-            )
-        })?;
+    state.auth_service().logout(&user_id).await.map_err(|e| {
+        (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: "logout_error".to_string(),
+                message: e.to_string(),
+            }),
+        )
+    })?;
 
     Ok(axum::http::StatusCode::NO_CONTENT)
 }

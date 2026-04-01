@@ -105,7 +105,9 @@ fn resolve_approval_decision(
     request: ApprovalRequestDto,
     workspace_id: Option<&str>,
 ) -> Result<(StatusCode, Json<ApprovalDto>), StatusCode> {
-    let existing = state.get_approval(approval_id).ok_or(StatusCode::NOT_FOUND)?;
+    let existing = state
+        .get_approval(approval_id)
+        .ok_or(StatusCode::NOT_FOUND)?;
     if let Some(workspace_id) = workspace_id {
         if existing.workspace_id != workspace_id {
             return Err(StatusCode::NOT_FOUND);

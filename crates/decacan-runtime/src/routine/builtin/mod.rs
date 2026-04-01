@@ -3,8 +3,8 @@ use once_cell::sync::Lazy;
 use serde_json::{json, Value};
 
 use crate::capability::entities::CapabilityRef;
-use crate::routine::contract::Contract;
 use crate::routine::context::RoutineContext;
+use crate::routine::contract::Contract;
 use crate::routine::error::RoutineError;
 use crate::routine::r#trait::{Routine, RoutineType};
 
@@ -59,11 +59,8 @@ impl Routine for EchoRoutine {
     }
 
     fn output_contract(&self) -> &Contract {
-        static CONTRACT: Lazy<Contract> = Lazy::new(|| {
-            Contract::object()
-                .field("echo", Contract::string())
-                .build()
-        });
+        static CONTRACT: Lazy<Contract> =
+            Lazy::new(|| Contract::object().field("echo", Contract::string()).build());
         &CONTRACT
     }
 
@@ -72,11 +69,8 @@ impl Routine for EchoRoutine {
         _ctx: &mut RoutineContext,
         input: Value,
     ) -> Result<Value, RoutineError> {
-        let message = input
-            .get("message")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
-        
+        let message = input.get("message").and_then(|v| v.as_str()).unwrap_or("");
+
         Ok(json!({"echo": message}))
     }
 
@@ -88,12 +82,12 @@ impl Routine for EchoRoutine {
 /// Create a registry with all builtin routines registered
 pub fn create_builtin_registry() -> super::RoutineRegistry {
     use std::sync::Arc;
-    
+
     let registry = super::RoutineRegistry::new();
-    
+
     registry.register(Arc::new(NoopRoutine));
     registry.register(Arc::new(EchoRoutine));
-    
+
     registry
 }
 
@@ -101,14 +95,14 @@ pub fn create_builtin_registry() -> super::RoutineRegistry {
 mod tests {
     use super::*;
     use crate::routine::context::RoutineContext;
-    
+
     #[tokio::test]
     async fn test_noop_routine() {
         let routine = NoopRoutine;
         let mut ctx = RoutineContext::new("/tmp", "step1", "run1", "task1");
-        
+
         let result = routine.execute(&mut ctx, json!({})).await;
-        
+
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), json!({}));
     }
@@ -117,12 +111,11 @@ mod tests {
     async fn test_echo_routine() {
         let routine = EchoRoutine;
         let mut ctx = RoutineContext::new("/tmp", "step1", "run1", "task1");
-        
-        let result = routine.execute(
-            &mut ctx,
-            json!({"message": "hello world"}),
-        ).await;
-        
+
+        let result = routine
+            .execute(&mut ctx, json!({"message": "hello world"}))
+            .await;
+
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), json!({"echo": "hello world"}));
     }

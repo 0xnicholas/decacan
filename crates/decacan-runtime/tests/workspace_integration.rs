@@ -96,13 +96,11 @@ async fn test_complete_workspace_workflow() {
     let restricted_resolver =
         WorkspacePolicyResolver::new(&activated, &policy_profile, &restricted_inputs);
     let restricted_policy = restricted_resolver.resolve();
-    assert!(
-        restricted_policy
-            .read_boundary
-            .allowed_paths
-            .iter()
-            .any(|p| p.to_string_lossy().contains("subproject"))
-    );
+    assert!(restricted_policy
+        .read_boundary
+        .allowed_paths
+        .iter()
+        .any(|p| p.to_string_lossy().contains("subproject")));
     println!("✓ Resolved policy with restricted subpath");
 
     // =========================================================================
@@ -375,8 +373,8 @@ fn test_workspace_role_permissions() {
 
     let editor_perms = WorkspaceRole::Editor.permissions();
     assert!(editor_perms.len() > viewer_perms.len()); // Editor has more than viewer (13 > 4)
-    // Note: Editor has 13 granular permissions, Owner has 7 all_actions permissions
-    // The count comparison doesn't reflect actual capability - Owner's all_actions are more powerful
+                                                      // Note: Editor has 13 granular permissions, Owner has 7 all_actions permissions
+                                                      // The count comparison doesn't reflect actual capability - Owner's all_actions are more powerful
 
     println!("✓ WorkspaceRole permission sets are correct");
 }

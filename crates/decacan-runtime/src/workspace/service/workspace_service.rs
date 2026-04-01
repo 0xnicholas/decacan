@@ -14,7 +14,10 @@ pub enum WorkspaceServiceError {
     #[error("Workspace with slug '{slug}' already exists for tenant '{owner_id}'")]
     AlreadyExists { slug: String, owner_id: String },
     #[error("Invalid state transition from {from:?} to {to:?}")]
-    InvalidStateTransition { from: WorkspaceStatus, to: WorkspaceStatus },
+    InvalidStateTransition {
+        from: WorkspaceStatus,
+        to: WorkspaceStatus,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -47,7 +50,7 @@ impl WorkspaceService {
         input: CreateWorkspaceInput,
     ) -> Result<Workspace, WorkspaceServiceError> {
         let slug_key = (input.owner_id.clone(), input.slug.clone());
-        
+
         {
             let slug_index = self.slug_index.lock().unwrap();
             if slug_index.contains_key(&slug_key) {
@@ -82,10 +85,7 @@ impl WorkspaceService {
         Ok(workspace)
     }
 
-    pub async fn get_workspace(
-        &self,
-        id: &str,
-    ) -> Result<Workspace, WorkspaceServiceError> {
+    pub async fn get_workspace(&self, id: &str) -> Result<Workspace, WorkspaceServiceError> {
         let storage = self.storage.lock().unwrap();
         storage
             .get(id)
@@ -93,10 +93,7 @@ impl WorkspaceService {
             .ok_or(WorkspaceServiceError::NotFound)
     }
 
-    pub async fn list_workspaces(
-        &self,
-        owner_id: &str,
-    ) -> Vec<Workspace> {
+    pub async fn list_workspaces(&self, owner_id: &str) -> Vec<Workspace> {
         let storage = self.storage.lock().unwrap();
         storage
             .values()
@@ -105,14 +102,9 @@ impl WorkspaceService {
             .collect()
     }
 
-    pub async fn activate_workspace(
-        &self,
-        id: &str,
-    ) -> Result<Workspace, WorkspaceServiceError> {
+    pub async fn activate_workspace(&self, id: &str) -> Result<Workspace, WorkspaceServiceError> {
         let mut storage = self.storage.lock().unwrap();
-        let workspace = storage
-            .get_mut(id)
-            .ok_or(WorkspaceServiceError::NotFound)?;
+        let workspace = storage.get_mut(id).ok_or(WorkspaceServiceError::NotFound)?;
 
         let current_status = workspace.status;
         let target_status = WorkspaceStatus::Active;
@@ -128,14 +120,9 @@ impl WorkspaceService {
         Ok(workspace.clone())
     }
 
-    pub async fn archive_workspace(
-        &self,
-        id: &str,
-    ) -> Result<Workspace, WorkspaceServiceError> {
+    pub async fn archive_workspace(&self, id: &str) -> Result<Workspace, WorkspaceServiceError> {
         let mut storage = self.storage.lock().unwrap();
-        let workspace = storage
-            .get_mut(id)
-            .ok_or(WorkspaceServiceError::NotFound)?;
+        let workspace = storage.get_mut(id).ok_or(WorkspaceServiceError::NotFound)?;
 
         let current_status = workspace.status;
         let target_status = WorkspaceStatus::Archived;
@@ -151,14 +138,9 @@ impl WorkspaceService {
         Ok(workspace.clone())
     }
 
-    pub async fn restore_workspace(
-        &self,
-        id: &str,
-    ) -> Result<Workspace, WorkspaceServiceError> {
+    pub async fn restore_workspace(&self, id: &str) -> Result<Workspace, WorkspaceServiceError> {
         let mut storage = self.storage.lock().unwrap();
-        let workspace = storage
-            .get_mut(id)
-            .ok_or(WorkspaceServiceError::NotFound)?;
+        let workspace = storage.get_mut(id).ok_or(WorkspaceServiceError::NotFound)?;
 
         let current_status = workspace.status;
         let target_status = WorkspaceStatus::Active;
@@ -174,14 +156,9 @@ impl WorkspaceService {
         Ok(workspace.clone())
     }
 
-    pub async fn delete_workspace(
-        &self,
-        id: &str,
-    ) -> Result<(), WorkspaceServiceError> {
+    pub async fn delete_workspace(&self, id: &str) -> Result<(), WorkspaceServiceError> {
         let mut storage = self.storage.lock().unwrap();
-        let workspace = storage
-            .get(id)
-            .ok_or(WorkspaceServiceError::NotFound)?;
+        let workspace = storage.get(id).ok_or(WorkspaceServiceError::NotFound)?;
 
         let current_status = workspace.status;
         let target_status = WorkspaceStatus::Deleted;
@@ -194,14 +171,14 @@ impl WorkspaceService {
         }
 
         let slug_key = (workspace.owner_id.clone(), workspace.slug.clone());
-        
+
         {
             let mut slug_index = self.slug_index.lock().unwrap();
             slug_index.remove(&slug_key);
         }
-        
+
         storage.remove(id);
-        
+
         Ok(())
     }
 }

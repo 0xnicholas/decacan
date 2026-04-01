@@ -36,7 +36,10 @@ async fn task_creation_requires_published_playbook_version() {
         )
         .await
         .expect("task route should respond");
-    assert_eq!(direct_store_entry_response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(
+        direct_store_entry_response.status(),
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
 
     let handle_id = fork_playbook(&app).await;
     let draft_only_response = app
@@ -53,7 +56,10 @@ async fn task_creation_requires_published_playbook_version() {
         )
         .await
         .expect("task route should respond");
-    assert_eq!(draft_only_response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(
+        draft_only_response.status(),
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
 
     save_valid_playbook_draft(&app, &handle_id).await;
     let publish_response = app
@@ -362,9 +368,10 @@ async fn deliverables_routes_return_first_class_review_objects() {
         .expect("reviewed detail route should respond");
     assert_eq!(reviewed_detail_response.status(), StatusCode::OK);
 
-    let reviewed_detail_body = axum::body::to_bytes(reviewed_detail_response.into_body(), usize::MAX)
-        .await
-        .expect("reviewed detail body should be readable");
+    let reviewed_detail_body =
+        axum::body::to_bytes(reviewed_detail_response.into_body(), usize::MAX)
+            .await
+            .expect("reviewed detail body should be readable");
     let reviewed_detail_json: Value = serde_json::from_slice(&reviewed_detail_body)
         .expect("reviewed deliverable detail should be json");
     assert_eq!(reviewed_detail_json["deliverable"]["status"], "approved");
@@ -524,7 +531,9 @@ async fn approvals_center_and_inbox_routes_return_waiting_on_me_items() {
                 .method("POST")
                 .uri(format!("/api/tasks/{task_id}/approvals"))
                 .header("content-type", "application/json")
-                .body(Body::from(r#"{"decision":"pending","comment":"Need review"}"#))
+                .body(Body::from(
+                    r#"{"decision":"pending","comment":"Need review"}"#,
+                ))
                 .expect("request should build"),
         )
         .await
@@ -903,12 +912,17 @@ async fn playbook_fork_endpoint_creates_local_handle_from_store_entry() {
     let body = axum::body::to_bytes(response.into_body(), usize::MAX)
         .await
         .expect("playbook fork body should be readable");
-    let json: Value =
-        serde_json::from_slice(&body).expect("playbook fork response should be json");
+    let json: Value = serde_json::from_slice(&body).expect("playbook fork response should be json");
 
     assert_eq!(json["handle"]["origin"], "official_fork");
-    assert_eq!(json["handle"]["source_store_entry_id"], "store-entry-summary");
-    assert_eq!(json["draft"]["playbook_handle_id"], json["handle"]["playbook_handle_id"]);
+    assert_eq!(
+        json["handle"]["source_store_entry_id"],
+        "store-entry-summary"
+    );
+    assert_eq!(
+        json["draft"]["playbook_handle_id"],
+        json["handle"]["playbook_handle_id"]
+    );
 }
 
 #[tokio::test]
@@ -1180,8 +1194,7 @@ async fn fork_playbook(app: &axum::Router) -> String {
     let body = axum::body::to_bytes(response.into_body(), usize::MAX)
         .await
         .expect("playbook fork body should be readable");
-    let json: Value =
-        serde_json::from_slice(&body).expect("playbook fork response should be json");
+    let json: Value = serde_json::from_slice(&body).expect("playbook fork response should be json");
 
     json["handle"]["playbook_handle_id"]
         .as_str()

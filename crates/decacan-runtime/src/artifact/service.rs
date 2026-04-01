@@ -43,7 +43,11 @@ impl DiscoveryArtifactCommand {
 }
 
 impl SummaryArtifactCommand {
-    pub fn new(task_id: impl Into<String>, workspace_root: impl Into<PathBuf>, contents: impl Into<String>) -> Self {
+    pub fn new(
+        task_id: impl Into<String>,
+        workspace_root: impl Into<PathBuf>,
+        contents: impl Into<String>,
+    ) -> Self {
         Self {
             task_id: task_id.into(),
             workspace_root: workspace_root.into(),
@@ -113,12 +117,17 @@ where
         command: SummaryArtifactCommand,
     ) -> Result<SummaryArtifactWriteResult, ArtifactServiceError> {
         let summary_path = summary_output_path(&command.workspace_root);
-        let backup_result =
-            backup_existing_summary(self.filesystem, self.clock, &command.workspace_root, &summary_path)
-                .map_err(|error| ArtifactServiceError::Filesystem(format!("{error:?}")))?;
+        let backup_result = backup_existing_summary(
+            self.filesystem,
+            self.clock,
+            &command.workspace_root,
+            &summary_path,
+        )
+        .map_err(|error| ArtifactServiceError::Filesystem(format!("{error:?}")))?;
 
-        let written_path = write_summary_output(self.filesystem, &command.workspace_root, &command.contents)
-            .map_err(|error| ArtifactServiceError::Filesystem(format!("{error:?}")))?;
+        let written_path =
+            write_summary_output(self.filesystem, &command.workspace_root, &command.contents)
+                .map_err(|error| ArtifactServiceError::Filesystem(format!("{error:?}")))?;
 
         self.register_written_artifact(
             &command.task_id,
@@ -180,7 +189,10 @@ where
                 now,
             );
             let relation = ArtifactRelation {
-                id: format!("artifact-relation-{}-backup-of-{}", backup.id, primary_artifact.id),
+                id: format!(
+                    "artifact-relation-{}-backup-of-{}",
+                    backup.id, primary_artifact.id
+                ),
                 from_artifact_id: backup.id.clone(),
                 to_artifact_id: primary_artifact.id.clone(),
                 kind: ArtifactRelationKind::BackupOf,
@@ -290,7 +302,10 @@ fn build_backup_artifact(
     now: OffsetDateTime,
 ) -> Artifact {
     Artifact {
-        id: format!("artifact-{task_id}-{}-{backup_identity}", descriptor.id_prefix),
+        id: format!(
+            "artifact-{task_id}-{}-{backup_identity}",
+            descriptor.id_prefix
+        ),
         task_id: task_id.to_owned(),
         label: descriptor.label.to_owned(),
         logical_name: descriptor.logical_name.to_owned(),

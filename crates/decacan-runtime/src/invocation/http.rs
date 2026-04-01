@@ -17,15 +17,15 @@ use crate::invocation::{Tool, ToolAuth, ToolError, ToolInput, ToolOutput, ToolOu
 pub struct HttpToolConfig {
     /// Base URL for the API
     pub base_url: String,
-    
+
     /// Default timeout in seconds
     #[serde(default = "default_timeout")]
     pub timeout_secs: u32,
-    
+
     /// Default headers to include in all requests
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default_headers: Option<HashMap<String, String>>,
-    
+
     /// Whether to follow redirects
     #[serde(default = "default_follow_redirects")]
     pub follow_redirects: bool,
@@ -115,9 +115,7 @@ impl HttpTool {
             Some(ToolAuth::Bearer { token }) => {
                 builder.header("Authorization", format!("Bearer {}", token))
             }
-            Some(ToolAuth::ApiKey { key, header }) => {
-                builder.header(header.clone(), key.clone())
-            }
+            Some(ToolAuth::ApiKey { key, header }) => builder.header(header.clone(), key.clone()),
             Some(ToolAuth::Basic { username, password }) => {
                 builder.basic_auth(username, Some(password))
             }
@@ -126,23 +124,20 @@ impl HttpTool {
     }
 
     /// Apply default headers
-    fn apply_default_headers(
-        &self,
-        builder: reqwest::RequestBuilder,
-    ) -> reqwest::RequestBuilder {
+    fn apply_default_headers(&self, builder: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
         let mut builder = builder;
-        
+
         // Always add JSON content type
         builder = builder.header("Content-Type", "application/json");
         builder = builder.header("Accept", "application/json");
-        
+
         // Add custom default headers
         if let Some(ref headers) = self.config.default_headers {
             for (key, value) in headers {
                 builder = builder.header(key.clone(), value.clone());
             }
         }
-        
+
         builder
     }
 }
@@ -161,23 +156,24 @@ impl Tool for HttpTool {
         &self.description
     }
 
-    async fn invoke(
-        &self,
-        input: &ToolInput,
-    ) -> Result<ToolOutput, ToolError> {
+    async fn invoke(&self, input: &ToolInput) -> Result<ToolOutput, ToolError> {
         let start = Instant::now();
-        
+
         // Parse input parameters
-        let method_str = input.parameters.get("method")
+        let method_str = input
+            .parameters
+            .get("method")
             .and_then(|v| v.as_str())
             .unwrap_or("GET");
-        
-        let path = input.parameters.get("path")
+
+        let path = input
+            .parameters
+            .get("path")
             .and_then(|v| v.as_str())
             .unwrap_or("/");
-        
+
         let body = input.parameters.get("body");
-        
+
         let method = match method_str.to_uppercase().as_str() {
             "GET" => Method::GET,
             "POST" => Method::POST,
@@ -186,14 +182,14 @@ impl Tool for HttpTool {
             "PATCH" => Method::PATCH,
             _ => Method::GET,
         };
-        
+
         let url = self.build_url(path);
-        
+
         // Build request
         let mut builder = self.client.request(method, &url);
         builder = self.apply_default_headers(builder);
         builder = self.apply_auth(builder, input.auth.as_ref());
-        
+
         // Add custom headers from input
         if let Some(ref metadata) = input.metadata {
             for (key, value) in metadata {
@@ -203,12 +199,12 @@ impl Tool for HttpTool {
                 }
             }
         }
-        
+
         // Add body for POST/PUT/PATCH
         if let Some(body_value) = body {
             builder = builder.json(body_value);
         }
-        
+
         // Execute request
         let response = builder.send().await.map_err(|e| {
             if e.is_timeout() {
@@ -228,23 +224,22 @@ impl Tool for HttpTool {
                 }
             }
         })?;
-        
+
         let status = response.status();
         let headers: HashMap<String, String> = response
             .headers()
             .iter()
-            .filter_map(|(k, v)| {
-                v.to_str().ok().map(|v| (k.to_string(), v.to_string()))
-            })
+            .filter_map(|(k, v)| v.to_str().ok().map(|v| (k.to_string(), v.to_string())))
             .collect();
-        
+
         // Parse response body
-        let data: Value = response.json().await.unwrap_or_else(|_| {
-            serde_json::json!({"raw_response": "Non-JSON response"})
-        });
-        
+        let data: Value = response
+            .json()
+            .await
+            .unwrap_or_else(|_| serde_json::json!({"raw_response": "Non-JSON response"}));
+
         let duration = start.elapsed().as_millis() as u64;
-        
+
         Ok(ToolOutput {
             data,
             status_code: Some(status.as_u16()),

@@ -1,18 +1,21 @@
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
-use axum::routing::{get, post, put, delete};
+use axum::routing::{delete, get, post, put};
 use axum::{Json, Router};
 
 use crate::app::state::AppState;
 use crate::dto::team::{
-    CreateTeamRequestDto, CreateTeamResponseDto, ListTeamsResponseDto,
-    TeamSpecDto, UpdateTeamRequestDto,
+    CreateTeamRequestDto, CreateTeamResponseDto, ListTeamsResponseDto, TeamSpecDto,
+    UpdateTeamRequestDto,
 };
 
 pub(super) fn router() -> Router<AppState> {
     Router::new()
         .route("/api/teams", get(list_teams).post(create_team))
-        .route("/api/teams/:team_id", get(get_team).put(update_team).delete(delete_team))
+        .route(
+            "/api/teams/:team_id",
+            get(get_team).put(update_team).delete(delete_team),
+        )
 }
 
 async fn list_teams(State(state): State<AppState>) -> Json<ListTeamsResponseDto> {
@@ -36,7 +39,7 @@ async fn create_team(
     let response = state
         .create_team(request)
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    
+
     Ok((StatusCode::CREATED, Json(response)))
 }
 
@@ -64,6 +67,6 @@ async fn delete_team(
     state
         .delete_team(&team_id)
         .map_err(|_| StatusCode::NOT_FOUND)?;
-    
+
     Ok(StatusCode::NO_CONTENT)
 }

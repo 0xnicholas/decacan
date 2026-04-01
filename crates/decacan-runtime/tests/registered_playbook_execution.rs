@@ -5,8 +5,8 @@ use decacan_infra::clock::system::SystemClock;
 use decacan_infra::filesystem::local::LocalFilesystem;
 use decacan_infra::storage::memory::MemoryStorage;
 use decacan_runtime::playbook::execution::{
-    execute_registered_playbook_run, prepare_registered_playbook_run,
-    preview_registered_playbook, RegisteredPlaybookExecutionRequest,
+    execute_registered_playbook_run, prepare_registered_playbook_run, preview_registered_playbook,
+    RegisteredPlaybookExecutionRequest,
 };
 use decacan_runtime::playbook::registry::{DISCOVER_TOPICS_PLAYBOOK_KEY, SUMMARY_PLAYBOOK_KEY};
 use decacan_runtime::task::entity::TaskStatus;
@@ -51,14 +51,20 @@ fn prepare_registered_discovery_playbook_run_builds_runtime_task_run_and_pending
         Uuid::parse_str("88dd5ca4-8c76-4784-a7b0-5b4607d63b62")
             .expect("fixture uuid should be valid")
     );
-    assert_eq!(prepared.run.playbook_snapshot.key, DISCOVER_TOPICS_PLAYBOOK_KEY);
+    assert_eq!(
+        prepared.run.playbook_snapshot.key,
+        DISCOVER_TOPICS_PLAYBOOK_KEY
+    );
     assert_eq!(prepared.run.workflow_snapshot.steps.len(), 6);
     assert_eq!(
         prepared.pending_artifact.id,
         "artifact-task-42-discovery-primary"
     );
     assert_eq!(prepared.pending_artifact.label, "Discovery report");
-    assert_eq!(prepared.pending_artifact.canonical_path, "output/discovery.md");
+    assert_eq!(
+        prepared.pending_artifact.canonical_path,
+        "output/discovery.md"
+    );
 }
 
 #[test]
@@ -88,11 +94,15 @@ fn execute_registered_playbook_run_dispatches_from_run_snapshot() {
     let mut task = prepared.task;
     let mut run = prepared.run;
 
-    let result = execute_registered_playbook_run(&mut task, &mut run, &filesystem, &storage, &clock)
-        .expect("prepared playbook should execute");
+    let result =
+        execute_registered_playbook_run(&mut task, &mut run, &filesystem, &storage, &clock)
+            .expect("prepared playbook should execute");
 
     assert_eq!(task.status, TaskStatus::Succeeded);
-    assert_eq!(result.primary_artifact.canonical_path, "output/discovery.md");
+    assert_eq!(
+        result.primary_artifact.canonical_path,
+        "output/discovery.md"
+    );
     let discovery_contents = fs::read_to_string(&result.primary_artifact.physical_path)
         .expect("discovery artifact should be readable");
     assert!(discovery_contents.contains("# 主题发现"));

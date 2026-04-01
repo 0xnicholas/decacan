@@ -70,28 +70,28 @@ impl<S: UserStorage> AuthService<S> {
     fn validate_password(password: &str) -> AuthResult<()> {
         if password.len() < 8 {
             return Err(AuthError::Validation(
-                "Password must be at least 8 characters".to_string()
+                "Password must be at least 8 characters".to_string(),
             ));
         }
 
         // Check for at least one uppercase letter
         if !password.chars().any(|c| c.is_ascii_uppercase()) {
             return Err(AuthError::Validation(
-                "Password must contain at least one uppercase letter".to_string()
+                "Password must contain at least one uppercase letter".to_string(),
             ));
         }
 
         // Check for at least one lowercase letter
         if !password.chars().any(|c| c.is_ascii_lowercase()) {
             return Err(AuthError::Validation(
-                "Password must contain at least one lowercase letter".to_string()
+                "Password must contain at least one lowercase letter".to_string(),
             ));
         }
 
         // Check for at least one digit
         if !password.chars().any(|c| c.is_ascii_digit()) {
             return Err(AuthError::Validation(
-                "Password must contain at least one digit".to_string()
+                "Password must contain at least one digit".to_string(),
             ));
         }
 
@@ -105,13 +105,13 @@ impl<S: UserStorage> AuthService<S> {
         name: &str,
     ) -> AuthResult<(User, AuthTokens)> {
         Self::validate_password(password)?;
-        
+
         if self.storage.find_user_by_email(email).await?.is_some() {
             return Err(AuthError::EmailAlreadyExists);
         }
-        
+
         let password_hash = hash_password(password)?;
-        
+
         let user = User {
             id: Uuid::new_v4().to_string(),
             email: email.to_string(),
@@ -125,107 +125,97 @@ impl<S: UserStorage> AuthService<S> {
             created_at: OffsetDateTime::now_utc(),
             last_login_at: Some(OffsetDateTime::now_utc()),
         };
-        
+
         self.storage.create_user(&user).await?;
         let tokens = self.generate_tokens(&user.id).await?;
-        
+
         Ok((user, tokens))
     }
-    
+
     /// Login with rate limiting protection
-    pub async fn login(
-        &self,
-        email: &str,
-        password: &str,
-    ) -> AuthResult<(User, AuthTokens)> {
+    pub async fn login(&self, email: &str, password: &str) -> AuthResult<(User, AuthTokens)> {
         // Check rate limit first
         if !self.rate_limiter.check(email) {
             return Err(AuthError::RateLimited);
         }
-        
-        let user = self.storage
+
+        let user = self
+            .storage
             .find_user_by_email(email)
             .await?
             .ok_or(AuthError::InvalidCredentials)?;
-        
-        let hash = user.password_hash.as_ref()
+
+        let hash = user
+            .password_hash
+            .as_ref()
             .ok_or(AuthError::InvalidCredentials)?;
-        
+
         if !verify_password(password, hash)? {
             // Record failed attempt
             self.rate_limiter.record_attempt(email);
             return Err(AuthError::InvalidCredentials);
         }
-        
+
         // Clear rate limit on successful login
         self.rate_limiter.clear(email);
-        
+
         self.storage.update_last_login(&user.id).await?;
         let tokens = self.generate_tokens(&user.id).await?;
-        
+
         Ok((user, tokens))
     }
-    
-    pub async fn verify_token(&self,
-        token: &str,
-    ) -> AuthResult<String> {
+
+    pub async fn verify_token(&self, token: &str) -> AuthResult<String> {
         let validation = Validation::default();
         let token_data = decode::<Claims>(
             token,
             &DecodingKey::from_secret(self.jwt_secret.as_bytes()),
             &validation,
-        ).map_err(|e| match e.kind() {
+        )
+        .map_err(|e| match e.kind() {
             jsonwebtoken::errors::ErrorKind::ExpiredSignature => AuthError::TokenExpired,
             _ => AuthError::InvalidToken,
         })?;
-        
+
         Ok(token_data.claims.sub)
     }
-    
-    pub async fn refresh_token(
-        &self,
-        refresh_token: &str,
-    ) -> AuthResult<AuthTokens> {
+
+    pub async fn refresh_token(&self, refresh_token: &str) -> AuthResult<AuthTokens> {
         // 1. Verify refresh token format
         let claims = self.verify_token(refresh_token).await?;
-        
+
         // 2. Check database for valid session
-        let session = self.storage
+        let session = self
+            .storage
             .find_session_by_refresh_token(refresh_token)
             .await?
             .ok_or(AuthError::InvalidToken)?;
-        
+
         if session.expires_at < OffsetDateTime::now_utc() {
             return Err(AuthError::TokenExpired);
         }
-        
+
         // 3. Revoke old session (token rotation)
         self.storage.revoke_session(&session.id).await?;
-        
+
         // 4. Generate new tokens
         let tokens = self.generate_tokens(&claims).await?;
-        
+
         Ok(tokens)
     }
-    
-    pub async fn logout(
-        &self,
-        user_id: &str,
-    ) -> AuthResult<()> {
+
+    pub async fn logout(&self, user_id: &str) -> AuthResult<()> {
         self.storage.revoke_all_user_sessions(user_id).await
     }
-    
-    async fn generate_tokens(
-        &self,
-        user_id: &str,
-    ) -> AuthResult<AuthTokens> {
+
+    async fn generate_tokens(&self, user_id: &str) -> AuthResult<AuthTokens> {
         let now = OffsetDateTime::now_utc();
         let access_expiry = Duration::minutes(15);
         let refresh_expiry = Duration::days(7);
-        
+
         // Generate unique session ID first to use as JWT ID (jti)
         let session_id = Uuid::new_v4().to_string();
-        
+
         let access_token = encode(
             &Header::default(),
             &Claims {
@@ -236,8 +226,9 @@ impl<S: UserStorage> AuthService<S> {
                 jti: format!("{}-access", session_id),
             },
             &EncodingKey::from_secret(self.jwt_secret.as_bytes()),
-        ).map_err(|e| AuthError::Internal(format!("JWT encoding failed: {}", e)))?;
-        
+        )
+        .map_err(|e| AuthError::Internal(format!("JWT encoding failed: {}", e)))?;
+
         let refresh_token = encode(
             &Header::default(),
             &Claims {
@@ -248,8 +239,9 @@ impl<S: UserStorage> AuthService<S> {
                 jti: format!("{}-refresh", session_id),
             },
             &EncodingKey::from_secret(self.jwt_secret.as_bytes()),
-        ).map_err(|e| AuthError::Internal(format!("JWT encoding failed: {}", e)))?;
-        
+        )
+        .map_err(|e| AuthError::Internal(format!("JWT encoding failed: {}", e)))?;
+
         let session = AuthSession {
             id: session_id,
             user_id: user_id.to_string(),
@@ -261,9 +253,9 @@ impl<S: UserStorage> AuthService<S> {
             ip_address: None,
             user_agent: None,
         };
-        
+
         self.storage.create_session(&session).await?;
-        
+
         Ok(AuthTokens {
             access_token,
             refresh_token,
@@ -275,16 +267,18 @@ impl<S: UserStorage> AuthService<S> {
 fn hash_password(password: &str) -> AuthResult<String> {
     let salt = SaltString::generate(&mut OsRng);
     let argon2 = Argon2::default();
-    
-    argon2.hash_password(password.as_bytes(), &salt)
+
+    argon2
+        .hash_password(password.as_bytes(), &salt)
         .map_err(|e| AuthError::Storage(e.to_string()))
         .map(|h| h.to_string())
 }
 
 fn verify_password(password: &str, hash: &str) -> AuthResult<bool> {
-    let parsed_hash = PasswordHash::new(hash)
-        .map_err(|e| AuthError::Storage(e.to_string()))?;
-    
+    let parsed_hash = PasswordHash::new(hash).map_err(|e| AuthError::Storage(e.to_string()))?;
+
     let argon2 = Argon2::default();
-    Ok(argon2.verify_password(password.as_bytes(), &parsed_hash).is_ok())
+    Ok(argon2
+        .verify_password(password.as_bytes(), &parsed_hash)
+        .is_ok())
 }

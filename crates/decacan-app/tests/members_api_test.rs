@@ -1,7 +1,7 @@
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
-use tower::ServiceExt;
 use decacan_app::app::state::AppState;
+use tower::ServiceExt;
 
 use decacan_app::app::wiring::{router_and_state_for_test, router_for_test};
 use decacan_runtime::workspace::rbac::WorkspaceRole;
@@ -130,7 +130,7 @@ async fn test_list_members_requires_auth() {
     let body_str = String::from_utf8(body_bytes.to_vec()).unwrap();
     eprintln!("Response status: {:?}", status);
     eprintln!("Response body: {}", body_str);
-    
+
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
@@ -140,8 +140,14 @@ async fn test_list_members_success() {
 
     // 1. Register a user and create workspace membership
     let (token, _user_id) = register_user_and_create_membership(
-        &app, &state, "owner@example.com", "Password123", "Owner", WorkspaceRole::Owner
-    ).await;
+        &app,
+        &state,
+        "owner@example.com",
+        "Password123",
+        "Owner",
+        WorkspaceRole::Owner,
+    )
+    .await;
 
     // 2. List members with the token
     let response = app
@@ -174,13 +180,8 @@ async fn test_invite_member_success() {
         register_user(&app, "owner@example.com", "Password123", "owner").await;
 
     // 2. Register member to invite
-    let (_member_token, _member_id) = register_user(
-        &app,
-        "member@example.com",
-        "Password123",
-        "Member",
-    )
-    .await;
+    let (_member_token, _member_id) =
+        register_user(&app, "member@example.com", "Password123", "Member").await;
 
     // 3. Owner invites member as Editor
     let response = app
@@ -232,10 +233,7 @@ async fn test_invite_member_success() {
 
     // Should have owner and member
     assert!(members.len() >= 2);
-    let member_emails: Vec<&str> = members
-        .iter()
-        .filter_map(|m| m["email"].as_str())
-        .collect();
+    let member_emails: Vec<&str> = members.iter().filter_map(|m| m["email"].as_str()).collect();
     assert!(member_emails.contains(&"member@example.com"));
 }
 
@@ -248,13 +246,8 @@ async fn test_invite_member_already_exists() {
         register_user(&app, "owner@example.com", "Password123", "owner").await;
 
     // 2. Register member
-    let (_member_token, _member_id) = register_user(
-        &app,
-        "member@example.com",
-        "Password123",
-        "Member",
-    )
-    .await;
+    let (_member_token, _member_id) =
+        register_user(&app, "member@example.com", "Password123", "Member").await;
 
     // 3. Owner invites member first time
     let first_response = app
@@ -330,13 +323,8 @@ async fn test_update_role_success() {
         register_user(&app, "owner@example.com", "Password123", "owner").await;
 
     // 2. Register member
-    let (_member_token, _member_id) = register_user(
-        &app,
-        "member@example.com",
-        "Password123",
-        "Member",
-    )
-    .await;
+    let (_member_token, _member_id) =
+        register_user(&app, "member@example.com", "Password123", "Member").await;
 
     // 3. Owner invites member as Viewer
     let invite_response = app
@@ -369,7 +357,10 @@ async fn test_update_role_success() {
         .oneshot(
             Request::builder()
                 .method("PUT")
-                .uri(format!("/api/workspaces/workspace-1/members/{}", membership_id))
+                .uri(format!(
+                    "/api/workspaces/workspace-1/members/{}",
+                    membership_id
+                ))
                 .header("content-type", "application/json")
                 .header("authorization", format!("Bearer {}", owner_token))
                 .body(Body::from(r#"{"role": "editor"}"#))
@@ -441,7 +432,10 @@ async fn test_update_role_prevents_self_update() {
         .oneshot(
             Request::builder()
                 .method("PUT")
-                .uri(format!("/api/workspaces/workspace-1/members/{}", membership_id))
+                .uri(format!(
+                    "/api/workspaces/workspace-1/members/{}",
+                    membership_id
+                ))
                 .header("content-type", "application/json")
                 .header("authorization", format!("Bearer {}", owner_token))
                 .body(Body::from(r#"{"role": "editor"}"#))
@@ -494,7 +488,10 @@ async fn test_update_role_prevents_owner_role_update() {
         .oneshot(
             Request::builder()
                 .method("PUT")
-                .uri(format!("/api/workspaces/workspace-1/members/{}", membership_id))
+                .uri(format!(
+                    "/api/workspaces/workspace-1/members/{}",
+                    membership_id
+                ))
                 .header("content-type", "application/json")
                 .header("authorization", format!("Bearer {}", owner_token))
                 .body(Body::from(r#"{"role": "editor"}"#))
@@ -515,13 +512,8 @@ async fn test_remove_member_success() {
         register_user(&app, "owner@example.com", "Password123", "owner").await;
 
     // 2. Register member
-    let (_member_token, _member_id) = register_user(
-        &app,
-        "member@example.com",
-        "Password123",
-        "Member",
-    )
-    .await;
+    let (_member_token, _member_id) =
+        register_user(&app, "member@example.com", "Password123", "Member").await;
 
     // 3. Owner invites member
     let invite_response = app
@@ -554,7 +546,10 @@ async fn test_remove_member_success() {
         .oneshot(
             Request::builder()
                 .method("DELETE")
-                .uri(format!("/api/workspaces/workspace-1/members/{}", membership_id))
+                .uri(format!(
+                    "/api/workspaces/workspace-1/members/{}",
+                    membership_id
+                ))
                 .header("authorization", format!("Bearer {}", owner_token))
                 .body(Body::empty())
                 .unwrap(),
@@ -581,10 +576,7 @@ async fn test_remove_member_success() {
         .unwrap();
     let members: Vec<serde_json::Value> = serde_json::from_slice(&list_body).unwrap();
 
-    let member_emails: Vec<&str> = members
-        .iter()
-        .filter_map(|m| m["email"].as_str())
-        .collect();
+    let member_emails: Vec<&str> = members.iter().filter_map(|m| m["email"].as_str()).collect();
     assert!(!member_emails.contains(&"member@example.com"));
 }
 
@@ -625,7 +617,10 @@ async fn test_remove_member_prevents_self_removal() {
         .oneshot(
             Request::builder()
                 .method("DELETE")
-                .uri(format!("/api/workspaces/workspace-1/members/{}", membership_id))
+                .uri(format!(
+                    "/api/workspaces/workspace-1/members/{}",
+                    membership_id
+                ))
                 .header("authorization", format!("Bearer {}", owner_token))
                 .body(Body::empty())
                 .unwrap(),
@@ -645,13 +640,8 @@ async fn test_remove_member_prevents_owner_removal() {
         register_user(&app, "owner@example.com", "Password123", "owner").await;
 
     // 2. Register another user and invite them
-    let (_editor_token, _editor_id) = register_user(
-        &app,
-        "editor@example.com",
-        "Password123",
-        "editor",
-    )
-    .await;
+    let (_editor_token, _editor_id) =
+        register_user(&app, "editor@example.com", "Password123", "editor").await;
 
     // Owner invites editor
     let _invite_response = app
@@ -702,7 +692,10 @@ async fn test_remove_member_prevents_owner_removal() {
         .oneshot(
             Request::builder()
                 .method("DELETE")
-                .uri(format!("/api/workspaces/workspace-1/members/{}", membership_id))
+                .uri(format!(
+                    "/api/workspaces/workspace-1/members/{}",
+                    membership_id
+                ))
                 .header("authorization", format!("Bearer {}", editor_token))
                 .body(Body::empty())
                 .unwrap(),
@@ -723,13 +716,8 @@ async fn test_viewer_cannot_invite_members() {
         register_user(&app, "owner@example.com", "Password123", "owner").await;
 
     // 2. Register viewer
-    let (_viewer_token, _viewer_id) = register_user(
-        &app,
-        "viewer@example.com",
-        "Password123",
-        "viewer",
-    )
-    .await;
+    let (_viewer_token, _viewer_id) =
+        register_user(&app, "viewer@example.com", "Password123", "viewer").await;
 
     // 3. Owner invites viewer as Viewer role
     let _invite_response = app
@@ -749,13 +737,8 @@ async fn test_viewer_cannot_invite_members() {
         .unwrap();
 
     // 4. Register another user to try to invite
-    let (_target_token, _target_id) = register_user(
-        &app,
-        "target@example.com",
-        "Password123",
-        "Target",
-    )
-    .await;
+    let (_target_token, _target_id) =
+        register_user(&app, "target@example.com", "Password123", "Target").await;
 
     // 5. Viewer tries to invite the target user - should return 403 FORBIDDEN
     let viewer_token = login_user(&app, "viewer@example.com", "Password123").await;
@@ -787,13 +770,8 @@ async fn test_editor_can_invite_members() {
         register_user(&app, "owner@example.com", "Password123", "owner").await;
 
     // 2. Register editor
-    let (_editor_token, _editor_id) = register_user(
-        &app,
-        "editor@example.com",
-        "Password123",
-        "editor",
-    )
-    .await;
+    let (_editor_token, _editor_id) =
+        register_user(&app, "editor@example.com", "Password123", "editor").await;
 
     // 3. Owner invites editor as Editor role
     let _invite_response = app
@@ -813,13 +791,8 @@ async fn test_editor_can_invite_members() {
         .unwrap();
 
     // 4. Register target user
-    let (_target_token, _target_id) = register_user(
-        &app,
-        "target@example.com",
-        "Password123",
-        "Target",
-    )
-    .await;
+    let (_target_token, _target_id) =
+        register_user(&app, "target@example.com", "Password123", "Target").await;
 
     // 5. Editor tries to invite target user - Editor should have Create permission
     let editor_token = login_user(&app, "editor@example.com", "Password123").await;
@@ -848,8 +821,7 @@ async fn test_list_members_not_workspace_member() {
     let app = router_for_test().await;
 
     // 1. Register a user
-    let (token, _user_id) = register_user(
-        &app, "user@example.com", "Password123", "User").await;
+    let (token, _user_id) = register_user(&app, "user@example.com", "Password123", "User").await;
 
     // 2. Try to list members of a non-existent workspace
     let response = app
@@ -925,13 +897,8 @@ async fn test_viewer_can_list_members() {
         register_user(&app, "owner@example.com", "Password123", "owner").await;
 
     // 2. Register viewer
-    let (_viewer_token, _viewer_id) = register_user(
-        &app,
-        "viewer@example.com",
-        "Password123",
-        "viewer",
-    )
-    .await;
+    let (_viewer_token, _viewer_id) =
+        register_user(&app, "viewer@example.com", "Password123", "viewer").await;
 
     // 3. Owner invites viewer as Viewer role
     let _invite_response = app

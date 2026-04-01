@@ -1,7 +1,7 @@
 use axum::{
     extract::{Path, State},
     http::{HeaderMap, StatusCode},
-    routing::{get, post, put, delete},
+    routing::{delete, get, post, put},
     Json, Router,
 };
 use serde::{Deserialize, Serialize};
@@ -43,7 +43,11 @@ pub struct ErrorResponse {
     pub message: String,
 }
 
-fn error_response(status: StatusCode, error: &str, message: &str) -> (StatusCode, Json<ErrorResponse>) {
+fn error_response(
+    status: StatusCode,
+    error: &str,
+    message: &str,
+) -> (StatusCode, Json<ErrorResponse>) {
     (
         status,
         Json(ErrorResponse {
@@ -79,11 +83,11 @@ fn extract_user_id_from_headers(
         .get("authorization")
         .and_then(|value| value.to_str().ok())
         .ok_or(StatusCode::UNAUTHORIZED)?;
-    
+
     let token = auth_header
         .strip_prefix("Bearer ")
         .ok_or(StatusCode::UNAUTHORIZED)?;
-    
+
     // This is a synchronous function but verify_token is async
     // We need to handle this differently - for now return error
     // The actual verification will happen in the async handlers
@@ -111,18 +115,28 @@ async fn list_members(
     let auth_header = headers
         .get("authorization")
         .and_then(|value| value.to_str().ok())
-        .ok_or_else(|| error_response(StatusCode::UNAUTHORIZED, "unauthorized", "Missing authorization header"))?;
-    
-    let token = auth_header
-        .strip_prefix("Bearer ")
-        .ok_or_else(|| error_response(StatusCode::UNAUTHORIZED, "unauthorized", "Invalid authorization format"))?;
-    
+        .ok_or_else(|| {
+            error_response(
+                StatusCode::UNAUTHORIZED,
+                "unauthorized",
+                "Missing authorization header",
+            )
+        })?;
+
+    let token = auth_header.strip_prefix("Bearer ").ok_or_else(|| {
+        error_response(
+            StatusCode::UNAUTHORIZED,
+            "unauthorized",
+            "Invalid authorization format",
+        )
+    })?;
+
     let user_id = state
         .auth_service()
         .verify_token(token)
         .await
         .map_err(|_| error_response(StatusCode::UNAUTHORIZED, "unauthorized", "Invalid token"))?;
-    
+
     // Check auth: User must be workspace member with Read permission on Member resource
     let membership = state
         .member_service()
@@ -130,7 +144,11 @@ async fn list_members(
         .map_err(|_| error_response(StatusCode::FORBIDDEN, "forbidden", "Access denied"))?;
 
     if !membership.has_permission(&Permission::new(ResourceType::Member, ActionType::Read)) {
-        return Err(error_response(StatusCode::FORBIDDEN, "forbidden", "Insufficient permissions to list members"));
+        return Err(error_response(
+            StatusCode::FORBIDDEN,
+            "forbidden",
+            "Insufficient permissions to list members",
+        ));
     }
 
     // Get all workspace members
@@ -161,18 +179,28 @@ async fn invite_member(
     let auth_header = headers
         .get("authorization")
         .and_then(|value| value.to_str().ok())
-        .ok_or_else(|| error_response(StatusCode::UNAUTHORIZED, "unauthorized", "Missing authorization header"))?;
-    
-    let token = auth_header
-        .strip_prefix("Bearer ")
-        .ok_or_else(|| error_response(StatusCode::UNAUTHORIZED, "unauthorized", "Invalid authorization format"))?;
-    
+        .ok_or_else(|| {
+            error_response(
+                StatusCode::UNAUTHORIZED,
+                "unauthorized",
+                "Missing authorization header",
+            )
+        })?;
+
+    let token = auth_header.strip_prefix("Bearer ").ok_or_else(|| {
+        error_response(
+            StatusCode::UNAUTHORIZED,
+            "unauthorized",
+            "Invalid authorization format",
+        )
+    })?;
+
     let user_id = state
         .auth_service()
         .verify_token(token)
         .await
         .map_err(|_| error_response(StatusCode::UNAUTHORIZED, "unauthorized", "Invalid token"))?;
-    
+
     // Check auth: User must have Create permission on Member resource
     let membership = state
         .member_service()
@@ -180,7 +208,11 @@ async fn invite_member(
         .map_err(|_| error_response(StatusCode::FORBIDDEN, "forbidden", "Access denied"))?;
 
     if !membership.has_permission(&Permission::new(ResourceType::Member, ActionType::Create)) {
-        return Err(error_response(StatusCode::FORBIDDEN, "forbidden", "Insufficient permissions to invite members"));
+        return Err(error_response(
+            StatusCode::FORBIDDEN,
+            "forbidden",
+            "Insufficient permissions to invite members",
+        ));
     }
 
     // Find user by email
@@ -201,15 +233,18 @@ async fn invite_member(
         .member_service()
         .invite_member(input)
         .map_err(|e| match e {
-            MemberServiceError::AlreadyMember { .. } => error_response(StatusCode::CONFLICT, "conflict", "User is already a member"),
-            _ => error_response(StatusCode::INTERNAL_SERVER_ERROR, "internal_error", "Failed to invite member"),
+            MemberServiceError::AlreadyMember { .. } => {
+                error_response(StatusCode::CONFLICT, "conflict", "User is already a member")
+            }
+            _ => error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "internal_error",
+                "Failed to invite member",
+            ),
         })?;
 
-    let response = MemberResponse::from_membership(
-        &new_membership,
-        target_user.name,
-        target_user.email,
-    );
+    let response =
+        MemberResponse::from_membership(&new_membership, target_user.name, target_user.email);
 
     Ok((StatusCode::CREATED, Json(response)))
 }
@@ -224,18 +259,28 @@ async fn update_role(
     let auth_header = headers
         .get("authorization")
         .and_then(|value| value.to_str().ok())
-        .ok_or_else(|| error_response(StatusCode::UNAUTHORIZED, "unauthorized", "Missing authorization header"))?;
-    
-    let token = auth_header
-        .strip_prefix("Bearer ")
-        .ok_or_else(|| error_response(StatusCode::UNAUTHORIZED, "unauthorized", "Invalid authorization format"))?;
-    
+        .ok_or_else(|| {
+            error_response(
+                StatusCode::UNAUTHORIZED,
+                "unauthorized",
+                "Missing authorization header",
+            )
+        })?;
+
+    let token = auth_header.strip_prefix("Bearer ").ok_or_else(|| {
+        error_response(
+            StatusCode::UNAUTHORIZED,
+            "unauthorized",
+            "Invalid authorization format",
+        )
+    })?;
+
     let user_id = state
         .auth_service()
         .verify_token(token)
         .await
         .map_err(|_| error_response(StatusCode::UNAUTHORIZED, "unauthorized", "Invalid token"))?;
-    
+
     // Check auth: User must have Update permission on Member resource
     let membership = state
         .member_service()
@@ -243,7 +288,11 @@ async fn update_role(
         .map_err(|_| error_response(StatusCode::FORBIDDEN, "forbidden", "Access denied"))?;
 
     if !membership.has_permission(&Permission::new(ResourceType::Member, ActionType::Update)) {
-        return Err(error_response(StatusCode::FORBIDDEN, "forbidden", "Insufficient permissions to update member roles"));
+        return Err(error_response(
+            StatusCode::FORBIDDEN,
+            "forbidden",
+            "Insufficient permissions to update member roles",
+        ));
     }
 
     // Get the target membership
@@ -254,12 +303,20 @@ async fn update_role(
 
     // Prevent changing own role
     if target_membership.user_id == user_id {
-        return Err(error_response(StatusCode::FORBIDDEN, "forbidden", "Cannot change your own role"));
+        return Err(error_response(
+            StatusCode::FORBIDDEN,
+            "forbidden",
+            "Cannot change your own role",
+        ));
     }
 
     // Prevent changing Owner's role
     if target_membership.role == WorkspaceRole::Owner {
-        return Err(error_response(StatusCode::FORBIDDEN, "forbidden", "Cannot change the workspace owner's role"));
+        return Err(error_response(
+            StatusCode::FORBIDDEN,
+            "forbidden",
+            "Cannot change the workspace owner's role",
+        ));
     }
 
     // Update role
@@ -269,10 +326,13 @@ async fn update_role(
         updated_by: user_id,
     };
 
-    state
-        .member_service()
-        .update_role(input)
-        .map_err(|_| error_response(StatusCode::INTERNAL_SERVER_ERROR, "internal_error", "Failed to update role"))?;
+    state.member_service().update_role(input).map_err(|_| {
+        error_response(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "internal_error",
+            "Failed to update role",
+        )
+    })?;
 
     Ok(StatusCode::OK)
 }
@@ -286,18 +346,28 @@ async fn remove_member(
     let auth_header = headers
         .get("authorization")
         .and_then(|value| value.to_str().ok())
-        .ok_or_else(|| error_response(StatusCode::UNAUTHORIZED, "unauthorized", "Missing authorization header"))?;
-    
-    let token = auth_header
-        .strip_prefix("Bearer ")
-        .ok_or_else(|| error_response(StatusCode::UNAUTHORIZED, "unauthorized", "Invalid authorization format"))?;
-    
+        .ok_or_else(|| {
+            error_response(
+                StatusCode::UNAUTHORIZED,
+                "unauthorized",
+                "Missing authorization header",
+            )
+        })?;
+
+    let token = auth_header.strip_prefix("Bearer ").ok_or_else(|| {
+        error_response(
+            StatusCode::UNAUTHORIZED,
+            "unauthorized",
+            "Invalid authorization format",
+        )
+    })?;
+
     let user_id = state
         .auth_service()
         .verify_token(token)
         .await
         .map_err(|_| error_response(StatusCode::UNAUTHORIZED, "unauthorized", "Invalid token"))?;
-    
+
     // Check auth: User must have Delete permission on Member resource
     let membership = state
         .member_service()
@@ -305,7 +375,11 @@ async fn remove_member(
         .map_err(|_| error_response(StatusCode::FORBIDDEN, "forbidden", "Access denied"))?;
 
     if !membership.has_permission(&Permission::new(ResourceType::Member, ActionType::Delete)) {
-        return Err(error_response(StatusCode::FORBIDDEN, "forbidden", "Insufficient permissions to remove members"));
+        return Err(error_response(
+            StatusCode::FORBIDDEN,
+            "forbidden",
+            "Insufficient permissions to remove members",
+        ));
     }
 
     // Get the target membership
@@ -316,19 +390,33 @@ async fn remove_member(
 
     // Prevent removing self
     if target_membership.user_id == user_id {
-        return Err(error_response(StatusCode::FORBIDDEN, "forbidden", "Cannot remove yourself from the workspace"));
+        return Err(error_response(
+            StatusCode::FORBIDDEN,
+            "forbidden",
+            "Cannot remove yourself from the workspace",
+        ));
     }
 
     // Prevent removing Owner
     if target_membership.role == WorkspaceRole::Owner {
-        return Err(error_response(StatusCode::FORBIDDEN, "forbidden", "Cannot remove the workspace owner"));
+        return Err(error_response(
+            StatusCode::FORBIDDEN,
+            "forbidden",
+            "Cannot remove the workspace owner",
+        ));
     }
 
     // Remove member
     state
         .member_service()
         .remove_member(&member_id)
-        .map_err(|_| error_response(StatusCode::INTERNAL_SERVER_ERROR, "internal_error", "Failed to remove member"))?;
+        .map_err(|_| {
+            error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "internal_error",
+                "Failed to remove member",
+            )
+        })?;
 
     Ok(StatusCode::NO_CONTENT)
 }
