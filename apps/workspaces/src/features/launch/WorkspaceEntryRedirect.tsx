@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 
-import { fetchWorkspaces } from "../../shared/api/catalog";
+import { fetchAccountHome } from "../../shared/api/catalog";
 import { ErrorState, LoadingState } from "../../shared/ui";
 
 export function WorkspaceEntryRedirect() {
@@ -13,13 +13,13 @@ export function WorkspaceEntryRedirect() {
 
     async function loadDefaultWorkspace() {
       try {
-        const workspaces = await fetchWorkspaces();
+        const accountHome = await fetchAccountHome();
 
         if (!isActive) {
           return;
         }
 
-        const nextWorkspaceId = workspaces[0]?.id;
+        const nextWorkspaceId = accountHome.default_workspace_id;
 
         if (!nextWorkspaceId) {
           setErrorMessage("No workspace is available for this account.");

@@ -14,20 +14,31 @@ describe("App", () => {
     window.history.replaceState({}, "", "/");
   });
 
-  it("redirects root into the default workspace home", async () => {
+  it("redirects root into the account home default workspace", async () => {
     fetchMock.mockImplementation(async (input, init) => {
       const url = typeof input === "string" ? input : input.toString();
       const method = init?.method ?? "GET";
 
-      if (url.endsWith("/api/workspaces") && method === "GET") {
+      if (url.endsWith("/api/account/home") && method === "GET") {
         return new Response(
-          JSON.stringify([
-            {
-              id: "workspace-1",
-              title: "Default Workspace",
-              root_path: "/workspace",
-            },
-          ]),
+          JSON.stringify({
+            default_workspace_id: "workspace-2",
+            workspaces: [
+              {
+                id: "workspace-1",
+                title: "Default Workspace",
+                root_path: "/workspace",
+              },
+              {
+                id: "workspace-2",
+                title: "Second Workspace",
+                root_path: "/workspace-2",
+              },
+            ],
+            waiting_on_me: [],
+            recent_tasks: [],
+            playbook_shortcuts: [],
+          }),
           { status: 200, headers: { "content-type": "application/json" } },
         );
       }
@@ -38,7 +49,7 @@ describe("App", () => {
     renderAppAtRoute("/");
 
     await waitFor(() => {
-      expect(window.location.pathname).toBe("/workspaces/workspace-1");
+      expect(window.location.pathname).toBe("/workspaces/workspace-2");
     });
   });
 

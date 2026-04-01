@@ -6,6 +6,24 @@ export function fetchWorkspaces() {
   return getJson<Workspace[]>("/api/workspaces");
 }
 
+export interface AccountHomeWorkspace {
+  id: string;
+  title: string;
+  root_path: string;
+}
+
+export interface AccountHome {
+  default_workspace_id: string;
+  workspaces: AccountHomeWorkspace[];
+  waiting_on_me: Array<Record<string, unknown>>;
+  recent_tasks: Array<Record<string, unknown>>;
+  playbook_shortcuts: Array<Record<string, unknown>>;
+}
+
+export function fetchAccountHome() {
+  return getJson<AccountHome>("/api/account/home");
+}
+
 export function fetchPlaybookStore(): Promise<PlaybookCard[]> {
   return getJson<StoreEntry[]>("/api/playbook-store").then((entries) =>
     entries.map((entry) => ({
