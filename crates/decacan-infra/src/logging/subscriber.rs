@@ -16,11 +16,7 @@ pub fn init_logging(config: &LoggingConfig) -> Result<(), LoggingInitError> {
 
     // 添加 stdout 层
     let subscriber = if config.stdout {
-        let stdout_layer = Layer::new()
-            .with_writer(io::stdout)
-            .with_ansi(true)
-            .json()
-            .with_flatten(true);
+        let stdout_layer = Layer::new().with_writer(io::stdout).with_ansi(true).json();
         subscriber.with(stdout_layer)
     } else {
         subscriber.with(None)
@@ -37,10 +33,7 @@ pub fn init_logging(config: &LoggingConfig) -> Result<(), LoggingInitError> {
 
         let file_appender = RollingFileAppender::new(rotation, "logs", "decacan.log");
 
-        let file_layer = Layer::new()
-            .with_writer(file_appender)
-            .json()
-            .with_flatten(true);
+        let file_layer = Layer::new().with_writer(file_appender).json();
 
         subscriber.with(file_layer).try_init()?;
     } else {
