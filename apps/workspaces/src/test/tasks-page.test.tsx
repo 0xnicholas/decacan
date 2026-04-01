@@ -1,8 +1,8 @@
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, vi } from "vitest";
 
-import { App } from "../app/App";
+import { renderAppAtRoute } from "./renderApp";
 
 const fetchMock = vi.fn<typeof fetch>();
 
@@ -53,43 +53,10 @@ describe("TasksPage", () => {
     });
 
     const user = userEvent.setup();
-    render(<App />);
+    renderAppAtRoute("/workspaces/workspace-1/tasks");
 
     expect(await screen.findByRole("tab", { name: "List" })).toBeInTheDocument();
     await user.click(screen.getByRole("tab", { name: "Board" }));
     expect(screen.getByText("Waiting Approval")).toBeInTheDocument();
-  });
-
-  it("renders my work sections from /me/tasks", async () => {
-    fetchMock.mockImplementation(async (input, init) => {
-      const url = typeof input === "string" ? input : input.toString();
-      const method = init?.method ?? "GET";
-
-      if (url.endsWith("/api/me/tasks") && method === "GET") {
-        return new Response(
-          JSON.stringify([
-            {
-              id: "task-7",
-              workspace_id: "workspace-1",
-              playbook_key: "总结资料",
-              input: "Prepare release summary",
-              status: "waiting_approval",
-              status_summary: "Waiting for approval",
-              artifact_id: "artifact-7",
-            },
-          ]),
-          { status: 200, headers: { "content-type": "application/json" } },
-        );
-      }
-
-      throw new Error(`Unhandled request: ${url}`);
-    });
-
-    window.history.replaceState({}, "", "/me/tasks");
-    render(<App />);
-
-    expect(await screen.findByRole("heading", { name: "My Work" })).toBeInTheDocument();
-    expect(screen.getByText("Needs my input")).toBeInTheDocument();
-    expect(screen.getByText("1")).toBeInTheDocument();
   });
 });

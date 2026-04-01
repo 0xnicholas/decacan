@@ -6,53 +6,34 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
 
-/// Initialize logging system
+/// 初始化日志系统
 pub fn init_logging(config: &LoggingConfig) -> Result<(), LoggingInitError> {
     let env_filter =
         EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(&config.level));
 
-    // Build base subscriber
-    let subscriber = tracing_subscriber::registry().with(env_filter);
+    let stdout_layer = config
+        .stdout
+        .then(|| Layer::new().with_writer(io::stdout).with_ansi(true).json());
 
-    // Add stdout layer conditionally
-    if config.stdout {
-        let stdout_layer = Layer::new().with_writer(io::stdout).with_ansi(true).json();
-        let subscriber = subscriber.with(stdout_layer);
+    let file_layer = if config.file.enabled {
+        let rotation = match config.file.rotation {
+            RotationConfig::Minutely => Rotation::MINUTELY,
+            RotationConfig::Hourly => Rotation::HOURLY,
+            RotationConfig::Daily => Rotation::DAILY,
+            RotationConfig::Never => Rotation::NEVER,
+        };
 
-        // Add file layer
-        if config.file.enabled {
-            let rotation = match config.file.rotation {
-                RotationConfig::Minutely => Rotation::MINUTELY,
-                RotationConfig::Hourly => Rotation::HOURLY,
-                RotationConfig::Daily => Rotation::DAILY,
-                RotationConfig::Never => Rotation::NEVER,
-            };
-
-            let file_appender = RollingFileAppender::new(rotation, "logs", "decacan.log");
-            let file_layer = Layer::new().with_writer(file_appender).json();
-
-            subscriber.with(file_layer).try_init()?;
-        } else {
-            subscriber.try_init()?;
-        }
+        let file_appender = RollingFileAppender::new(rotation, "logs", "decacan.log");
+        Some(Layer::new().with_writer(file_appender).json())
     } else {
-        // Add file layer only
-        if config.file.enabled {
-            let rotation = match config.file.rotation {
-                RotationConfig::Minutely => Rotation::MINUTELY,
-                RotationConfig::Hourly => Rotation::HOURLY,
-                RotationConfig::Daily => Rotation::DAILY,
-                RotationConfig::Never => Rotation::NEVER,
-            };
+        None
+    };
 
-            let file_appender = RollingFileAppender::new(rotation, "logs", "decacan.log");
-            let file_layer = Layer::new().with_writer(file_appender).json();
-
-            subscriber.with(file_layer).try_init()?;
-        } else {
-            subscriber.try_init()?;
-        }
-    }
+    tracing_subscriber::registry()
+        .with(env_filter)
+        .with(stdout_layer)
+        .with(file_layer)
+        .try_init()?;
 
     Ok(())
 }

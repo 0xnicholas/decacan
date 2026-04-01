@@ -1,10 +1,11 @@
 use super::anthropic::AnthropicProvider;
-use super::config::{ModelRouterConfig, ProviderConfig};
+use super::config::ModelRouterConfig;
 use super::openai::OpenAiProvider;
 use super::provider::{ModelProvider, ProviderError};
 use super::types::{ModelRequest, ModelResponse};
 use decacan_runtime::ports::model::ModelPort;
 use std::collections::HashMap;
+use std::future::Future;
 use thiserror::Error;
 
 pub struct ModelRouter {
@@ -60,6 +61,31 @@ impl ModelRouter {
             .ok_or_else(|| RouterError::ProviderNotFound(name.to_string()))
     }
 
+    fn block_on<F, T>(&self, future: F) -> Result<T, RouterError>
+    where
+        F: Future<Output = Result<T, RouterError>> + Send,
+        T: Send,
+    {
+        std::thread::scope(|scope| {
+            scope
+                .spawn(move || {
+                    tokio::runtime::Builder::new_current_thread()
+                        .enable_all()
+                        .build()
+                        .map_err(|error| {
+                            RouterError::ProviderError(format!(
+                                "Failed to create tokio runtime: {error}"
+                            ))
+                        })?
+                        .block_on(future)
+                })
+                .join()
+                .map_err(|_| {
+                    RouterError::ProviderError("Model runtime worker thread panicked".to_string())
+                })?
+        })
+    }
+
     async fn try_with_fallback(&self, request: ModelRequest) -> Result<ModelResponse, RouterError> {
         // 按 fallback 链顺序尝试
         for provider_name in &self.fallback_chain {
@@ -79,21 +105,7 @@ impl ModelRouter {
             "All providers failed".to_string(),
         ))
     }
-}
 
-#[async_trait::async_trait]
-impl ModelPort for ModelRouter {
-    type Error = RouterError;
-
-    async fn complete(&self, prompt: &str) -> Result<String, Self::Error> {
-        let request = ModelRequest::new(&self.default_provider, prompt);
-
-        let response = self.try_with_fallback(request).await?;
-        Ok(response.content)
-    }
-}
-
-impl ModelRouter {
     /// 使用特定模型执行请求
     pub async fn complete_with_model(
         &self,
@@ -111,5 +123,20 @@ impl ModelRouter {
         request: ModelRequest,
     ) -> Result<ModelResponse, RouterError> {
         self.try_with_fallback(request).await
+    }
+
+    /// 使用默认模型执行请求
+    pub async fn complete(&self, prompt: &str) -> Result<String, RouterError> {
+        let request = ModelRequest::new(&self.default_provider, prompt);
+        let response = self.try_with_fallback(request).await?;
+        Ok(response.content)
+    }
+}
+
+impl ModelPort for ModelRouter {
+    type Error = RouterError;
+
+    fn complete(&self, prompt: &str) -> Result<String, Self::Error> {
+        self.block_on(ModelRouter::complete(self, prompt))
     }
 }

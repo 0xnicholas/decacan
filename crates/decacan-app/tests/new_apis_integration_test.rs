@@ -6,6 +6,7 @@ use tower::ServiceExt;
 
 use decacan_app::app::state::AppState;
 use decacan_app::app::wiring::router_with_state;
+use decacan_app::CurrentUser;
 
 async fn setup_test_app() -> (axum::Router, AppState) {
     let state = AppState::new_for_test().await;
@@ -204,6 +205,24 @@ mod policy_api_tests {
     async fn test_get_my_permissions() {
         let (app, _state) = setup_test_app().await;
 
+        let mut request = Request::builder()
+            .method("GET")
+            .uri("/api/me/permissions")
+            .body(Body::empty())
+            .unwrap();
+        request.extensions_mut().insert(CurrentUser {
+            user_id: "user-1".to_owned(),
+            default_workspace_id: "workspace-1".to_owned(),
+        });
+
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_get_my_permissions_requires_current_user_context() {
+        let (app, _state) = setup_test_app().await;
+
         let request = Request::builder()
             .method("GET")
             .uri("/api/me/permissions")
@@ -211,7 +230,7 @@ mod policy_api_tests {
             .unwrap();
 
         let response = app.oneshot(request).await.unwrap();
-        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
     }
 
     #[tokio::test]

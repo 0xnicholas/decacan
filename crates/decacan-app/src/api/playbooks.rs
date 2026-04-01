@@ -1,21 +1,38 @@
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
-use axum::routing::{get, put};
+use axum::routing::{get, post, put};
 use axum::{Json, Router};
 
 use crate::app::state::{AppState, PlaybookLifecycleError};
 use crate::dto::{
     CreatePlaybookRequestDto, CreatePlaybookResponseDto, ForkPlaybookRequestDto,
-    ForkPlaybookResponseDto, PlaybookDetailDto, PlaybookDto, PublishPlaybookResponseDto,
-    SavePlaybookDraftRequestDto, SavePlaybookDraftResponseDto, StoreEntryDto,
-    UpdatePlaybookRequestDto, UpdatePlaybookResponseDto,
+    ForkPlaybookResponseDto, PlaybookDetailDto, PlaybookDto, PlaybookStudioListItemDto,
+    PublishPlaybookResponseDto, PublishedPlaybookDto, SavePlaybookDraftRequestDto,
+    SavePlaybookDraftResponseDto, StoreEntryDto, UpdatePlaybookRequestDto,
+    UpdatePlaybookResponseDto,
 };
 
 pub(super) fn router() -> Router<AppState> {
     Router::new()
         .route("/api/playbooks", get(list_playbooks).post(create_playbook))
+        .route(
+            "/api/studio/playbooks",
+            get(list_studio_playbooks).post(create_playbook),
+        )
+        .route(
+            "/api/studio/playbooks/:handle_id",
+            get(get_playbook)
+                .put(update_playbook)
+                .delete(delete_playbook),
+        )
+        .route("/api/studio/playbooks/:handle_id/draft", put(save_playbook_draft))
+        .route(
+            "/api/studio/playbooks/:handle_id/publish",
+            post(publish_playbook),
+        )
+        .route("/api/published-playbooks", get(list_published_playbooks))
         .route("/api/playbook-store", get(list_playbook_store))
-        .route("/api/playbooks/fork", axum::routing::post(fork_playbook))
+        .route("/api/playbooks/fork", post(fork_playbook))
         .route(
             "/api/playbooks/:handle_id",
             get(get_playbook)
@@ -33,8 +50,18 @@ async fn list_playbooks(State(state): State<AppState>) -> Json<Vec<PlaybookDto>>
     Json(state.playbooks())
 }
 
+async fn list_studio_playbooks(
+    State(state): State<AppState>,
+) -> Json<Vec<PlaybookStudioListItemDto>> {
+    Json(state.list_studio_playbooks())
+}
+
 async fn list_playbook_store(State(state): State<AppState>) -> Json<Vec<StoreEntryDto>> {
     Json(state.list_playbook_store())
+}
+
+async fn list_published_playbooks(State(state): State<AppState>) -> Json<Vec<PublishedPlaybookDto>> {
+    Json(state.list_published_playbooks())
 }
 
 async fn create_playbook(

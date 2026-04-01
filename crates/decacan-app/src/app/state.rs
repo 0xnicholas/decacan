@@ -39,17 +39,19 @@ use decacan_runtime::workspace::service::member_service::{
 use tokio::sync::broadcast;
 
 use crate::dto::{
+    AccountHomeDto, AccountPlaybookShortcutDto, AccountTaskSummaryDto, AccountWorkItemDto,
     ApprovalDto, ArtifactContentDto, ArtifactDto, CreatePlaybookRequestDto,
     CreatePlaybookResponseDto, CreateTaskAcceptedResponse, CreateTaskRequest, CreateTeamRequestDto,
     CreateTeamResponseDto, DraftHealthIssueDto, DraftHealthReportDto, ForkPlaybookResponseDto,
     ListTeamsResponseDto, PermissionDto, PlaybookDetailDto, PlaybookDraftDto, PlaybookDto,
-    PlaybookHandleDto, PlaybookVersionDto, PublishPlaybookResponseDto, RetryTaskRequest,
-    SavePlaybookDraftResponseDto, StoreEntryDto, TaskAgentMessageDto, TaskCollaborationDto,
-    TaskDetailDto, TaskDto, TaskEventEnvelopeDto, TaskInstructionActionDto, TaskPlanDto,
-    TaskPreviewDto, TaskPreviewRequest, TaskSummaryDto, TeamRoleDto, TeamSpecDto,
-    UpdatePlaybookRequestDto, UpdatePlaybookResponseDto, UpdateTeamRequestDto,
-    UserPermissionsResponseDto, WorkspaceDto, WorkspacePermissionDto,
+    PlaybookHandleDto, PlaybookStudioListItemDto, PlaybookVersionDto, PublishPlaybookResponseDto,
+    PublishedPlaybookDto, RetryTaskRequest, SavePlaybookDraftResponseDto, StoreEntryDto,
+    TaskAgentMessageDto, TaskCollaborationDto, TaskDetailDto, TaskDto, TaskEventEnvelopeDto,
+    TaskInstructionActionDto, TaskPlanDto, TaskPreviewDto, TaskPreviewRequest, TaskSummaryDto,
+    TeamRoleDto, TeamSpecDto, UpdatePlaybookRequestDto, UpdatePlaybookResponseDto,
+    UpdateTeamRequestDto, UserPermissionsResponseDto, WorkspaceDto, WorkspacePermissionDto,
 };
+use crate::middleware::CurrentUser;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -128,16 +130,28 @@ struct ExecutionOutcome {
 
 impl AppState {
     pub async fn new_for_test() -> Self {
-        let root = std::env::temp_dir().join(format!(
-            "decacan-app-runtime-{}",
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .expect("system time should be after unix epoch")
-                .as_nanos()
-        ));
-        Self::new_with_workspace_root(root)
-            .await
-            .expect("test app state should create a default workspace root")
+        Self::new_for_test_with_workspaces(vec![(
+            "workspace-1".to_owned(),
+            "Default Workspace".to_owned(),
+            Self::test_workspace_root().display().to_string(),
+        )])
+        .await
+        .expect("test app state should create a default workspace root")
+    }
+
+    pub async fn new_for_test_with_workspaces(
+        workspaces: Vec<(String, String, String)>,
+    ) -> std::io::Result<Self> {
+        let workspaces = workspaces
+            .into_iter()
+            .map(|(id, title, root_path)| WorkspaceDto {
+                id,
+                title,
+                root_path,
+            })
+            .collect();
+
+        Self::new_with_workspace_root_and_workspaces(Self::test_workspace_root(), workspaces).await
     }
 
     pub async fn new_local() -> std::io::Result<Self> {
@@ -151,6 +165,16 @@ impl AppState {
 
     pub fn member_service(&self) -> &MemberService {
         &self.inner.member_service
+    }
+
+    fn test_workspace_root() -> PathBuf {
+        std::env::temp_dir().join(format!(
+            "decacan-app-runtime-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("system time should be after unix epoch")
+                .as_nanos()
+        ))
     }
 
     pub async fn find_user_by_id(&self, user_id: &str) -> Option<decacan_auth::entities::User> {
@@ -193,6 +217,18 @@ impl AppState {
     }
 
     async fn new_with_workspace_root(default_workspace_root: PathBuf) -> std::io::Result<Self> {
+        let workspaces = vec![WorkspaceDto {
+            id: "workspace-1".to_owned(),
+            title: "Default Workspace".to_owned(),
+            root_path: default_workspace_root.display().to_string(),
+        }];
+        Self::new_with_workspace_root_and_workspaces(default_workspace_root, workspaces).await
+    }
+
+    async fn new_with_workspace_root_and_workspaces(
+        default_workspace_root: PathBuf,
+        workspaces: Vec<WorkspaceDto>,
+    ) -> std::io::Result<Self> {
         std::fs::create_dir_all(&default_workspace_root)?;
         let (task_event_bus, _) = broadcast::channel(64);
         let playbooks = list_registered_playbooks()
@@ -238,11 +274,7 @@ impl AppState {
         Ok(Self {
             inner: Arc::new(AppStateInner {
                 next_id: AtomicU64::new(1),
-                workspaces: vec![WorkspaceDto {
-                    id: "workspace-1".to_owned(),
-                    title: "Default Workspace".to_owned(),
-                    root_path: default_workspace_root.display().to_string(),
-                }],
+                workspaces,
                 playbooks,
                 playbook_store,
                 default_workspace_root,
@@ -272,12 +304,146 @@ impl AppState {
         self.inner.playbooks.clone()
     }
 
+    pub fn default_workspace_id(&self) -> String {
+        self.inner
+            .workspaces
+            .first()
+            .map(|workspace| workspace.id.clone())
+            .unwrap_or_default()
+    }
+
+    pub fn default_current_user(&self) -> CurrentUser {
+        CurrentUser {
+            user_id: "current-user".to_owned(),
+            default_workspace_id: self.default_workspace_id(),
+        }
+    }
+
+    pub fn build_account_home(&self) -> AccountHomeDto {
+        self.build_account_home_for_user(&self.default_current_user())
+    }
+
+    pub fn build_account_home_for_user(&self, current_user: &CurrentUser) -> AccountHomeDto {
+        let workspaces = self.workspaces_for_user(current_user);
+        let recent_tasks = self.recent_tasks_for_user(current_user);
+        let waiting_on_me = self.waiting_on_me_for_user(current_user);
+        let playbook_shortcuts = self.playbook_shortcuts_for_user(current_user);
+
+        AccountHomeDto {
+            default_workspace_id: current_user.default_workspace_id.clone(),
+            workspaces,
+            waiting_on_me,
+            recent_tasks,
+            playbook_shortcuts,
+        }
+    }
+
+    pub(crate) fn workspaces_for_user(
+        &self,
+        _current_user: &CurrentUser,
+    ) -> Vec<crate::dto::AccountWorkspaceDto> {
+        // Home should expose the user's visible workspace list, not collapse it to the default.
+        self.inner
+            .workspaces
+            .clone()
+            .into_iter()
+            .map(crate::dto::AccountWorkspaceDto::from)
+            .collect()
+    }
+
+    pub(crate) fn recent_tasks_for_user(
+        &self,
+        current_user: &CurrentUser,
+    ) -> Vec<AccountTaskSummaryDto> {
+        self.list_tasks_in_workspace(&current_user.default_workspace_id)
+            .into_iter()
+            .map(AccountTaskSummaryDto::from)
+            .collect()
+    }
+
+    pub(crate) fn waiting_on_me_for_user(
+        &self,
+        current_user: &CurrentUser,
+    ) -> Vec<AccountWorkItemDto> {
+        self.inner
+            .approvals
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .values()
+            .filter(|approval| approval.workspace_id == current_user.default_workspace_id)
+            .map(|approval| AccountWorkItemDto {
+                id: approval.id.clone(),
+                workspace_id: approval.workspace_id.clone(),
+                task_id: approval.task_id.clone(),
+                title: approval.task_playbook_key.clone(),
+                kind: "approval".to_owned(),
+                status: approval.status.clone(),
+            })
+            .collect()
+    }
+
+    pub(crate) fn playbook_shortcuts_for_user(
+        &self,
+        _current_user: &CurrentUser,
+    ) -> Vec<AccountPlaybookShortcutDto> {
+        self.playbooks()
+            .into_iter()
+            .map(AccountPlaybookShortcutDto::from)
+            .collect()
+    }
+
+    pub fn list_studio_playbooks(&self) -> Vec<PlaybookStudioListItemDto> {
+        self.inner
+            .lifecycle_playbooks
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .values()
+            .cloned()
+            .map(|stored| PlaybookStudioListItemDto {
+                handle: playbook_handle_to_dto(stored.handle),
+                draft: playbook_draft_to_dto(stored.draft.clone()),
+                latest_version: stored.versions.last().cloned().map(playbook_version_to_dto),
+                publishable: stored.draft.validation_state == DraftValidationState::Validated,
+            })
+            .collect()
+    }
+
     pub fn list_playbook_store(&self) -> Vec<StoreEntryDto> {
         self.inner
             .playbook_store
             .iter()
             .cloned()
             .map(store_entry_to_dto)
+            .collect()
+    }
+
+    pub fn list_published_playbooks(&self) -> Vec<PublishedPlaybookDto> {
+        self.inner
+            .lifecycle_playbooks
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .values()
+            .filter_map(|stored| {
+                let version = stored.versions.last()?.clone();
+                let store_entry_id = stored.handle.source_store_entry_id.as_deref()?;
+                let playbook_key = playbook_key_for_store_entry(store_entry_id)?;
+                let playbook = self
+                    .inner
+                    .playbooks
+                    .iter()
+                    .find(|playbook| playbook.key == playbook_key)?
+                    .clone();
+
+                Some(PublishedPlaybookDto {
+                    playbook_handle_id: stored.handle.playbook_handle_id.clone(),
+                    playbook_version_id: version.playbook_version_id.to_string(),
+                    title: playbook.title,
+                    summary: playbook.summary,
+                    mode_label: playbook.mode_label,
+                    expected_output_label: playbook.expected_output_label,
+                    expected_output_path: playbook.expected_output_path,
+                })
+            })
             .collect()
     }
 
@@ -653,10 +819,15 @@ output_contract:
     }
 
     pub fn get_current_user_permissions(&self) -> Result<UserPermissionsResponseDto, ()> {
-        use decacan_runtime::workspace::rbac::{ActionType, ResourceType, WorkspaceRole};
+        self.get_current_user_permissions_for_user(&self.default_current_user())
+    }
 
-        // For testing/demo, return owner permissions
-        // In production, extract from authenticated user context
+    pub fn get_current_user_permissions_for_user(
+        &self,
+        current_user: &CurrentUser,
+    ) -> Result<UserPermissionsResponseDto, ()> {
+        use decacan_runtime::workspace::rbac::WorkspaceRole;
+
         let role = WorkspaceRole::Owner;
         let permissions: Vec<PermissionDto> = role
             .permissions()
@@ -666,12 +837,15 @@ output_contract:
                 action: format!("{:?}", p.action).to_lowercase(),
             })
             .collect();
+        let studio_playbooks = self.can_manage_studio_playbooks(current_user);
 
         Ok(UserPermissionsResponseDto {
-            user_id: "current-user".to_string(),
+            user_id: current_user.user_id.clone(),
+            console_home: true,
+            studio_playbooks,
             global_permissions: permissions.clone(),
             workspace_permissions: vec![WorkspacePermissionDto {
-                workspace_id: "workspace-1".to_string(),
+                workspace_id: current_user.default_workspace_id.clone(),
                 role: "owner".to_string(),
                 permissions: permissions.clone(),
             }],
@@ -687,6 +861,20 @@ output_contract:
         // For now, always allow if workspace_id is provided
         // In production, check actual membership and permissions
         workspace_id.is_some()
+    }
+
+    fn can_manage_studio_playbooks(&self, current_user: &CurrentUser) -> bool {
+        use decacan_runtime::workspace::rbac::WorkspaceRole;
+
+        self.inner.member_service.has_role(
+            &current_user.default_workspace_id,
+            &current_user.user_id,
+            WorkspaceRole::Owner,
+        ) || self.inner.member_service.has_role(
+            &current_user.default_workspace_id,
+            &current_user.user_id,
+            WorkspaceRole::Admin,
+        )
     }
 
     pub fn list_tasks(&self) -> Vec<TaskDto> {
@@ -825,7 +1013,7 @@ output_contract:
                 prepared.task_id.clone(),
                 StoredTask {
                     id: prepared.task_id.clone(),
-                    workspace_id: "workspace-1".to_owned(),
+                    workspace_id: request.workspace_id.clone(),
                     playbook_key: prepared.runtime_run.playbook_snapshot.key.clone(),
                     input_payload: request.input_payload,
                     playbook_handle_id: request.playbook_handle_id,
@@ -865,8 +1053,12 @@ output_contract:
             return Err(CreateTaskError::WorkspaceNotFound);
         }
 
-        let preview = preview_registered_playbook(&request.playbook_key)
-            .map_err(map_registered_playbook_error)?;
+        let (playbook_key, _) = self.resolve_bound_playbook_version_ids(
+            &request.playbook_handle_id,
+            &request.playbook_version_id,
+        )?;
+        let preview =
+            preview_registered_playbook(&playbook_key).map_err(map_registered_playbook_error)?;
 
         Ok(TaskPreviewDto {
             preview_id: self.next_id("preview"),
@@ -1152,18 +1344,29 @@ output_contract:
         &self,
         request: &CreateTaskRequest,
     ) -> Result<(String, PlaybookVersion), CreateTaskError> {
+        self.resolve_bound_playbook_version_ids(
+            &request.playbook_handle_id,
+            &request.playbook_version_id,
+        )
+    }
+
+    fn resolve_bound_playbook_version_ids(
+        &self,
+        playbook_handle_id: &str,
+        playbook_version_id: &str,
+    ) -> Result<(String, PlaybookVersion), CreateTaskError> {
         let playbooks = self
             .inner
             .lifecycle_playbooks
             .lock()
             .unwrap_or_else(|e| e.into_inner());
         let stored = playbooks
-            .get(&request.playbook_handle_id)
+            .get(playbook_handle_id)
             .ok_or(CreateTaskError::InvalidPlaybookBinding)?;
         let version = stored
             .versions
             .iter()
-            .find(|version| version.playbook_version_id.to_string() == request.playbook_version_id)
+            .find(|version| version.playbook_version_id.to_string() == playbook_version_id)
             .ok_or(CreateTaskError::InvalidPlaybookBinding)?;
         let store_entry_id = stored
             .handle
@@ -1626,8 +1829,7 @@ fn instruction_definitions() -> Vec<InstructionDefinition> {
                 instruction: "Suggest the next structured actions for this task.".to_owned(),
             },
             summary: "Next-step options ready",
-            detail:
-                "1) Confirm latest approval status. 2) Review output artifact. 3) Close with final timeline check.",
+            detail: "1) Confirm latest approval status. 2) Review output artifact. 3) Close with final timeline check.",
         },
     ]
 }
@@ -1692,6 +1894,59 @@ fn task_id_sequence(task_id: &str) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use decacan_runtime::playbook::entity::Playbook;
+    use decacan_runtime::playbook::modes::PlaybookMode;
+    use decacan_runtime::policy::entity::PolicyProfile;
+    use decacan_runtime::task::entity::Task;
+    use decacan_runtime::workflow::entity::Workflow;
+    use decacan_runtime::workflow::step::{WorkflowStep, WorkflowStepType};
+    use decacan_runtime::workspace::entity::Workspace;
+
+    fn test_stored_task(task_id: &str, workspace_id: &str, playbook_key: &str) -> StoredTask {
+        let workflow = Workflow::new_for_test(
+            &format!("workflow-{workspace_id}"),
+            vec![WorkflowStep::new_for_test(
+                "step-1",
+                "Step 1",
+                WorkflowStepType::Deterministic,
+                "Write a result",
+                None,
+            )],
+        );
+        let workspace = Workspace::new_for_test(workspace_id, "workspace", "/tmp/workspace");
+        let playbook = Playbook::new_for_test(
+            &format!("playbook-{workspace_id}"),
+            workspace_id,
+            playbook_key,
+            PlaybookMode::Standard,
+        );
+        let policy = PolicyProfile::new_for_test("policy-1", workspace_id, "default");
+        let runtime_task =
+            Task::new_for_test(task_id, workspace_id, &playbook.id, workflow.version_id);
+        let runtime_run = decacan_runtime::run::entity::Run::new_for_test(
+            &format!("run-{workspace_id}"),
+            task_id,
+            workflow,
+            policy,
+            workspace,
+            playbook,
+        );
+
+        StoredTask {
+            id: task_id.to_owned(),
+            workspace_id: workspace_id.to_owned(),
+            playbook_key: playbook_key.to_owned(),
+            input_payload: format!("input-{workspace_id}"),
+            playbook_handle_id: format!("handle-{workspace_id}"),
+            playbook_version_id: format!("version-{workspace_id}"),
+            artifact_id: None,
+            status: "running".to_owned(),
+            status_summary: "running".to_owned(),
+            agent_messages: vec![],
+            runtime_task,
+            runtime_run,
+        }
+    }
 
     #[tokio::test]
     async fn finish_execution_ignores_stale_run_results() {
@@ -1774,5 +2029,122 @@ mod tests {
 
         assert_eq!(stored.runtime_run.id, second.runtime_run.id);
         assert_eq!(stored.status, "running");
+    }
+
+    #[tokio::test]
+    async fn create_task_execution_persists_requested_workspace_id() {
+        let state = AppState::new_for_test_with_workspaces(vec![
+            (
+                "workspace-1".to_owned(),
+                "Default Workspace".to_owned(),
+                "/workspace".to_owned(),
+            ),
+            (
+                "workspace-2".to_owned(),
+                "Second Workspace".to_owned(),
+                "/workspace-2".to_owned(),
+            ),
+        ])
+        .await
+        .expect("test state should build");
+
+        let handle_id = state
+            .fork_playbook_from_store("store-entry-summary")
+            .expect("store entry should fork")
+            .handle
+            .playbook_handle_id;
+        let publishable = state
+            .save_playbook_draft(
+                &handle_id,
+                "metadata:\n  title: valid draft\ncapability_refs:\n  routines:\n    - builtin.scan_markdown_files\n  tools:\n    - builtin.workspace.read\n    - builtin.artifact.write\n  validators:\n    - builtin.output_contract.summary\nexecution_profile: single\n".to_owned(),
+            )
+            .expect("draft should save");
+        assert!(publishable.health_report.publishable);
+        let published = state
+            .publish_playbook_draft(&handle_id)
+            .expect("draft should publish");
+        let version_id = published
+            .response
+            .version
+            .expect("publish should create a version")
+            .playbook_version_id;
+
+        let response = state
+            .create_task_execution(CreateTaskRequest {
+                workspace_id: "workspace-2".to_owned(),
+                playbook_handle_id: handle_id,
+                playbook_version_id: version_id,
+                input_payload: "alpha\nbeta".to_owned(),
+            })
+            .await
+            .expect("task creation should succeed");
+
+        assert_eq!(response.task.workspace_id, "workspace-2");
+        assert!(state.has_task_in_workspace("workspace-2", &response.task.id));
+        assert!(!state.has_task_in_workspace("workspace-1", &response.task.id));
+    }
+
+    #[tokio::test]
+    async fn build_account_home_filters_user_scoped_collections() {
+        let state = AppState::new_for_test_with_workspaces(vec![
+            (
+                "workspace-1".to_owned(),
+                "Default Workspace".to_owned(),
+                "/workspace".to_owned(),
+            ),
+            (
+                "workspace-2".to_owned(),
+                "Second Workspace".to_owned(),
+                "/workspace-2".to_owned(),
+            ),
+        ])
+        .await
+        .expect("test state should build");
+
+        {
+            let mut tasks = state.inner.tasks.lock().unwrap_or_else(|e| e.into_inner());
+            tasks.insert(
+                "task-1".to_owned(),
+                test_stored_task("task-1", "workspace-1", SUMMARY_PLAYBOOK_KEY),
+            );
+            tasks.insert(
+                "task-2".to_owned(),
+                test_stored_task("task-2", "workspace-2", SUMMARY_PLAYBOOK_KEY),
+            );
+        }
+
+        state.put_approval(ApprovalDto {
+            id: "approval-1".to_owned(),
+            workspace_id: "workspace-1".to_owned(),
+            task_id: "task-1".to_owned(),
+            task_playbook_key: SUMMARY_PLAYBOOK_KEY.to_owned(),
+            decision: "approve".to_owned(),
+            comment: None,
+            status: "pending".to_owned(),
+        });
+        state.put_approval(ApprovalDto {
+            id: "approval-2".to_owned(),
+            workspace_id: "workspace-2".to_owned(),
+            task_id: "task-2".to_owned(),
+            task_playbook_key: SUMMARY_PLAYBOOK_KEY.to_owned(),
+            decision: "approve".to_owned(),
+            comment: None,
+            status: "pending".to_owned(),
+        });
+
+        let current_user = CurrentUser {
+            user_id: "user-1".to_owned(),
+            default_workspace_id: "workspace-2".to_owned(),
+        };
+        let home = state.build_account_home_for_user(&current_user);
+
+        assert_eq!(home.default_workspace_id, "workspace-2");
+        assert_eq!(home.workspaces.len(), 2);
+        assert_eq!(home.workspaces[0].id, "workspace-1");
+        assert_eq!(home.workspaces[1].id, "workspace-2");
+        assert_eq!(home.recent_tasks.len(), 1);
+        assert_eq!(home.recent_tasks[0].workspace_id, "workspace-2");
+        assert_eq!(home.waiting_on_me.len(), 1);
+        assert_eq!(home.waiting_on_me[0].workspace_id, "workspace-2");
     }
 }

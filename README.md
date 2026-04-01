@@ -80,7 +80,7 @@ Store
 | App | Purpose |
 |-----|---------|
 | `apps/workspaces` | Default workspace-scoped execution surface for tasks, deliverables, approvals, and collaboration |
-| `apps/admin` | Account-level hub for cross-workspace work aggregation plus playbook design and publishing |
+| `apps/admin` | Account-level Console for cross-workspace work aggregation plus playbook design and publishing |
 
 ### Documentation
 
@@ -156,6 +156,26 @@ pnpm dev:admin
 # Build all apps
 pnpm build
 ```
+
+### Frontend Handoff
+
+`apps/workspaces` treats the Console as a separate surface. If you run the apps on different local origins, point the workspace top-bar handoff at the admin app:
+
+```bash
+VITE_ACCOUNT_HUB_URL=http://localhost:3001
+```
+
+If unset, `apps/workspaces` defaults the Console link to `http://localhost:3001`.
+
+`apps/admin` also hands users back into the workspace execution surface. If you run the workspace app on a non-default origin, set:
+
+```bash
+VITE_WORKSPACES_APP_URL=http://localhost:5173
+```
+
+If unset, `apps/admin` defaults workspace links to `http://localhost:5173`. In local development the repo now reserves:
+- `apps/admin` on `http://localhost:3001`
+- `apps/workspaces` on `http://localhost:5173`
 
 ## Configuration
 

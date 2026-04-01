@@ -9,6 +9,7 @@ use crate::dto::policy::{
     CheckPermissionResponseDto, PermissionDto, RolePermissionsResponseDto,
     UserPermissionsResponseDto,
 };
+use crate::CurrentUser;
 use decacan_runtime::workspace::rbac::WorkspaceRole;
 
 #[derive(Debug, Deserialize)]
@@ -27,9 +28,10 @@ pub(super) fn router() -> Router<AppState> {
 
 async fn get_my_permissions(
     State(state): State<AppState>,
+    current_user: CurrentUser,
 ) -> Result<Json<UserPermissionsResponseDto>, StatusCode> {
     let permissions = state
-        .get_current_user_permissions()
+        .get_current_user_permissions_for_user(&current_user)
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(Json(permissions))

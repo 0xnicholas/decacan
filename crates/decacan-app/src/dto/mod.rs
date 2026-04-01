@@ -1,3 +1,4 @@
+mod account;
 mod activity;
 mod approval;
 mod artifact;
@@ -10,6 +11,9 @@ pub mod team;
 pub mod trace;
 mod workspace;
 
+pub use account::{
+    AccountHomeDto, AccountPlaybookShortcutDto, AccountTaskSummaryDto, AccountWorkItemDto,
+};
 pub use activity::ActivityDto;
 pub use approval::{ApprovalDto, ApprovalRequestDto};
 pub use artifact::{ArtifactContentDto, ArtifactDto};
@@ -21,9 +25,10 @@ pub use member::MemberDto;
 pub use playbook::{
     CreatePlaybookRequestDto, CreatePlaybookResponseDto, DraftHealthIssueDto, DraftHealthReportDto,
     ForkPlaybookRequestDto, ForkPlaybookResponseDto, PlaybookDetailDto, PlaybookDraftDto,
-    PlaybookDto, PlaybookHandleDto, PlaybookVersionDto, PublishPlaybookResponseDto,
-    SavePlaybookDraftRequestDto, SavePlaybookDraftResponseDto, StoreEntryDto,
-    UpdatePlaybookRequestDto, UpdatePlaybookResponseDto,
+    PlaybookDto, PlaybookHandleDto, PlaybookStudioListItemDto, PlaybookVersionDto,
+    PublishedPlaybookDto,
+    PublishPlaybookResponseDto, SavePlaybookDraftRequestDto, SavePlaybookDraftResponseDto,
+    StoreEntryDto, UpdatePlaybookRequestDto, UpdatePlaybookResponseDto,
 };
 pub use policy::{
     CheckPermissionRequestDto, CheckPermissionResponseDto, PermissionDto,
@@ -44,6 +49,6 @@ pub use trace::{
     VersionStatsResponse,
 };
 pub use workspace::{
-    WorkspaceDeliverableDto, WorkspaceDto, WorkspaceHomeAttentionItemDto, WorkspaceHomeDto,
-    WorkspaceTaskHealthDto,
+    AccountWorkspaceDto, WorkspaceDeliverableDto, WorkspaceDto, WorkspaceHomeAttentionItemDto,
+    WorkspaceHomeDto, WorkspaceTaskHealthDto,
 };

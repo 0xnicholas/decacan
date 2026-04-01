@@ -8,6 +8,21 @@ pub struct WorkspaceDto {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AccountWorkspaceDto {
+    pub id: String,
+    pub title: String,
+}
+
+impl From<WorkspaceDto> for AccountWorkspaceDto {
+    fn from(workspace: WorkspaceDto) -> Self {
+        Self {
+            id: workspace.id,
+            title: workspace.title,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WorkspaceHomeAttentionItemDto {
     pub id: String,
     pub title: String,

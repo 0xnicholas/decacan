@@ -1,3 +1,4 @@
+import { accountHubUrl } from "../config/accountHub";
 import type { Workspace } from "../../entities/playbook/types";
 
 interface TopBarProps {
@@ -40,13 +41,15 @@ export function TopBar({
         </select>
       </label>
       <div className="flex items-center gap-2.5">
-        <button 
-          className="w-fit px-3.5 py-2 border border-foreground/14 rounded-full bg-surface text-inherit font-inherit cursor-pointer" 
-          type="button"
+        <a
+          className="w-fit px-3.5 py-2 border border-foreground/14 rounded-full bg-surface text-inherit no-underline"
+          href={accountHubUrl}
         >
-          Inbox
-        </button>
-        <div className="px-3 py-1.5 border border-foreground/14 rounded-full bg-surface">User</div>
+          Console
+        </a>
+        <div className="px-3 py-1.5 border border-foreground/14 rounded-full bg-surface">
+          Workspace User
+        </div>
         <button 
           className="px-4.5 py-3 border-0 rounded-full bg-foreground text-primary-foreground font-inherit cursor-pointer" 
           type="button" 

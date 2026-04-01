@@ -87,7 +87,8 @@ pub struct TaskInstructionResponse {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TaskPreviewRequest {
     pub workspace_id: String,
-    pub playbook_key: String,
+    pub playbook_handle_id: String,
+    pub playbook_version_id: String,
     pub input: String,
 }
 

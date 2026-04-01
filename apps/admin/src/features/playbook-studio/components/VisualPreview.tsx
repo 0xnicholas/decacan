@@ -30,7 +30,7 @@ export function VisualPreview({ playbook }: VisualPreviewProps) {
 
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium">Status:</span>
-          <Badge variant={playbook.status === 'published' ? 'default' : 'secondary'}>
+          <Badge variant={playbook.status === 'published' ? 'primary' : 'secondary'}>
             {playbook.status}
           </Badge>
         </div>

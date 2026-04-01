@@ -4,15 +4,18 @@ export interface Workspace {
   root_path: string;
 }
 
-export interface PlaybookCard {
+export interface PublishedPlaybook {
   key: string;
-  store_entry_id: string;
+  playbook_handle_id: string;
+  playbook_version_id: string;
   title: string;
   summary: string;
   mode_label: string;
   expected_output_label: string;
   expected_output_path: string;
 }
+
+export type PlaybookCard = PublishedPlaybook;
 
 export interface StoreEntry {
   store_entry_id: string;

@@ -1,8 +1,8 @@
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, vi } from "vitest";
 
-import { App } from "../app/App";
+import { renderAppAtRoute } from "./renderApp";
 
 const fetchMock = vi.fn<typeof fetch>();
 vi.stubGlobal("fetch", fetchMock);
@@ -75,7 +75,7 @@ describe("ApprovalsPage", () => {
     });
 
     const user = userEvent.setup();
-    render(<App />);
+    renderAppAtRoute();
 
     expect(await screen.findByRole("heading", { name: "Approvals" })).toBeInTheDocument();
     expect(screen.getByText("approval-1")).toBeInTheDocument();

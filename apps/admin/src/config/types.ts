@@ -5,6 +5,7 @@ export interface MenuItem {
   icon?: LucideIcon;
   path?: string;
   rootPath?: string;
+  requiredPermission?: 'console.home' | 'studio.playbooks';
   childrenIndex?: number;
   heading?: string;
   children?: MenuConfig;

@@ -1,8 +1,8 @@
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, vi } from "vitest";
 
-import { App } from "../app/App";
+import { renderAppAtRoute } from "./renderApp";
 
 const fetchMock = vi.fn<typeof fetch>();
 
@@ -53,7 +53,7 @@ describe("DeliverablesPage", () => {
       throw new Error(`Unhandled request: ${url}`);
     });
 
-    render(<App />);
+    renderAppAtRoute();
 
     expect(await screen.findByRole("heading", { name: "Deliverables" })).toBeInTheDocument();
     expect(screen.getAllByText("needs_review")[0]).toBeInTheDocument();
@@ -141,7 +141,7 @@ describe("DeliverablesPage", () => {
     window.history.replaceState({}, "", "/workspaces/workspace-1/deliverables/deliverable-1");
 
     const user = userEvent.setup();
-    render(<App />);
+    renderAppAtRoute();
 
     expect(await screen.findByRole("tab", { name: "Agent" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Context" })).toBeInTheDocument();
@@ -178,7 +178,7 @@ describe("DeliverablesPage", () => {
       throw new Error(`Unhandled request: ${url}`);
     });
 
-    render(<App />);
+    renderAppAtRoute();
 
     expect(await screen.findByText("Failed to load deliverables")).toBeInTheDocument();
   });
@@ -212,7 +212,7 @@ describe("DeliverablesPage", () => {
     });
 
     window.history.replaceState({}, "", "/workspaces/workspace-1/deliverables/missing-deliverable");
-    render(<App />);
+    renderAppAtRoute();
 
     expect(await screen.findByText("Deliverable not found")).toBeInTheDocument();
   });
@@ -257,7 +257,7 @@ describe("DeliverablesPage", () => {
     });
 
     const user = userEvent.setup();
-    render(<App />);
+    renderAppAtRoute();
 
     expect(await screen.findByLabelText("Deliverables status filter")).toBeInTheDocument();
     expect(screen.getByLabelText("Deliverables source task filter")).toBeInTheDocument();

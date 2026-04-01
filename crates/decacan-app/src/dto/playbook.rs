@@ -68,6 +68,25 @@ pub struct PlaybookVersionDto {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PlaybookStudioListItemDto {
+    pub handle: PlaybookHandleDto,
+    pub draft: PlaybookDraftDto,
+    pub latest_version: Option<PlaybookVersionDto>,
+    pub publishable: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PublishedPlaybookDto {
+    pub playbook_handle_id: String,
+    pub playbook_version_id: String,
+    pub title: String,
+    pub summary: String,
+    pub mode_label: String,
+    pub expected_output_label: String,
+    pub expected_output_path: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ForkPlaybookRequestDto {
     pub store_entry_id: String,
 }

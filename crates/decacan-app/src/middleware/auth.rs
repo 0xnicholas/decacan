@@ -1,5 +1,6 @@
 use axum::{
-    extract::{Request, State},
+    extract::{FromRequestParts, Request, State},
+    http::request::Parts,
     http::StatusCode,
     middleware::Next,
     response::IntoResponse,
@@ -8,9 +9,35 @@ use axum::{
 use crate::app::state::AppState;
 
 /// 当前认证用户信息
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CurrentUser {
     pub user_id: String,
+    pub default_workspace_id: String,
+}
+
+impl CurrentUser {
+    pub fn from_state(state: &AppState, user_id: String) -> Self {
+        Self {
+            user_id,
+            default_workspace_id: state.default_workspace_id(),
+        }
+    }
+}
+
+#[axum::async_trait]
+impl FromRequestParts<AppState> for CurrentUser {
+    type Rejection = StatusCode;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        _state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
+        if let Some(current_user) = parts.extensions.get::<CurrentUser>() {
+            return Ok(current_user.clone());
+        }
+
+        Err(StatusCode::UNAUTHORIZED)
+    }
 }
 
 /// JWT 认证中间件
@@ -41,7 +68,9 @@ pub async fn auth_middleware(
         .map_err(|_| StatusCode::UNAUTHORIZED)?;
 
     // 将用户信息附加到请求扩展
-    request.extensions_mut().insert(CurrentUser { user_id });
+    request
+        .extensions_mut()
+        .insert(CurrentUser::from_state(&state, user_id));
 
     Ok(next.run(request).await)
 }
@@ -72,7 +101,7 @@ pub async fn optional_auth_middleware(
     if let Some(uid) = user_id {
         request
             .extensions_mut()
-            .insert(CurrentUser { user_id: uid });
+            .insert(CurrentUser::from_state(&state, uid));
     }
 
     next.run(request).await

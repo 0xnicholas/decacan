@@ -1,8 +1,8 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, vi } from "vitest";
 
-import { App } from "../app/App";
+import { renderAppAtRoute } from "./renderApp";
 
 const fetchMock = vi.fn<typeof fetch>();
 vi.stubGlobal("fetch", fetchMock);
@@ -68,7 +68,7 @@ describe("MembersPage", () => {
       throw new Error(`Unhandled request: ${url}`);
     });
 
-    render(<App />);
+    renderAppAtRoute();
 
     expect(await screen.findByRole("heading", { name: "Members" })).toBeInTheDocument();
     
@@ -105,7 +105,7 @@ describe("MembersPage", () => {
       throw new Error(`Unhandled request: ${url}`);
     });
 
-    render(<App />);
+    renderAppAtRoute();
 
     expect(await screen.findByRole("heading", { name: "Members" })).toBeInTheDocument();
     
@@ -144,7 +144,7 @@ describe("MembersPage", () => {
       throw new Error(`Unhandled request: ${url}`);
     });
 
-    render(<App />);
+    renderAppAtRoute();
 
     expect(await screen.findByRole("heading", { name: "Members" })).toBeInTheDocument();
     
@@ -187,7 +187,7 @@ describe("MembersPage", () => {
     
     // Navigate to error workspace
     window.history.replaceState({}, "", "/workspaces/error-workspace/members");
-    render(<App />);
+    renderAppAtRoute();
 
     // Wait for error state
     await waitFor(() => {
@@ -231,7 +231,7 @@ describe("MembersPage", () => {
 
     const user = userEvent.setup();
 
-    render(<App />);
+    renderAppAtRoute();
 
     expect(await screen.findByRole("heading", { name: "Members" })).toBeInTheDocument();
     
