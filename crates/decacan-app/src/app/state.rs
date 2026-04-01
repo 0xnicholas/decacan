@@ -291,7 +291,7 @@ impl AppState {
         self.inner
             .lifecycle_playbooks
             .lock()
-            .expect("playbook lifecycle lock should not be poisoned")
+            .unwrap_or_else(|e| e.into_inner())
             .insert(
                 handle.playbook_handle_id.clone(),
                 StoredLifecyclePlaybook {
@@ -315,7 +315,7 @@ impl AppState {
             .inner
             .lifecycle_playbooks
             .lock()
-            .expect("playbook lifecycle lock should not be poisoned")
+            .unwrap_or_else(|e| e.into_inner())
             .get(handle_id)
             .cloned()
             .ok_or(PlaybookLifecycleError::HandleNotFound)?;
@@ -336,7 +336,7 @@ impl AppState {
             .inner
             .lifecycle_playbooks
             .lock()
-            .expect("playbook lifecycle lock should not be poisoned");
+            .unwrap_or_else(|e| e.into_inner());
         let stored = playbooks
             .get_mut(handle_id)
             .ok_or(PlaybookLifecycleError::HandleNotFound)?;
@@ -362,7 +362,7 @@ impl AppState {
             .inner
             .lifecycle_playbooks
             .lock()
-            .expect("playbook lifecycle lock should not be poisoned");
+            .unwrap_or_else(|e| e.into_inner());
         let stored = playbooks
             .get_mut(handle_id)
             .ok_or(PlaybookLifecycleError::HandleNotFound)?;
@@ -441,7 +441,7 @@ output_contract:
             .inner
             .lifecycle_playbooks
             .lock()
-            .expect("playbook lifecycle lock should not be poisoned");
+            .unwrap_or_else(|e| e.into_inner());
 
         playbooks.insert(
             handle_id,
@@ -478,7 +478,7 @@ output_contract:
             .inner
             .lifecycle_playbooks
             .lock()
-            .expect("playbook lifecycle lock should not be poisoned");
+            .unwrap_or_else(|e| e.into_inner());
 
         let stored = playbooks
             .get_mut(handle_id)
@@ -511,7 +511,7 @@ output_contract:
             .inner
             .lifecycle_playbooks
             .lock()
-            .expect("playbook lifecycle lock should not be poisoned");
+            .unwrap_or_else(|e| e.into_inner());
 
         playbooks
             .remove(handle_id)
@@ -525,7 +525,7 @@ output_contract:
             .inner
             .teams
             .lock()
-            .expect("teams lock should not be poisoned");
+            .unwrap_or_else(|e| e.into_inner());
 
         ListTeamsResponseDto {
             teams: teams.values().map(|t| t.spec.clone()).collect(),
@@ -537,7 +537,7 @@ output_contract:
             .inner
             .teams
             .lock()
-            .expect("teams lock should not be poisoned");
+            .unwrap_or_else(|e| e.into_inner());
 
         teams.get(team_id).map(|t| t.spec.clone())
     }
@@ -580,7 +580,7 @@ output_contract:
             .inner
             .teams
             .lock()
-            .expect("teams lock should not be poisoned");
+            .unwrap_or_else(|e| e.into_inner());
 
         teams.insert(
             team_id,
@@ -606,7 +606,7 @@ output_contract:
             .inner
             .teams
             .lock()
-            .expect("teams lock should not be poisoned");
+            .unwrap_or_else(|e| e.into_inner());
 
         let stored = teams.get_mut(team_id).ok_or_else(|| "Team not found".to_string())?;
 
@@ -639,7 +639,7 @@ output_contract:
             .inner
             .teams
             .lock()
-            .expect("teams lock should not be poisoned");
+            .unwrap_or_else(|e| e.into_inner());
 
         teams.remove(team_id).ok_or(())?;
         Ok(())
@@ -684,7 +684,7 @@ output_contract:
             .inner
             .tasks
             .lock()
-            .expect("task lock should not be poisoned")
+            .unwrap_or_else(|e| e.into_inner())
             .values()
             .map(task_to_dto)
             .collect::<Vec<_>>();
@@ -697,7 +697,7 @@ output_contract:
             .inner
             .tasks
             .lock()
-            .expect("task lock should not be poisoned")
+            .unwrap_or_else(|e| e.into_inner())
             .values()
             .filter(|task| task.workspace_id == workspace_id)
             .map(task_to_dto)
@@ -710,7 +710,7 @@ output_contract:
         self.inner
             .tasks
             .lock()
-            .expect("task lock should not be poisoned")
+            .unwrap_or_else(|e| e.into_inner())
             .get(task_id)
             .map(task_to_dto)
     }
@@ -720,7 +720,7 @@ output_contract:
             .inner
             .tasks
             .lock()
-            .expect("task lock should not be poisoned")
+            .unwrap_or_else(|e| e.into_inner())
             .get(task_id)
             .cloned()?;
         let plan = plan_for_task(&task);
@@ -762,7 +762,7 @@ output_contract:
         self.inner
             .tasks
             .lock()
-            .expect("task lock should not be poisoned")
+            .unwrap_or_else(|e| e.into_inner())
             .contains_key(task_id)
     }
 
@@ -770,7 +770,7 @@ output_contract:
         self.inner
             .tasks
             .lock()
-            .expect("task lock should not be poisoned")
+            .unwrap_or_else(|e| e.into_inner())
             .get(task_id)
             .map(|task| task.workspace_id == workspace_id)
             .unwrap_or(false)
@@ -796,7 +796,7 @@ output_contract:
         self.inner
             .artifacts
             .lock()
-            .expect("artifact lock should not be poisoned")
+            .unwrap_or_else(|e| e.into_inner())
             .insert(
                 artifact_id.clone(),
                 StoredArtifact {
@@ -810,7 +810,7 @@ output_contract:
         self.inner
             .tasks
             .lock()
-            .expect("task lock should not be poisoned")
+            .unwrap_or_else(|e| e.into_inner())
             .insert(
                 prepared.task_id.clone(),
                 StoredTask {
@@ -871,7 +871,7 @@ output_contract:
         self.inner
             .artifacts
             .lock()
-            .expect("artifact lock should not be poisoned")
+            .unwrap_or_else(|e| e.into_inner())
             .get(artifact_id)
             .map(|artifact| artifact.dto.clone())
     }
@@ -881,7 +881,7 @@ output_contract:
             .inner
             .artifacts
             .lock()
-            .expect("artifact lock should not be poisoned")
+            .unwrap_or_else(|e| e.into_inner())
             .get(artifact_id)
             .cloned()?;
         let content = std::fs::read_to_string(&artifact.physical_path).ok()?;
@@ -897,7 +897,7 @@ output_contract:
         self.inner
             .approvals
             .lock()
-            .expect("approval lock should not be poisoned")
+            .unwrap_or_else(|e| e.into_inner())
             .insert(approval.id.clone(), approval);
     }
 
@@ -905,7 +905,7 @@ output_contract:
         self.inner
             .approvals
             .lock()
-            .expect("approval lock should not be poisoned")
+            .unwrap_or_else(|e| e.into_inner())
             .get(approval_id)
             .cloned()
     }
@@ -918,7 +918,7 @@ output_contract:
             .inner
             .approvals
             .lock()
-            .expect("approval lock should not be poisoned");
+            .unwrap_or_else(|e| e.into_inner());
         let approval = approvals.get_mut(approval_id)?;
         mutate(approval);
         Some(approval.clone())
@@ -928,7 +928,7 @@ output_contract:
         self.inner
             .approvals
             .lock()
-            .expect("approval lock should not be poisoned")
+            .unwrap_or_else(|e| e.into_inner())
             .values()
             .filter(|approval| approval.task_id == task_id)
             .cloned()
@@ -939,7 +939,7 @@ output_contract:
         self.inner
             .task_events
             .lock()
-            .expect("task event lock should not be poisoned")
+            .unwrap_or_else(|e| e.into_inner())
             .entry(event.task_id.clone())
             .or_default()
             .push(event.clone());
@@ -950,7 +950,7 @@ output_contract:
         self.inner
             .task_events
             .lock()
-            .expect("task event lock should not be poisoned")
+            .unwrap_or_else(|e| e.into_inner())
             .get(task_id)
             .cloned()
             .unwrap_or_default()
@@ -964,7 +964,7 @@ output_contract:
         self.inner
             .artifacts
             .lock()
-            .expect("artifact lock should not be poisoned")
+            .unwrap_or_else(|e| e.into_inner())
             .values()
             .filter(|artifact| artifact.dto.task_id == task_id)
             .map(|artifact| artifact.dto.clone())
@@ -1007,7 +1007,7 @@ output_contract:
             .inner
             .tasks
             .lock()
-            .expect("task lock should not be poisoned");
+            .unwrap_or_else(|e| e.into_inner());
         let task = tasks.get_mut(task_id)?;
         task.agent_messages.push(message.clone());
 
@@ -1023,7 +1023,7 @@ output_contract:
             .inner
             .tasks
             .lock()
-            .expect("task lock should not be poisoned")
+            .unwrap_or_else(|e| e.into_inner())
             .get(task_id)
             .cloned()?;
         let create_request = CreateTaskRequest {
@@ -1039,7 +1039,7 @@ output_contract:
         self.inner
             .tasks
             .lock()
-            .expect("task lock should not be poisoned")
+            .unwrap_or_else(|e| e.into_inner())
             .insert(
                 task_id.to_owned(),
                 StoredTask {
@@ -1071,13 +1071,13 @@ output_contract:
         self.inner
             .artifacts
             .lock()
-            .expect("artifact lock should not be poisoned")
+            .unwrap_or_else(|e| e.into_inner())
             .retain(|_, artifact| artifact.dto.task_id != task_id);
         let pending = prepared.pending_artifact.clone();
         self.inner
             .artifacts
             .lock()
-            .expect("artifact lock should not be poisoned")
+            .unwrap_or_else(|e| e.into_inner())
             .insert(
                 pending.id.clone(),
                 StoredArtifact {
@@ -1150,7 +1150,7 @@ output_contract:
             .inner
             .lifecycle_playbooks
             .lock()
-            .expect("playbook lifecycle lock should not be poisoned");
+            .unwrap_or_else(|e| e.into_inner());
         let stored = playbooks
             .get(&request.playbook_handle_id)
             .ok_or(CreateTaskError::InvalidPlaybookBinding)?;
@@ -1265,7 +1265,7 @@ output_contract:
             .inner
             .tasks
             .lock()
-            .expect("task lock should not be poisoned")
+            .unwrap_or_else(|e| e.into_inner())
             .get_mut(task_id)
         {
             task.status = status.to_owned();
@@ -1279,7 +1279,7 @@ output_contract:
         self.inner
             .artifacts
             .lock()
-            .expect("artifact lock should not be poisoned")
+            .unwrap_or_else(|e| e.into_inner())
             .insert(
                 artifact.id.clone(),
                 StoredArtifact {
@@ -1333,7 +1333,7 @@ output_contract:
         self.inner
             .tasks
             .lock()
-            .expect("task lock should not be poisoned")
+            .unwrap_or_else(|e| e.into_inner())
             .get(task_id)
             .map(|task| task.runtime_run.id == run_id)
             .unwrap_or(false)
@@ -1724,7 +1724,7 @@ mod tests {
             .inner
             .tasks
             .lock()
-            .expect("task lock should not be poisoned")
+            .unwrap_or_else(|e| e.into_inner())
             .insert(
                 "task-stale".to_owned(),
                 StoredTask {
@@ -1757,7 +1757,7 @@ mod tests {
             .inner
             .tasks
             .lock()
-            .expect("task lock should not be poisoned")
+            .unwrap_or_else(|e| e.into_inner())
             .get("task-stale")
             .cloned()
             .expect("stored task should exist");
