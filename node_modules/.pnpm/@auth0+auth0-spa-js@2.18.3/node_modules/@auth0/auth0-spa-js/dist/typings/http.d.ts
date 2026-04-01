@@ -1,0 +1,5 @@
+import { FetchOptions } from './global';
+import { Dpop } from './dpop/dpop';
+export declare const createAbortController: () => AbortController;
+export declare const switchFetch: (fetchUrl: string, audience: string, scope: string, fetchOptions: FetchOptions, worker?: Worker, useFormData?: boolean, timeout?: number, useMrrt?: boolean) => Promise<any>;
+export declare function getJSON<T>(url: string, timeout: number | undefined, audience: string, scope: string, options: FetchOptions, worker?: Worker, useFormData?: boolean, useMrrt?: boolean, dpop?: Pick<Dpop, 'generateProof' | 'getNonce' | 'setNonce'>, isDpopRetry?: boolean): Promise<T>;

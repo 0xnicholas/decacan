@@ -1,0 +1,32 @@
+/**
+ * Lock manager abstraction for cross-tab synchronization.
+ * Supports both modern Web Locks API and legacy localStorage-based locking.
+ */
+/** Lock manager interface - callback pattern ensures automatic lock release */
+export interface ILockManager {
+    /**
+     * Run callback while holding a lock.
+     * Lock is automatically released when callback completes or throws.
+     *
+     * @param key - Lock identifier
+     * @param timeout - Maximum time to wait for lock acquisition (ms)
+     * @param callback - Function to execute while holding the lock
+     * @returns Promise resolving to callback's return value
+     * @throws Error if lock cannot be acquired within timeout
+     */
+    runWithLock<T>(key: string, timeout: number, callback: () => Promise<T>): Promise<T>;
+}
+/** Web Locks API implementation - true mutex with OS-level queuing */
+export declare class WebLocksApiManager implements ILockManager {
+    runWithLock<T>(key: string, timeout: number, callback: () => Promise<T>): Promise<T>;
+}
+/** Legacy localStorage-based locking with retry logic for older browsers */
+export declare class LegacyLockManager implements ILockManager {
+    private lock;
+    private activeLocks;
+    private pagehideHandler;
+    constructor();
+    runWithLock<T>(key: string, timeout: number, callback: () => Promise<T>): Promise<T>;
+}
+export declare function getLockManager(): ILockManager;
+export declare function resetLockManager(): void;

@@ -1,0 +1,79 @@
+import { MfaRequirements } from '../errors';
+/**
+ * Represents the stored context for an MFA flow
+ */
+export interface MfaContext {
+    /** The OAuth scope for the original token request */
+    scope?: string;
+    /** The API audience for the original token request */
+    audience?: string;
+    /** MFA requirements from the mfa_required error (camelCase for TypeScript conventions) */
+    mfaRequirements?: MfaRequirements;
+    /** Timestamp when the context was created */
+    createdAt: number;
+}
+/**
+ * Manages MFA authentication contexts keyed by MFA token.
+ *
+ * When an mfa_required error occurs, the SDK stores the original request's
+ * scope and audience. When the user later provides an MFA token for verification,
+ * the SDK retrieves the matching context to complete the token exchange.
+ *
+ * This enables concurrent MFA flows without state conflicts.
+ *
+ * @example
+ * ```typescript
+ * const manager = new MfaContextManager();
+ *
+ * // Store context when mfa_required error occurs
+ * manager.set('mfaTokenAbc', { scope: 'openid profile', audience: 'https://api.example.com' });
+ *
+ * // Retrieve context when user completes MFA
+ * const context = manager.get('mfaTokenAbc');
+ * // { scope: 'openid profile', audience: 'https://api.example.com', createdAt: ... }
+ *
+ * // Remove after successful verification
+ * manager.remove('mfaTokenAbc');
+ * ```
+ */
+export declare class MfaContextManager {
+    private contexts;
+    private readonly ttlMs;
+    /**
+     * Creates a new MfaContextManager
+     * @param ttlMs - Time-to-live for contexts in milliseconds (default: 10 minutes)
+     */
+    constructor(ttlMs?: number);
+    /**
+     * Stores an MFA context keyed by the MFA token.
+     * Runs cleanup to remove expired entries before storing.
+     *
+     * @param mfaToken - The MFA token from the mfa_required error
+     * @param context - The scope and audience from the original request
+     */
+    set(mfaToken: string, context: Omit<MfaContext, 'createdAt'>): void;
+    /**
+     * Retrieves the MFA context for a given token.
+     * Returns undefined if the token is not found or has expired.
+     *
+     * @param mfaToken - The MFA token to look up
+     * @returns The stored context, or undefined if not found/expired
+     */
+    get(mfaToken: string): MfaContext | undefined;
+    /**
+     * Removes an MFA context.
+     * Should be called after successful MFA verification.
+     *
+     * @param mfaToken - The MFA token to remove
+     */
+    remove(mfaToken: string): void;
+    /**
+     * Removes all expired contexts from the Map.
+     * Called automatically on every `set` operation.
+     */
+    private cleanup;
+    /**
+     * Returns the number of stored contexts
+     */
+    get size(): number;
+}

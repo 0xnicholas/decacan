@@ -1,0 +1,23 @@
+import type { MfaFactorType, OobChannel } from './types';
+/**
+ * Mapping configuration for a factor type
+ */
+export interface FactorMapping {
+    authenticatorTypes: ['otp'] | ['oob'];
+    oobChannels?: OobChannel[];
+}
+/**
+ * Maps MFA factor types to auth-js enrollment parameters
+ */
+export declare const FACTOR_MAPPING: Record<MfaFactorType, FactorMapping>;
+/**
+ * MFA grant type constants for verification
+ */
+export declare const MfaGrantTypes: {
+    /** Grant type for OTP (TOTP) verification */
+    readonly OTP: "http://auth0.com/oauth/grant-type/mfa-otp";
+    /** Grant type for OOB (SMS, Email, Push) verification */
+    readonly OOB: "http://auth0.com/oauth/grant-type/mfa-oob";
+    /** Grant type for recovery code verification */
+    readonly RECOVERY_CODE: "http://auth0.com/oauth/grant-type/mfa-recovery-code";
+};

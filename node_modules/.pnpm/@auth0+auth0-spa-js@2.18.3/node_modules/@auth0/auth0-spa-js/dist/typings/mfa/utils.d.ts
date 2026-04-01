@@ -1,0 +1,23 @@
+import type { EnrollParams, VerifyParams, MfaGrantType } from './types';
+/**
+ * Converts factor-based enrollment params to auth-js format
+ *
+ * @param params - The enrollment parameters with factorType
+ * @returns Parameters in auth-js format with authenticatorTypes/oobChannels
+ */
+export declare function getAuthJsEnrollParams(params: EnrollParams): {
+    email?: string | undefined;
+    phoneNumber?: string | undefined;
+    oobChannels?: import("./types").OobChannel[] | undefined;
+    mfaToken: string;
+    authenticatorTypes: ["otp"] | ["oob"];
+};
+/**
+ * Gets the grant type from verification parameters based on which field is provided.
+ *
+ * Priority order: otp > oobCode > recoveryCode
+ *
+ * @param params - The verification parameters
+ * @returns The grant type or undefined if no verification field is present
+ */
+export declare function getGrantType(params: VerifyParams): MfaGrantType | undefined;
