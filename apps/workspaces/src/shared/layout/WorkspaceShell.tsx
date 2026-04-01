@@ -54,7 +54,7 @@ export function WorkspaceShell() {
     <div className="min-h-screen grid grid-rows-[auto_1fr]">
       <TopBar
         onNewTask={() => {
-          navigate("/");
+          navigate(`/workspaces/${workspaceId}/new-task`);
         }}
         onWorkspaceChange={(nextWorkspaceId) => {
           navigateTo(nextWorkspaceId, currentSection);

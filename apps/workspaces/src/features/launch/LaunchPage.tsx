@@ -17,29 +17,52 @@ import { PlaybookCards } from "./PlaybookCards";
 import { TaskDraftForm } from "./TaskDraftForm";
 import { TaskPreviewPanel } from "./TaskPreviewPanel";
 
-export function LaunchPage() {
+interface LaunchPageProps {
+  workspaceId?: string;
+}
+
+export function LaunchPage({ workspaceId }: LaunchPageProps) {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [playbooks, setPlaybooks] = useState<PlaybookCard[]>([]);
-  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(
+    workspaceId ?? null,
+  );
   const [selectedPlaybook, setSelectedPlaybook] = useState<PlaybookCard | null>(null);
   const [goal, setGoal] = useState("");
   const [preview, setPreview] = useState<TaskPreview | null>(null);
   const [isStarting, setIsStarting] = useState(false);
+  const isWorkspaceScoped = Boolean(workspaceId);
 
   useEffect(() => {
+    let isActive = true;
+
     async function loadCatalog() {
       const [workspaceResponse, playbookResponse] = await Promise.all([
         fetchWorkspaces(),
         fetchPlaybookStore(),
       ]);
 
+      if (!isActive) {
+        return;
+      }
+
       setWorkspaces(workspaceResponse);
-      setSelectedWorkspaceId(workspaceResponse[0]?.id ?? null);
       setPlaybooks(playbookResponse);
+
+      if (workspaceId) {
+        setSelectedWorkspaceId(workspaceId);
+        return;
+      }
+
+      setSelectedWorkspaceId(workspaceResponse[0]?.id ?? null);
     }
 
     void loadCatalog();
-  }, []);
+
+    return () => {
+      isActive = false;
+    };
+  }, [workspaceId]);
 
   async function handlePreview() {
     if (!selectedWorkspaceId || !selectedPlaybook || !goal.trim()) {
@@ -120,24 +143,28 @@ execution_profile: single
     <div className="workspace-shell">
       <aside className="sidebar">
         <p className="sidebar-label">Workspace</p>
-        <select
-          aria-label="Select workspace"
-          className="workspace-select"
-          value={selectedWorkspaceId ?? ""}
-          onChange={(event) => {
-            setSelectedWorkspaceId(event.target.value || null);
-            setPreview(null);
-          }}
-        >
-          <option value="" disabled={selectedWorkspaceId !== null}>
-            Select a workspace...
-          </option>
-          {workspaces.map((workspace) => (
-            <option key={workspace.id} value={workspace.id}>
-              {workspace.title}
+        {isWorkspaceScoped ? (
+          <div className="sidebar-value">{selectedWorkspace?.title ?? workspaceId}</div>
+        ) : (
+          <select
+            aria-label="Select workspace"
+            className="workspace-select"
+            value={selectedWorkspaceId ?? ""}
+            onChange={(event) => {
+              setSelectedWorkspaceId(event.target.value || null);
+              setPreview(null);
+            }}
+          >
+            <option value="" disabled={selectedWorkspaceId !== null}>
+              Select a workspace...
             </option>
-          ))}
-        </select>
+            {workspaces.map((workspace) => (
+              <option key={workspace.id} value={workspace.id}>
+                {workspace.title}
+              </option>
+            ))}
+          </select>
+        )}
         <p className="sidebar-path">{selectedWorkspace?.root_path ?? "/workspace"}</p>
         <div className="sidebar-section">
           <p className="sidebar-label">Current playbook</p>

@@ -1,8 +1,8 @@
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, vi } from "vitest";
 
-import { App } from "../app/App";
+import { renderAppAtRoute } from "./renderApp";
 
 const fetchMock = vi.fn<typeof fetch>();
 const writeTextMock = vi.fn();
@@ -126,7 +126,7 @@ describe("TaskPage", () => {
 
     window.history.replaceState({}, "", "/workspaces/workspace-1/tasks/task-1");
 
-    render(<App />);
+    renderAppAtRoute();
 
     expect(await screen.findByRole("tab", { name: "Agent" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Context" })).toBeInTheDocument();
@@ -188,7 +188,7 @@ describe("TaskPage", () => {
 
     window.history.replaceState({}, "", "/workspaces/workspace-2/tasks/task-1");
 
-    render(<App />);
+    renderAppAtRoute();
 
     expect(
       await screen.findByText("Task not found in workspace workspace-2"),
@@ -293,7 +293,7 @@ describe("TaskPage", () => {
     });
 
     const user = userEvent.setup();
-    render(<App />);
+    renderAppAtRoute();
 
     await user.click(await screen.findByRole("tab", { name: "Agent" }));
     await user.click(screen.getByRole("button", { name: "Status brief" }));
@@ -424,7 +424,7 @@ describe("TaskPage", () => {
     const user = userEvent.setup();
     window.history.replaceState({}, "", "/workspaces/workspace-1/tasks/task-1");
 
-    render(<App />);
+    renderAppAtRoute();
 
     await user.click(await screen.findByRole("tab", { name: "Agent" }));
     await user.click(screen.getByRole("button", { name: "Status brief" }));
@@ -541,7 +541,7 @@ describe("TaskPage", () => {
 
     const user = userEvent.setup();
 
-    render(<App />);
+    renderAppAtRoute();
 
     await user.click(await screen.findByRole("button", { name: "Approve" }));
 
@@ -622,7 +622,7 @@ describe("TaskPage", () => {
       throw new Error(`Unhandled request: ${url}`);
     });
 
-    render(<App />);
+    renderAppAtRoute();
 
     const sidebar = await screen.findByRole("complementary", { name: "Task context" });
 
@@ -709,10 +709,10 @@ describe("TaskPage", () => {
       throw new Error(`Unhandled request: ${url}`);
     });
 
-    render(<App />);
+    renderAppAtRoute();
 
     expect(await screen.findByText("Last event: Task accepted by API")).toBeInTheDocument();
-    expect(screen.getByText("Live")).toBeInTheDocument();
+    expect(screen.getByText("Offline")).toBeInTheDocument();
     expect(FakeEventSource.instances[0]?.url).toBe("/api/tasks/task-1/events/stream");
 
     currentTask = {
@@ -854,7 +854,7 @@ describe("TaskPage", () => {
       throw new Error(`Unhandled request: ${url}`);
     });
 
-    render(<App />);
+    renderAppAtRoute();
 
     const sidebar = await screen.findByRole("complementary", { name: "Task context" });
 
@@ -954,7 +954,7 @@ describe("TaskPage", () => {
 
     const user = userEvent.setup();
 
-    render(<App />);
+    renderAppAtRoute();
 
     await user.click(await screen.findByRole("button", { name: "Preview output/summary.md" }));
 
@@ -1055,7 +1055,7 @@ describe("TaskPage", () => {
 
     const user = userEvent.setup();
 
-    render(<App />);
+    renderAppAtRoute();
 
     await user.click(await screen.findByRole("button", { name: "Preview output/summary.md" }));
 
@@ -1169,7 +1169,7 @@ describe("TaskPage", () => {
 
     const user = userEvent.setup();
 
-    render(<App />);
+    renderAppAtRoute();
 
     await user.click(await screen.findByRole("button", { name: "Preview output/summary.md" }));
 

@@ -157,6 +157,16 @@ pnpm dev:admin
 pnpm build
 ```
 
+### Frontend Handoff
+
+`apps/workspaces` treats the account hub as a separate surface. If you run the apps on different local origins, point the workspace top-bar handoff at the admin app:
+
+```bash
+VITE_ACCOUNT_HUB_URL=http://localhost:3001
+```
+
+If unset, `apps/workspaces` defaults the Account Hub link to `http://localhost:3001`.
+
 ## Configuration
 
 The platform uses a layered configuration system:

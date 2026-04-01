@@ -2,7 +2,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, vi } from "vitest";
 
-import { App } from "../app/App";
+import { renderAppAtRoute } from "./renderApp";
 
 const fetchMock = vi.fn<typeof fetch>();
 
@@ -87,7 +87,7 @@ describe("WorkspaceHomePage", () => {
   });
 
   it("renders the control-center panels on workspace home", async () => {
-    render(<App />);
+    renderAppAtRoute("/workspaces/workspace-1");
 
     expect(await screen.findByRole("heading", { name: "Needs Attention" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Execution Overview" })).toBeInTheDocument();
@@ -177,12 +177,13 @@ describe("WorkspaceHomePage", () => {
       throw new Error(`Unhandled request: ${method} ${url}`);
     });
 
-    render(<App />);
+    renderAppAtRoute("/workspaces/workspace-1");
 
     await screen.findByRole("option", { name: "Workspace 2" });
     await waitFor(() => {
       expect(resolveWorkspace1Home).not.toBeNull();
     });
+    await user.selectOptions(screen.getByLabelText("Workspace switcher"), "workspace-2");
 
     (resolveWorkspace1Home as unknown as (response: Response) => void)?.(
       new Response(
@@ -283,7 +284,7 @@ describe("WorkspaceHomePage", () => {
       throw new Error(`Unhandled request: ${method} ${url}`);
     });
 
-    render(<App />);
+    renderAppAtRoute("/workspaces/workspace-1");
 
     expect(await screen.findByText("Workspace 1 current payload")).toBeInTheDocument();
     await user.selectOptions(screen.getByLabelText("Workspace switcher"), "workspace-2");

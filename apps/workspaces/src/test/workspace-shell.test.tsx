@@ -1,8 +1,8 @@
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, vi } from "vitest";
 
-import { App } from "../app/App";
+import { renderAppAtRoute } from "./renderApp";
 
 const fetchMock = vi.fn<typeof fetch>();
 
@@ -49,9 +49,7 @@ describe("WorkspaceShell", () => {
   });
 
   it("renders the full workspace shell around workspace routes", async () => {
-    window.history.replaceState({}, "", "/workspaces/workspace-1");
-
-    render(<App />);
+    renderAppAtRoute("/workspaces/workspace-1");
 
     expect(await screen.findByText("Home")).toBeInTheDocument();
     expect(screen.getByText("Tasks")).toBeInTheDocument();
@@ -61,29 +59,23 @@ describe("WorkspaceShell", () => {
   });
 
   it("rejects unknown workspace sections", async () => {
-    window.history.replaceState({}, "", "/workspaces/workspace-1/unknown");
+    renderAppAtRoute("/workspaces/workspace-1/unknown");
 
-    render(<App />);
-
-    expect(await screen.findByText("Loading task")).toBeInTheDocument();
+    expect(await screen.findByText("Route not available")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "New Task" })).toBeInTheDocument();
   });
 
   it("rejects workspace sections with extra path segments", async () => {
-    window.history.replaceState({}, "", "/workspaces/workspace-1/tasks/extra/overflow");
-
-    render(<App />);
+    renderAppAtRoute("/workspaces/workspace-1/tasks/extra/overflow");
 
     const placeholders = await screen.findAllByText("Content for this route will be implemented in later tasks.");
     expect(placeholders.length).toBeGreaterThan(0);
-    expect(screen.queryByRole("button", { name: "New Task" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "New Task" })).toBeInTheDocument();
   });
 
   it("updates the URL when section nav buttons are clicked", async () => {
     const user = userEvent.setup();
-    window.history.replaceState({}, "", "/workspaces/workspace-1");
-
-    render(<App />);
+    renderAppAtRoute("/workspaces/workspace-1");
 
     await screen.findByRole("button", { name: "Home" });
 
@@ -96,13 +88,17 @@ describe("WorkspaceShell", () => {
 
   it("updates the URL when switching workspaces and preserves the current section", async () => {
     const user = userEvent.setup();
-    window.history.replaceState({}, "", "/workspaces/workspace-1/tasks");
-
-    render(<App />);
+    renderAppAtRoute("/workspaces/workspace-1/tasks");
 
     await screen.findByRole("button", { name: "Tasks" });
     await user.selectOptions(screen.getByLabelText("Workspace switcher"), "workspace-2");
 
     expect(window.location.pathname).toBe("/workspaces/workspace-2/tasks");
+  });
+
+  it("shows an account hub entry in the top bar", async () => {
+    renderAppAtRoute("/workspaces/workspace-1");
+
+    expect(await screen.findByRole("link", { name: "Account Hub" })).toBeInTheDocument();
   });
 });

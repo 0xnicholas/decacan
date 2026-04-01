@@ -5,9 +5,8 @@ import { ApprovalsPage } from "../features/approvals/ApprovalsPage";
 import { MembersPage } from "../features/members/MembersPage";
 import { DeliverableDetailPage } from "../features/deliverables/DeliverableDetailPage";
 import { DeliverablesPage } from "../features/deliverables/DeliverablesPage";
-import { InboxPage } from "../features/inbox/InboxPage";
 import { LaunchPage } from "../features/launch/LaunchPage";
-import { MyWorkPage } from "../features/my-work/MyWorkPage";
+import { WorkspaceEntryRedirect } from "../features/launch/WorkspaceEntryRedirect";
 import { TaskPage } from "../features/task-detail/TaskPage";
 import { TasksPage } from "../features/tasks/TasksPage";
 import { WorkspaceHomePage } from "../features/workspace-home/WorkspaceHomePage";
@@ -88,13 +87,16 @@ function TaskPageWrapper() {
   return taskId ? <TaskPage taskId={taskId} /> : null;
 }
 
+function WorkspaceLaunchWrapper() {
+  const { workspaceId } = useParams();
+  return workspaceId ? <LaunchPage workspaceId={workspaceId} /> : null;
+}
+
 export function AppRouter() {
   return (
     <Routes>
-      {/* Independent pages */}
-      <Route path="/inbox" element={<InboxPage />} />
-      <Route path="/me/tasks" element={<MyWorkPage />} />
       <Route path="/tasks/:taskId" element={<TaskPageWrapper />} />
+      <Route path="/workspaces/:workspaceId/new-task" element={<WorkspaceLaunchWrapper />} />
 
       {/* Workspace pages with shell */}
       <Route path="/workspaces/:workspaceId" element={<WorkspaceShell />}>
@@ -109,10 +111,9 @@ export function AppRouter() {
         <Route path="*" element={<WorkspaceSegmentOverflowPlaceholder />} />
       </Route>
 
-      {/* Launch page (default) */}
-      <Route path="/" element={<LaunchPage />} />
+      <Route path="/" element={<WorkspaceEntryRedirect />} />
       
-      {/* Catch all - redirect to launch */}
+      {/* Catch all - redirect to default workspace */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

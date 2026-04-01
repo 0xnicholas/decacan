@@ -1,8 +1,8 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, vi } from "vitest";
 
-import { App } from "../app/App";
+import { renderAppAtRoute } from "./renderApp";
 
 const fetchMock = vi.fn<typeof fetch>();
 
@@ -12,6 +12,68 @@ describe("App", () => {
   beforeEach(() => {
     fetchMock.mockReset();
     window.history.replaceState({}, "", "/");
+  });
+
+  it("redirects root into the default workspace home", async () => {
+    fetchMock.mockImplementation(async (input, init) => {
+      const url = typeof input === "string" ? input : input.toString();
+      const method = init?.method ?? "GET";
+
+      if (url.endsWith("/api/workspaces") && method === "GET") {
+        return new Response(
+          JSON.stringify([
+            {
+              id: "workspace-1",
+              title: "Default Workspace",
+              root_path: "/workspace",
+            },
+          ]),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url}`);
+    });
+
+    renderAppAtRoute("/");
+
+    await waitFor(() => {
+      expect(window.location.pathname).toBe("/workspaces/workspace-1");
+    });
+  });
+
+  it("launches from /workspaces/:workspaceId/new-task without showing a workspace picker", async () => {
+    fetchMock.mockImplementation(async (input, init) => {
+      const url = typeof input === "string" ? input : input.toString();
+      const method = init?.method ?? "GET";
+
+      if (url.endsWith("/api/workspaces") && method === "GET") {
+        return new Response(
+          JSON.stringify([
+            {
+              id: "workspace-1",
+              title: "Default Workspace",
+              root_path: "/workspace",
+            },
+          ]),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      if (url.endsWith("/api/playbook-store") && method === "GET") {
+        return new Response(JSON.stringify([]), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url}`);
+    });
+
+    renderAppAtRoute("/workspaces/workspace-1/new-task");
+
+    expect(await screen.findByText("Choose a playbook")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Select workspace")).not.toBeInTheDocument();
   });
 
   it("creates a task from preview and redirects to the task route", async () => {
@@ -32,7 +94,7 @@ describe("App", () => {
         );
       }
 
-      if (url.endsWith("/api/playbooks") && method === "GET") {
+      if (url.endsWith("/api/playbook-store") && method === "GET") {
         return new Response(
           JSON.stringify([
             {
@@ -60,6 +122,47 @@ describe("App", () => {
             expected_artifact_label: "Summary document",
             expected_artifact_path: "output/summary.md",
             will_auto_start: true
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      if (url.endsWith("/api/playbooks/fork") && method === "POST") {
+        return new Response(
+          JSON.stringify({
+            handle: {
+              playbook_handle_id: "pb-1",
+              title: "Summary",
+            },
+            draft: {
+              draft_id: "draft-1",
+            },
+          }),
+          { status: 201, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      if (url.endsWith("/api/playbooks/pb-1/draft") && method === "PUT") {
+        return new Response(
+          JSON.stringify({
+            draft: {
+              draft_id: "draft-1",
+            },
+            health_report: {
+              publishable: true,
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      if (url.endsWith("/api/playbooks/pb-1/publish") && method === "POST") {
+        return new Response(
+          JSON.stringify({
+            version: {
+              playbook_version_id: "version-1",
+              version_number: 1,
+            },
           }),
           { status: 200, headers: { "content-type": "application/json" } },
         );
@@ -150,7 +253,7 @@ describe("App", () => {
 
     const user = userEvent.setup();
 
-    render(<App />);
+    renderAppAtRoute("/workspaces/workspace-1/new-task");
 
     await screen.findByText("Choose a playbook");
 
