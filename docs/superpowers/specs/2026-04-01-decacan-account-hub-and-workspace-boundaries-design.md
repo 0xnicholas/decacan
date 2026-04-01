@@ -69,6 +69,11 @@ This surface is account-first. It should answer:
 
 `What am I involved in across the system, and what operational or authoring work do I need to handle next?`
 
+## Naming Note
+
+The user-visible account-level surface should be called `Console`.
+The implementation surface remains `apps/admin` for now.
+
 ## Object Ownership
 
 The most important decision is not page count. It is object ownership.
