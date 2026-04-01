@@ -47,3 +47,25 @@ mod loader_tests {
         env::remove_var("DECACAN_PROFILE");
     }
 }
+
+#[cfg(test)]
+mod yaml_tests {
+    use decacan_infra::config::ConfigLoader;
+    use std::fs;
+    use std::path::Path;
+    use tempfile::TempDir;
+
+    #[test]
+    fn test_load_from_yaml_file() {
+        let temp_dir = TempDir::new().unwrap();
+        let config_path = temp_dir.path().join("test.yaml");
+
+        fs::write(&config_path, "profile: staging\n").unwrap();
+
+        // 注意：这个测试演示功能，实际实现需要文件路径支持
+        let content = fs::read_to_string(&config_path).unwrap();
+        let config: decacan_infra::config::InfraConfig = serde_yaml::from_str(&content).unwrap();
+
+        assert_eq!(config.profile, "staging");
+    }
+}
