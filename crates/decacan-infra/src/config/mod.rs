@@ -1,7 +1,9 @@
 pub mod loader;
+pub mod postgres;
 pub mod sources;
 
 pub use loader::ConfigLoader;
+pub use postgres::PostgresConfig;
 pub use sources::{ConfigError, InfraConfig};
 
 // 保留向后兼容的简单配置
