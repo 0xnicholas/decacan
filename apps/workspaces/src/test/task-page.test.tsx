@@ -131,9 +131,11 @@ describe("TaskPage", () => {
     expect(await screen.findByRole("tab", { name: "Agent" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Context" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "History" })).toBeInTheDocument();
-    expect(FakeEventSource.instances[0]?.url).toBe(
-      "/api/workspaces/workspace-1/tasks/task-1/events/stream",
-    );
+    await waitFor(() => {
+      expect(FakeEventSource.instances[0]?.url).toBe(
+        "/api/workspaces/workspace-1/tasks/task-1/events/stream",
+      );
+    });
   });
 
   it("shows a workspace-scoped not-found state when task does not belong to route workspace", async () => {
