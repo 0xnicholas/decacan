@@ -712,7 +712,7 @@ describe("TaskPage", () => {
     renderAppAtRoute();
 
     expect(await screen.findByText("Last event: Task accepted by API")).toBeInTheDocument();
-    expect(screen.getByText("Offline")).toBeInTheDocument();
+    expect(await screen.findByText("Live")).toBeInTheDocument();
     expect(FakeEventSource.instances[0]?.url).toBe("/api/tasks/task-1/events/stream");
 
     currentTask = {
