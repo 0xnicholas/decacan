@@ -14,7 +14,7 @@ import { type MenuConfig } from './types';
 export const MENU_SIDEBAR: MenuConfig = [
   { heading: 'Overview' },
   {
-    title: 'Dashboard',
+    title: 'Account Hub',
     icon: LayoutDashboard,
     path: '/',
   },
@@ -73,7 +73,7 @@ export const MENU_SIDEBAR: MenuConfig = [
 
 export const MENU_SIDEBAR_COMPACT: MenuConfig = [
   {
-    title: 'Dashboard',
+    title: 'Account Hub',
     icon: LayoutGrid,
     path: '/',
   },
