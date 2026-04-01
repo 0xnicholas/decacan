@@ -1,4 +1,5 @@
 mod activity;
+mod account;
 mod approval;
 mod artifact;
 mod deliverable;
@@ -11,6 +12,9 @@ pub mod trace;
 mod workspace;
 
 pub use activity::ActivityDto;
+pub use account::{
+    AccountHomeDto, AccountPlaybookShortcutDto, AccountTaskSummaryDto, AccountWorkItemDto,
+};
 pub use approval::{ApprovalDto, ApprovalRequestDto};
 pub use artifact::{ArtifactContentDto, ArtifactDto};
 pub use deliverable::{

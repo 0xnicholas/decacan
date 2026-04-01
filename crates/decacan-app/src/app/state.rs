@@ -39,6 +39,7 @@ use decacan_runtime::workspace::service::member_service::{
 use tokio::sync::broadcast;
 
 use crate::dto::{
+    AccountHomeDto, AccountPlaybookShortcutDto, AccountTaskSummaryDto, AccountWorkItemDto,
     ApprovalDto, ArtifactContentDto, ArtifactDto, CreatePlaybookRequestDto,
     CreatePlaybookResponseDto, CreateTaskAcceptedResponse, CreateTaskRequest, CreateTeamRequestDto,
     CreateTeamResponseDto, DraftHealthIssueDto, DraftHealthReportDto, ForkPlaybookResponseDto,
@@ -270,6 +271,46 @@ impl AppState {
 
     pub fn playbooks(&self) -> Vec<PlaybookDto> {
         self.inner.playbooks.clone()
+    }
+
+    pub fn build_account_home(&self) -> AccountHomeDto {
+        let workspaces = self.workspaces();
+        let playbooks = self.playbooks();
+        let recent_tasks = self
+            .list_tasks()
+            .into_iter()
+            .map(AccountTaskSummaryDto::from)
+            .collect();
+        let waiting_on_me = self
+            .inner
+            .approvals
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .values()
+            .map(|approval| AccountWorkItemDto {
+                id: approval.id.clone(),
+                workspace_id: approval.workspace_id.clone(),
+                task_id: approval.task_id.clone(),
+                title: approval.task_playbook_key.clone(),
+                kind: "approval".to_owned(),
+                status: approval.status.clone(),
+            })
+            .collect();
+        let playbook_shortcuts = playbooks
+            .into_iter()
+            .map(AccountPlaybookShortcutDto::from)
+            .collect();
+
+        AccountHomeDto {
+            default_workspace_id: workspaces
+                .first()
+                .map(|workspace| workspace.id.clone())
+                .unwrap_or_default(),
+            workspaces,
+            waiting_on_me,
+            recent_tasks,
+            playbook_shortcuts,
+        }
     }
 
     pub fn list_playbook_store(&self) -> Vec<StoreEntryDto> {
