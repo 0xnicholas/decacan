@@ -25,8 +25,9 @@ pub use member::MemberDto;
 pub use playbook::{
     CreatePlaybookRequestDto, CreatePlaybookResponseDto, DraftHealthIssueDto, DraftHealthReportDto,
     ForkPlaybookRequestDto, ForkPlaybookResponseDto, PlaybookDetailDto, PlaybookDraftDto,
-    PlaybookDto, PlaybookHandleDto, PlaybookVersionDto, PublishPlaybookResponseDto,
-    SavePlaybookDraftRequestDto, SavePlaybookDraftResponseDto, StoreEntryDto,
+    PlaybookDto, PlaybookHandleDto, PlaybookStudioListItemDto, PlaybookVersionDto,
+    PublishPlaybookResponseDto, SavePlaybookDraftRequestDto, SavePlaybookDraftResponseDto,
+    StoreEntryDto,
     UpdatePlaybookRequestDto, UpdatePlaybookResponseDto,
 };
 pub use policy::{

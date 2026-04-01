@@ -1,21 +1,25 @@
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
-use axum::routing::{get, put};
+use axum::routing::{get, post, put};
 use axum::{Json, Router};
 
 use crate::app::state::{AppState, PlaybookLifecycleError};
 use crate::dto::{
     CreatePlaybookRequestDto, CreatePlaybookResponseDto, ForkPlaybookRequestDto,
-    ForkPlaybookResponseDto, PlaybookDetailDto, PlaybookDto, PublishPlaybookResponseDto,
-    SavePlaybookDraftRequestDto, SavePlaybookDraftResponseDto, StoreEntryDto,
-    UpdatePlaybookRequestDto, UpdatePlaybookResponseDto,
+    ForkPlaybookResponseDto, PlaybookDetailDto, PlaybookDto, PlaybookStudioListItemDto,
+    PublishPlaybookResponseDto, SavePlaybookDraftRequestDto, SavePlaybookDraftResponseDto,
+    StoreEntryDto, UpdatePlaybookRequestDto, UpdatePlaybookResponseDto,
 };
 
 pub(super) fn router() -> Router<AppState> {
     Router::new()
         .route("/api/playbooks", get(list_playbooks).post(create_playbook))
+        .route(
+            "/api/studio/playbooks",
+            get(list_studio_playbooks).post(create_playbook),
+        )
         .route("/api/playbook-store", get(list_playbook_store))
-        .route("/api/playbooks/fork", axum::routing::post(fork_playbook))
+        .route("/api/playbooks/fork", post(fork_playbook))
         .route(
             "/api/playbooks/:handle_id",
             get(get_playbook)
@@ -31,6 +35,12 @@ pub(super) fn router() -> Router<AppState> {
 
 async fn list_playbooks(State(state): State<AppState>) -> Json<Vec<PlaybookDto>> {
     Json(state.playbooks())
+}
+
+async fn list_studio_playbooks(
+    State(state): State<AppState>,
+) -> Json<Vec<PlaybookStudioListItemDto>> {
+    Json(state.list_studio_playbooks())
 }
 
 async fn list_playbook_store(State(state): State<AppState>) -> Json<Vec<StoreEntryDto>> {

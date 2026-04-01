@@ -44,10 +44,10 @@ use crate::dto::{
     CreatePlaybookResponseDto, CreateTaskAcceptedResponse, CreateTaskRequest, CreateTeamRequestDto,
     CreateTeamResponseDto, DraftHealthIssueDto, DraftHealthReportDto, ForkPlaybookResponseDto,
     ListTeamsResponseDto, PermissionDto, PlaybookDetailDto, PlaybookDraftDto, PlaybookDto,
-    PlaybookHandleDto, PlaybookVersionDto, PublishPlaybookResponseDto, RetryTaskRequest,
-    SavePlaybookDraftResponseDto, StoreEntryDto, TaskAgentMessageDto, TaskCollaborationDto,
-    TaskDetailDto, TaskDto, TaskEventEnvelopeDto, TaskInstructionActionDto, TaskPlanDto,
-    TaskPreviewDto, TaskPreviewRequest, TaskSummaryDto, TeamRoleDto, TeamSpecDto,
+    PlaybookHandleDto, PlaybookStudioListItemDto, PlaybookVersionDto, PublishPlaybookResponseDto,
+    RetryTaskRequest, SavePlaybookDraftResponseDto, StoreEntryDto, TaskAgentMessageDto,
+    TaskCollaborationDto, TaskDetailDto, TaskDto, TaskEventEnvelopeDto, TaskInstructionActionDto,
+    TaskPlanDto, TaskPreviewDto, TaskPreviewRequest, TaskSummaryDto, TeamRoleDto, TeamSpecDto,
     UpdatePlaybookRequestDto, UpdatePlaybookResponseDto, UpdateTeamRequestDto,
     UserPermissionsResponseDto, WorkspaceDto, WorkspacePermissionDto,
 };
@@ -311,6 +311,26 @@ impl AppState {
             recent_tasks,
             playbook_shortcuts,
         }
+    }
+
+    pub fn list_studio_playbooks(&self) -> Vec<PlaybookStudioListItemDto> {
+        self.inner
+            .lifecycle_playbooks
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .values()
+            .cloned()
+            .map(|stored| PlaybookStudioListItemDto {
+                handle: playbook_handle_to_dto(stored.handle),
+                draft: playbook_draft_to_dto(stored.draft.clone()),
+                latest_version: stored
+                    .versions
+                    .last()
+                    .cloned()
+                    .map(playbook_version_to_dto),
+                publishable: stored.draft.validation_state == DraftValidationState::Validated,
+            })
+            .collect()
     }
 
     pub fn list_playbook_store(&self) -> Vec<StoreEntryDto> {

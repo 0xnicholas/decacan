@@ -68,6 +68,14 @@ pub struct PlaybookVersionDto {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PlaybookStudioListItemDto {
+    pub handle: PlaybookHandleDto,
+    pub draft: PlaybookDraftDto,
+    pub latest_version: Option<PlaybookVersionDto>,
+    pub publishable: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ForkPlaybookRequestDto {
     pub store_entry_id: String,
 }
