@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { beforeEach, vi } from 'vitest';
 
 import { DashboardPage } from '../features/dashboard/dashboard-page';
@@ -45,6 +45,13 @@ describe('DashboardPage', () => {
                 status: 'running',
                 status_summary: 'Preparing the summary',
               },
+              {
+                id: 'task-3',
+                workspace_id: 'workspace-1',
+                playbook_key: 'review',
+                status: 'succeeded',
+                status_summary: 'Review package is ready',
+              },
             ],
             playbook_shortcuts: [
               {
@@ -66,11 +73,34 @@ describe('DashboardPage', () => {
     });
   });
 
-  it('shows the account hub summary content', async () => {
+  it('shows the account hub summary content with stable navigation and status totals', async () => {
     render(<DashboardPage />);
 
     expect(await screen.findByRole('heading', { name: 'My Work' })).toBeInTheDocument();
+    expect(screen.queryByText('Welcome to Decacan Admin')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Work Queue' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Workspaces' })).toBeInTheDocument();
     expect(screen.getByText('Approval needed for Summary')).toBeInTheDocument();
     expect(screen.getByText('Default Workspace')).toBeInTheDocument();
+
+    const runningWorkCard = screen.getByText('Running Work').closest('[data-slot="card"]');
+    const finishedWorkCard = screen.getByText('Finished Work').closest('[data-slot="card"]');
+    const workspaceLink = screen.getByRole('link', { name: 'Open Default Workspace' });
+
+    expect(runningWorkCard).not.toBeNull();
+    expect(finishedWorkCard).not.toBeNull();
+    expect(within(runningWorkCard as HTMLElement).getByText('1')).toBeInTheDocument();
+    expect(within(finishedWorkCard as HTMLElement).getByText('1')).toBeInTheDocument();
+    expect(workspaceLink).toHaveAttribute('href', '/workspaces?workspaceId=workspace-1');
+  });
+
+  it('shows an error card without leaving the loading state visible', async () => {
+    fetchMock.mockRejectedValueOnce(new Error('Account API unavailable'));
+
+    render(<DashboardPage />);
+
+    expect(await screen.findByText('Account Hub Unavailable')).toBeInTheDocument();
+    expect(screen.getByText('Account API unavailable')).toBeInTheDocument();
+    expect(screen.queryByText('Loading account hub')).not.toBeInTheDocument();
   });
 });

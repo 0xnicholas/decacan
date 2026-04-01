@@ -67,7 +67,7 @@ export function DashboardPage() {
 
           <PlaybookShortcutPanel playbookShortcuts={accountHome.playbook_shortcuts} />
         </>
-      ) : (
+      ) : errorMessage ? null : (
         <Card>
           <CardHeader>
             <CardTitle>Loading account hub</CardTitle>

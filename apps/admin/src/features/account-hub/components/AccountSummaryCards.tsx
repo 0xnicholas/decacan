@@ -5,9 +5,20 @@ type AccountSummaryCardsProps = {
   accountHome: AccountHome;
 };
 
+const ACTIVE_TASK_STATUSES = new Set([
+  'created',
+  'planning',
+  'accepted',
+  'running',
+  'paused',
+  'pending',
+  'waiting_approval',
+]);
+const FINISHED_TASK_STATUSES = new Set(['completed', 'succeeded', 'failed', 'cancelled']);
+
 export function AccountSummaryCards({ accountHome }: AccountSummaryCardsProps) {
-  const runningWorkCount = accountHome.recent_tasks.filter((task) => task.status !== 'completed').length;
-  const recentOutputCount = accountHome.recent_tasks.filter((task) => task.status === 'completed').length;
+  const runningWorkCount = accountHome.recent_tasks.filter((task) => ACTIVE_TASK_STATUSES.has(task.status)).length;
+  const finishedWorkCount = accountHome.recent_tasks.filter((task) => FINISHED_TASK_STATUSES.has(task.status)).length;
 
   const cards = [
     {
@@ -21,9 +32,9 @@ export function AccountSummaryCards({ accountHome }: AccountSummaryCardsProps) {
       description: 'Recent tasks still moving across your workspaces.',
     },
     {
-      title: 'Recent Outputs',
-      value: recentOutputCount,
-      description: 'Completed work ready for review or handoff.',
+      title: 'Finished Work',
+      value: finishedWorkCount,
+      description: 'Tasks that reached a finished state across your active workspaces.',
     },
   ];
 

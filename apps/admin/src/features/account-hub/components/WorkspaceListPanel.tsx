@@ -33,7 +33,11 @@ export function WorkspaceListPanel({ defaultWorkspaceId, workspaces }: Workspace
                     Default
                   </Badge>
                 ) : null}
-                <a className="text-sm font-medium text-primary hover:underline" href={`/workspaces/${workspace.id}`}>
+                <a
+                  aria-label={`Open ${workspace.title}`}
+                  className="text-sm font-medium text-primary hover:underline"
+                  href={`/workspaces?workspaceId=${workspace.id}`}
+                >
                   Open
                 </a>
               </div>

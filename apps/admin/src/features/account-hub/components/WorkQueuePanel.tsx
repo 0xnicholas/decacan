@@ -7,13 +7,29 @@ type WorkQueuePanelProps = {
   waitingOnMe: AccountWorkItem[];
 };
 
-function getStatusVariant(status: string): 'secondary' | 'success' | 'warning' {
-  if (status === 'completed') {
+function getTaskStatusVariant(status: string): 'secondary' | 'success' | 'warning' | 'destructive' {
+  if (status === 'completed' || status === 'succeeded') {
     return 'success';
   }
 
-  if (status.includes('approval') || status === 'blocked') {
+  if (status.includes('approval') || status === 'blocked' || status === 'pending') {
     return 'warning';
+  }
+
+  if (status === 'failed' || status === 'cancelled') {
+    return 'destructive';
+  }
+
+  return 'secondary';
+}
+
+function getApprovalStatusVariant(status: string): 'secondary' | 'success' | 'warning' {
+  if (status === 'pending' || status === 'waiting_approval' || status === 'blocked') {
+    return 'warning';
+  }
+
+  if (status === 'approved') {
+    return 'success';
   }
 
   return 'secondary';
@@ -39,7 +55,7 @@ export function WorkQueuePanel({ recentTasks, waitingOnMe }: WorkQueuePanelProps
               <div key={item.id} className="space-y-2 rounded-lg border border-border px-4 py-3">
                 <div className="flex items-center justify-between gap-3">
                   <p className="font-medium">{item.title}</p>
-                  <Badge variant={getStatusVariant(item.status)} appearance="light">
+                  <Badge variant={getApprovalStatusVariant(item.status)} appearance="light">
                     {item.status}
                   </Badge>
                 </div>
@@ -63,7 +79,7 @@ export function WorkQueuePanel({ recentTasks, waitingOnMe }: WorkQueuePanelProps
               <div key={task.id} className="space-y-2 rounded-lg border border-border px-4 py-3">
                 <div className="flex items-center justify-between gap-3">
                   <p className="font-medium text-mono">{task.playbook_key}</p>
-                  <Badge variant={getStatusVariant(task.status)} appearance="light">
+                  <Badge variant={getTaskStatusVariant(task.status)} appearance="light">
                     {task.status}
                   </Badge>
                 </div>
