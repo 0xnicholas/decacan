@@ -61,28 +61,28 @@ describe("ActivityPage", () => {
       throw new Error(`Unhandled request: ${url}`);
     });
 
-    const user = userEvent.setup();
+    const _user = userEvent.setup();
     render(<App />);
 
     expect(await screen.findByRole("heading", { name: "Activity" })).toBeInTheDocument();
-    
+
     // First wait for loading to start
     expect(await screen.findByText("Loading activity...")).toBeInTheDocument();
-    
+
     // Then wait for initial load to complete (all 4 events)
     await waitFor(() => {
       expect(screen.queryByText("Loading activity...")).not.toBeInTheDocument();
     }, { timeout: 3000 });
-    
+
     expect(screen.getByText("Ari created task TASK-001")).toBeInTheDocument();
-    
+
     // All 4 mock events should be visible initially
     expect(screen.getByText("Maya completed task TASK-002")).toBeInTheDocument();
     expect(screen.getByText("Sam requested approval APPROVAL-001")).toBeInTheDocument();
     expect(screen.getByText("Alex created deliverable DELIVERABLE-001")).toBeInTheDocument();
 
     // Apply filter
-    await user.selectOptions(screen.getByLabelText("Filter by event type"), "task_created");
+    await _user.selectOptions(screen.getByLabelText("Filter by event type"), "task_created");
 
     // Wait for filtered load to complete (filter triggers new load)
     await waitFor(() => {
@@ -113,13 +113,13 @@ describe("ActivityPage", () => {
       throw new Error(`Unhandled request: ${url}`);
     });
 
-    const user = userEvent.setup();
+    const _user = userEvent.setup();
     render(<App />);
 
     expect(await screen.findByRole("heading", { name: "Activity" })).toBeInTheDocument();
 
     // Select a type that doesn't exist in mock data
-    await user.selectOptions(screen.getByLabelText("Filter by event type"), "member_joined");
+    await _user.selectOptions(screen.getByLabelText("Filter by event type"), "member_joined");
 
     // Wait for empty state to appear
     await waitFor(() => {
@@ -146,7 +146,7 @@ describe("ActivityPage", () => {
       throw new Error(`Unhandled request: ${url}`);
     });
 
-    const user = userEvent.setup();
+    const _user = userEvent.setup();
     
     // Navigate to error workspace
     window.history.replaceState({}, "", "/workspaces/error-workspace/activity");

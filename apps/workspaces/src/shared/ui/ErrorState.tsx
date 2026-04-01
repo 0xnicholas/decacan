@@ -1,3 +1,6 @@
+import { Button } from "@decacan/ui";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@decacan/ui";
+
 interface ErrorStateProps {
   message: string;
   onRetry?: () => void;
@@ -5,14 +8,18 @@ interface ErrorStateProps {
 
 export function ErrorState({ message, onRetry }: ErrorStateProps) {
   return (
-    <div className="ui-state error-state" role="alert">
-      <p className="error-title">Something went wrong</p>
-      <p className="error-message">{message}</p>
+    <Card className="ui-state error-state" role="alert">
+      <CardHeader>
+        <CardTitle>Something went wrong</CardTitle>
+        <CardDescription>{message}</CardDescription>
+      </CardHeader>
       {onRetry && (
-        <button className="secondary-button" onClick={onRetry} type="button">
-          Retry
-        </button>
+        <CardContent>
+          <Button variant="outline" onClick={onRetry} type="button">
+            Retry
+          </Button>
+        </CardContent>
       )}
-    </div>
+    </Card>
   );
 }

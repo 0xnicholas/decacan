@@ -1,11 +1,14 @@
 // Placeholder adapter - Decacan uses JWT instead of Supabase
+ 
 export class SupabaseAdapter {
-  static async signIn(credentials: { email: string; password: string }) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  static async signIn(_credentials: { email: string; password: string }) {
     // Placeholder - actual implementation uses JWT
     return { error: null, data: null };
   }
 
-  static async signUp(credentials: { email: string; password: string; name?: string }) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  static async signUp(_credentials: { email: string; password: string; name?: string }) {
     return { error: null, data: null };
   }
 
@@ -13,7 +16,8 @@ export class SupabaseAdapter {
     // No-op
   }
 
-  static onAuthStateChange(callback: Function) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  static onAuthStateChange(callback: (event: string, session: unknown) => void) {
     return { data: { subscription: { unsubscribe: () => {} } } };
   }
 

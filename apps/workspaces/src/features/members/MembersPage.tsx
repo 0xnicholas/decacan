@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import { Button } from "@decacan/ui";
 import type { Member } from "../../entities/member/types";
 import { EmptyState, ErrorState, LoadingState, PageHeader } from "../../shared/ui";
 import { useMembersApi } from "../../shared/api/members";
@@ -24,8 +25,8 @@ export function MembersPage({ workspaceId }: MembersPageProps) {
     try {
       const data = await fetchWorkspaceMembers(workspaceId);
       setMembers(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load members');
+    } catch (_err) {
+      setError(_err instanceof Error ? _err.message : 'Failed to load members');
     } finally {
       setIsLoading(false);
     }
@@ -37,7 +38,7 @@ export function MembersPage({ workspaceId }: MembersPageProps) {
     try {
       await removeMember(workspaceId, memberId);
       await loadMembers();
-    } catch (err) {
+    } catch (_err) {
       setError('Failed to remove member');
     }
   };
@@ -56,12 +57,11 @@ export function MembersPage({ workspaceId }: MembersPageProps) {
         title="Members" 
         subtitle="Manage workspace members and their roles"
         actions={
-          <button 
-            className="btn btn-primary"
+          <Button 
             onClick={() => setIsInviteModalOpen(true)}
           >
             Invite Member
-          </button>
+          </Button>
         }
       />
 

@@ -22,7 +22,9 @@
     "baseUrl": "./",
     /* Path alias */
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@decacan/ui": ["../../packages/ui/dist/index.d.ts"],
+      "@decacan/ui/*": ["../../packages/ui/dist/*"]
     }
   },
   "include": ["./src"]

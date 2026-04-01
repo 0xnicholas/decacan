@@ -68,7 +68,7 @@ export function ActivityPage({ workspaceId }: ActivityPageProps) {
     try {
       const data = await fetchWorkspaceActivity(workspaceId, filters);
       setEvents(data);
-    } catch (err) {
+    } catch (_err) {
       setError("Failed to load activity");
     } finally {
       setIsLoading(false);

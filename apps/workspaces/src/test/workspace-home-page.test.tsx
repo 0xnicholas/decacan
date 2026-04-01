@@ -111,7 +111,7 @@ describe("WorkspaceHomePage", () => {
   });
 
   it("ignores stale home responses after switching workspaces", async () => {
-    const user = userEvent.setup();
+    const _user = userEvent.setup();
 
     let resolveWorkspace1Home: ((response: Response) => void) | null = null;
 
@@ -217,7 +217,7 @@ describe("WorkspaceHomePage", () => {
   });
 
   it("clears previous workspace payload while the next workspace loads", async () => {
-    const user = userEvent.setup();
+    const _user = userEvent.setup();
 
     let resolveWorkspace2Home: ((response: Response) => void) | null = null;
 
@@ -283,6 +283,7 @@ describe("WorkspaceHomePage", () => {
       throw new Error(`Unhandled request: ${method} ${url}`);
     });
 
+    const user = userEvent.setup();
     render(<App />);
 
     expect(await screen.findByText("Workspace 1 current payload")).toBeInTheDocument();

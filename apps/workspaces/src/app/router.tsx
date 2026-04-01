@@ -13,7 +13,7 @@ import { TasksPage } from "../features/tasks/TasksPage";
 import { WorkspaceHomePage } from "../features/workspace-home/WorkspaceHomePage";
 import { WorkspaceShell } from "../shared/layout/WorkspaceShell";
 
-function WorkspaceSectionPlaceholder() {
+function _WorkspaceSectionPlaceholder() {
   return (
     <section className="flex flex-col gap-3">
       <p className="text-sm uppercase tracking-widest text-foreground/50">Workspace</p>
@@ -23,7 +23,7 @@ function WorkspaceSectionPlaceholder() {
   );
 }
 
-function WorkspaceUnknownSectionPlaceholder() {
+function _WorkspaceUnknownSectionPlaceholder() {
   return (
     <main className="min-h-screen p-12">
       <p className="text-sm uppercase tracking-widest text-foreground/50 mb-3">Decacan</p>

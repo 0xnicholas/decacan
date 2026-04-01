@@ -53,9 +53,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } else {
       setState(s => ({ ...s, isLoading: false }));
     }
+  }, [validateToken]);
+
+  const logout = useCallback(() => {
+    localStorage.removeItem('token');
+    setState({ user: null, token: null, isAuthenticated: false, isLoading: false });
   }, []);
 
-  const validateToken = async (token: string) => {
+  const validateToken = useCallback(async (token: string) => {
     try {
       const response = await fetch('http://localhost:3000/api/auth/me', {
         headers: { Authorization: `Bearer ${token}` },
@@ -69,7 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {
       logout();
     }
-  };
+  }, [logout]);
 
   const login = async (credentials: LoginCredentials) => {
     // Development mode: skip API call, auto-login
@@ -99,11 +104,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setState({ user, token, isAuthenticated: true, isLoading: false });
   };
 
-  const logout = () => {
-    localStorage.removeItem('token');
-    setState({ user: null, token: null, isAuthenticated: false, isLoading: false });
-  };
-
   const hasPermission = (permission: string) => {
     return state.user?.permissions.includes(permission) ?? false;
   };
@@ -130,7 +130,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } else {
       setState(s => ({ ...s, isLoading: false, isAuthenticated: false }));
     }
-  }, []);
+  }, [validateToken]);
 
   return (
     <AuthContext.Provider 

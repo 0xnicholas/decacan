@@ -17,7 +17,9 @@
     "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@decacan/ui": ["../../packages/ui/dist/index.d.ts"],
+      "@decacan/ui/*": ["../../packages/ui/dist/*"]
     },
     "types": ["vitest/globals"]
   },

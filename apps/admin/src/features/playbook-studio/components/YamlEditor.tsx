@@ -2,10 +2,16 @@ import { useRef, useCallback } from 'react';
 import Editor from '@monaco-editor/react';
 import { editor } from 'monaco-editor';
 
+interface EditorMarker {
+  message: string;
+  severity: number;
+  startLineNumber: number;
+}
+
 interface YamlEditorProps {
   value: string;
   onChange: (value: string) => void;
-  onValidate?: (errors: any[]) => void;
+  onValidate?: (errors: EditorMarker[]) => void;
   readOnly?: boolean;
   height?: string;
 }
@@ -49,7 +55,7 @@ export function YamlEditor({
     }
   }, [onChange]);
 
-  const handleEditorValidation = useCallback((markers: any[]) => {
+  const handleEditorValidation = useCallback((markers: EditorMarker[]) => {
     if (onValidate) {
       onValidate(markers);
     }

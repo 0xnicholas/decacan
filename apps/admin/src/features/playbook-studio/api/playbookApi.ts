@@ -1,5 +1,6 @@
 import { Playbook, PlaybookFilter } from '../types/playbook.types';
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const API_BASE = '/api/v1';
 
 // Mock data for development (remove when API is ready)

@@ -8,6 +8,11 @@ import { VisualPreview } from './VisualPreview';
 import { Playbook } from '../types/playbook.types';
 import { usePlaybookStore } from '../stores/playbookStore';
 
+interface ValidationError {
+  message: string;
+  line?: number;
+}
+
 interface PlaybookEditorProps {
   playbookId?: string;
   isCreating?: boolean;
@@ -16,7 +21,7 @@ interface PlaybookEditorProps {
 export function PlaybookEditor({ playbookId, isCreating }: PlaybookEditorProps) {
   const { selectedPlaybook, fetchPlaybooks, updatePlaybook, createPlaybook } = usePlaybookStore();
   const [yamlContent, setYamlContent] = useState('');
-  const [validationErrors, setValidationErrors] = useState<any[]>([]);
+  const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -35,7 +40,7 @@ export function PlaybookEditor({ playbookId, isCreating }: PlaybookEditorProps) 
     }
   }, [selectedPlaybook, isCreating]);
 
-  const handleValidate = useCallback((errors: any[]) => {
+  const handleValidate = useCallback((errors: ValidationError[]) => {
     setValidationErrors(errors);
   }, []);
 

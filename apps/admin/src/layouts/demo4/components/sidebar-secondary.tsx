@@ -1,4 +1,3 @@
-import { useLocation } from 'react-router';
 import { SidebarMenuDefault } from './sidebar-menu-default';
 
 export function SidebarSecondary() {
