@@ -24,7 +24,7 @@ export function DashboardPage() {
           return;
         }
 
-        setErrorMessage(error instanceof Error ? error.message : 'Unable to load account hub.');
+        setErrorMessage(error instanceof Error ? error.message : 'Unable to load console.');
       }
     };
 
@@ -40,14 +40,14 @@ export function DashboardPage() {
       <section className="space-y-2">
         <h1 className="text-3xl font-semibold text-mono">My Work</h1>
         <p className="max-w-3xl text-sm text-muted-foreground">
-          Track approvals, recent tasks, and the workspaces you move across from one account-level hub.
+          Track approvals, recent tasks, and the workspaces you move across from one account-level console.
         </p>
       </section>
 
       {errorMessage ? (
         <Card>
           <CardHeader>
-            <CardTitle>Account Hub Unavailable</CardTitle>
+            <CardTitle>Console Unavailable</CardTitle>
             <CardDescription>{errorMessage}</CardDescription>
           </CardHeader>
         </Card>
@@ -70,7 +70,7 @@ export function DashboardPage() {
       ) : errorMessage ? null : (
         <Card>
           <CardHeader>
-            <CardTitle>Loading account hub</CardTitle>
+            <CardTitle>Loading console</CardTitle>
             <CardDescription>Fetching cross-workspace tasks, approvals, and shortcuts.</CardDescription>
           </CardHeader>
           <CardContent>
