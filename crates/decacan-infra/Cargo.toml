@@ -6,3 +6,9 @@ edition = "2021"
 [dependencies]
 decacan-runtime = { path = "../decacan-runtime" }
 time = { version = "0.3", features = ["formatting", "parsing"] }
+
+# 新增依赖
+config = "0.14"
+serde = { version = "1", features = ["derive"] }
+serde_yaml = "0.9"
+once_cell = "1"
