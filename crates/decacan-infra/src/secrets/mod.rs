@@ -1,9 +1,13 @@
 pub mod env;
+pub mod manager;
+pub mod vault;
 
 use async_trait::async_trait;
 use std::fmt;
 
 pub use env::EnvSecretsSource;
+pub use manager::SecretsManager;
+pub use vault::VaultSecretsSource;
 
 #[async_trait]
 pub trait SecretsPort: Send + Sync {
