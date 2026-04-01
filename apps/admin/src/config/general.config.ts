@@ -1,10 +1,10 @@
 const generalSettings = {
-  purchaseLink: 'https://1.envato.market/Vm7VRE',
+  purchaseLink: '',
   docsLink: '',
   licenseLink: '',
-  devsLink: 'https://devs.keenthemes.com',
-  faqLink: 'https://keenthemes.com/metronic',
-  aboutLink: 'https://keenthemes.com/metronic',
+  devsLink: '',
+  faqLink: '',
+  aboutLink: '',
 };
 
 export { generalSettings };

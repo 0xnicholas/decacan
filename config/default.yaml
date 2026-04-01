@@ -1,2 +1,12 @@
 # 默认配置
 profile: dev
+
+# 日志配置
+logging:
+  level: info
+  stdout: true
+  file:
+    enabled: false
+    path: logs/decacan.log
+    rotation: daily
+    max_files: 7

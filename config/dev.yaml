@@ -1,2 +1,11 @@
 # 开发环境配置
 profile: dev
+
+logging:
+  level: debug
+  stdout: true
+  file:
+    enabled: true
+    path: logs/decacan-dev.log
+    rotation: daily
+    max_files: 3
