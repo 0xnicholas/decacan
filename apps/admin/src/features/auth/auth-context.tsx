@@ -18,7 +18,9 @@ const MOCK_USER: User = {
 };
 
 const MOCK_TOKEN = 'dev-mode-mock-token';
-const PERMISSIONS_ENDPOINT = 'http://localhost:3000/api/me/permissions';
+const PERMISSIONS_ENDPOINT = '/api/me/permissions';
+const AUTH_ME_ENDPOINT = '/api/auth/me';
+const AUTH_LOGIN_ENDPOINT = '/api/auth/login';
 
 // Extended interface for backward compatibility with existing routing
 interface ExtendedAuthContextType extends AuthContextType {
@@ -121,7 +123,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const validateToken = useCallback(
     async (token: string) => {
       try {
-        const response = await fetch('http://localhost:3000/api/auth/me', {
+        const response = await fetch(AUTH_ME_ENDPOINT, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -187,7 +189,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      const response = await fetch('http://localhost:3000/api/auth/login', {
+      const response = await fetch(AUTH_LOGIN_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(credentials),

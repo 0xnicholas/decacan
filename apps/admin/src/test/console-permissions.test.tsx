@@ -160,4 +160,22 @@ describe('console permissions', () => {
     expect(screen.getAllByText('Playbook Studio').length).toBeGreaterThan(0);
     expect(screen.queryByRole('heading', { name: 'My Work' })).not.toBeInTheDocument();
   });
+
+  it('fetches console permissions through the relative api path', async () => {
+    renderConsoleApp('/playbooks', {
+      console_home: true,
+      studio_playbooks: false,
+    });
+
+    await screen.findByRole('heading', { name: 'My Work' });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/me/permissions',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer dev-mode-mock-token',
+        }),
+      }),
+    );
+  });
 });
