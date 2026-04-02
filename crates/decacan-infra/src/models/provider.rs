@@ -1,3 +1,4 @@
+use super::retry::RetryableError;
 use super::types::{ModelRequest, ModelResponse};
 use async_trait::async_trait;
 use std::error::Error;
@@ -52,6 +53,17 @@ impl From<reqwest::Error> for ProviderError {
             ProviderError::NetworkError(err.to_string())
         } else {
             ProviderError::ApiError(err.to_string())
+        }
+    }
+}
+
+impl RetryableError for ProviderError {
+    fn is_retryable(&self) -> bool {
+        match self {
+            ProviderError::RateLimitError(_) => true,
+            ProviderError::TimeoutError(_) => true,
+            ProviderError::NetworkError(_) => true,
+            _ => false,
         }
     }
 }

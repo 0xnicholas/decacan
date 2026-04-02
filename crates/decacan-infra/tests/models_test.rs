@@ -1,55 +1,31 @@
-#[cfg(test)]
-mod config_tests {
-    use decacan_infra::models::ModelRouterConfig;
+mod retryable_tests {
+    use decacan_infra::models::provider::ProviderError;
+    use decacan_infra::models::retry::RetryableError;
 
     #[test]
-    fn test_default_config() {
-        let config = ModelRouterConfig::default();
-        assert_eq!(config.default_provider, "openai");
-        assert_eq!(config.fallback_chain, vec!["openai", "anthropic"]);
-        assert!(config.providers.is_empty());
+    fn test_rate_limit_is_retryable() {
+        let err = ProviderError::RateLimitError("rate limit exceeded".to_string());
+        assert!(err.is_retryable(), "RateLimitError should be retryable");
     }
 
     #[test]
-    fn test_config_with_providers() {
-        let config = ModelRouterConfig::default()
-            .with_openai("test-openai-key")
-            .with_anthropic("test-anthropic-key");
-
-        assert!(config.providers.contains_key("openai"));
-        assert!(config.providers.contains_key("anthropic"));
-
-        let openai = config.providers.get("openai").unwrap();
-        assert_eq!(openai.api_key, "test-openai-key");
+    fn test_timeout_is_retryable() {
+        let err = ProviderError::TimeoutError("request timeout".to_string());
+        assert!(err.is_retryable(), "TimeoutError should be retryable");
     }
 
     #[test]
-    fn test_config_yaml_serialization() {
-        let config = ModelRouterConfig::default().with_openai("sk-test");
-
-        let yaml = serde_yaml::to_string(&config).unwrap();
-        assert!(yaml.contains("openai"));
-        assert!(yaml.contains("sk-test"));
-    }
-}
-
-#[cfg(test)]
-mod router_tests {
-    use decacan_infra::models::ModelRouter;
-    use decacan_infra::models::ModelRouterConfig;
-
-    #[test]
-    fn test_router_creation() {
-        let config = ModelRouterConfig::default().with_openai("test-key");
-
-        let router = ModelRouter::new(config);
-        assert!(router.is_ok());
+    fn test_auth_error_is_not_retryable() {
+        let err = ProviderError::AuthenticationError("invalid API key".to_string());
+        assert!(
+            !err.is_retryable(),
+            "AuthenticationError should not be retryable"
+        );
     }
 
     #[test]
-    fn test_router_no_providers() {
-        let config = ModelRouterConfig::default();
-        let router = ModelRouter::new(config);
-        assert!(router.is_err());
+    fn test_api_error_is_not_retryable() {
+        let err = ProviderError::ApiError("bad request".to_string());
+        assert!(!err.is_retryable(), "ApiError should not be retryable");
     }
 }

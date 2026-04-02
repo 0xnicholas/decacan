@@ -1,4 +1,5 @@
 pub mod anthropic;
+pub mod budget;
 pub mod config;
 pub mod openai;
 pub mod provider;
@@ -7,6 +8,7 @@ pub mod router;
 pub mod types;
 
 pub use anthropic::AnthropicProvider;
+pub use budget::{BudgetError, BudgetManager, TokenBudget, estimate_tokens};
 pub use config::{ModelRouterConfig, ProviderConfig};
 pub use openai::OpenAiProvider;
 pub use provider::{ModelProvider, ProviderError};

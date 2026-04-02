@@ -831,7 +831,7 @@ impl WorkflowEngine {
 **版本：** 1.0.0  
 
 **相关文档：**
-- 实施计划：`docs/superpowers/plans/2026-03-30-decacan-playbook-workflow-refactor.md`
+- 实施计划：`docs/superpowers/plans/archive/2026-03/2026-03-30-decacan-playbook-workflow-refactor.md`
 - 知识系统设计：`docs/superpowers/specs/2026-03-30-decacan-knowledge-learning-design.md`
 
 **下一步：** 开始 Phase 1 Week 1 实施
