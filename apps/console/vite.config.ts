@@ -20,7 +20,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
-      '@decacan/ui': fileURLToPath(new URL('../../packages/ui/dist/index.js', import.meta.url)),
+      '@decacan/ui': fileURLToPath(new URL('../../packages/ui', import.meta.url)),
     },
   },
   build: {
