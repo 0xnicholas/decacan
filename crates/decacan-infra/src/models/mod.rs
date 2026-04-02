@@ -1,3 +1,48 @@
+//! Model Provider Module
+//!
+//! This module provides AI model integration with the following features:
+//!
+//! ## Features
+//!
+//! - **Multi-provider support**: OpenAI, Anthropic with unified interface
+//! - **Retry strategy**: Exponential backoff for rate limits and timeouts
+//! - **Token budget**: Per-request and total budget management
+//! - **Streaming**: (Foundation ready) Async streaming response support
+//! - **Error handling**: Graceful error handling without panics
+//!
+//! ## Example Usage
+//!
+//! ```rust,no_run
+//! use decacan_infra::models::{
+//!     ModelRouter, ModelRouterConfig,
+//!     RetryConfig, TokenBudget
+//! };
+//!
+//! #[tokio::main]
+//! async fn main() -> Result<(), Box<dyn std::error::Error>> {
+//!     // Configure retry and budget
+//!     let retry_config = RetryConfig {
+//!         max_retries: 3,
+//!         initial_backoff_ms: 1000,
+//!         max_backoff_ms: 60000,
+//!         backoff_multiplier: 2.0,
+//!     };
+//!     
+//!     let budget = TokenBudget::strict(4000, 100000);
+//!     
+//!     let config = ModelRouterConfig::default()
+//!         .with_openai("your-api-key")
+//!         .with_budget(budget)
+//!         .with_retry(retry_config);
+//!     
+//!     let router = ModelRouter::new(config)?;
+//!     let response = router.complete("Hello, AI!").await?;
+//!     
+//!     println!("Response: {}", response);
+//!     Ok(())
+//! }
+//! ```
+
 pub mod anthropic;
 pub mod budget;
 pub mod config;
