@@ -11,13 +11,14 @@ pub struct OpenAiProvider {
 }
 
 impl OpenAiProvider {
-    pub fn new(config: ProviderConfig) -> Self {
+    /// 创建新的 OpenAI Provider（可能失败）
+    pub fn new(config: ProviderConfig) -> Result<Self, ProviderError> {
         let client = Client::builder()
             .timeout(std::time::Duration::from_secs(config.timeout_seconds))
             .build()
-            .expect("Failed to build HTTP client");
+            .map_err(|e| ProviderError::NetworkError(format!("Failed to build HTTP client: {}", e)))?;
 
-        Self { config, client }
+        Ok(Self { config, client })
     }
 
     fn to_openai_messages(&self, request: &ModelRequest) -> Vec<OpenAiMessage> {

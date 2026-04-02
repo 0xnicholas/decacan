@@ -37,8 +37,10 @@ impl ModelRouter {
         // 初始化配置的提供商
         for (name, provider_config) in config.providers {
             let provider: Box<dyn ModelProvider> = match name.as_str() {
-                "openai" => Box::new(OpenAiProvider::new(provider_config)),
-                "anthropic" => Box::new(AnthropicProvider::new(provider_config)),
+                "openai" => Box::new(OpenAiProvider::new(provider_config)
+                    .map_err(|e| RouterError::ProviderError(e.to_string()))?),
+                "anthropic" => Box::new(AnthropicProvider::new(provider_config)
+                    .map_err(|e| RouterError::ProviderError(e.to_string()))?),
                 _ => continue, // 未知提供商，跳过
             };
             providers.insert(name, provider);
