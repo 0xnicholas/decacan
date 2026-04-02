@@ -1,3 +1,4 @@
+use super::budget::TokenBudget;
 use super::retry::RetryConfig;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -10,6 +11,8 @@ pub struct ModelRouterConfig {
     pub fallback_chain: Vec<String>,
     #[serde(default)]
     pub providers: HashMap<String, ProviderConfig>,
+    #[serde(default)]
+    pub budget: TokenBudget,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -39,6 +42,7 @@ impl Default for ModelRouterConfig {
             default_provider: default_provider(),
             fallback_chain: vec!["openai".to_string(), "anthropic".to_string()],
             providers: HashMap::new(),
+            budget: TokenBudget::unlimited(),
         }
     }
 }
@@ -52,6 +56,12 @@ impl ProviderConfig {
 }
 
 impl ModelRouterConfig {
+    /// 设置 Token 预算
+    pub fn with_budget(mut self, budget: TokenBudget) -> Self {
+        self.budget = budget;
+        self
+    }
+
     pub fn with_openai(mut self, api_key: impl Into<String>) -> Self {
         self.providers.insert(
             "openai".to_string(),

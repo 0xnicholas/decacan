@@ -1,9 +1,10 @@
+use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use thiserror::Error;
 
 /// Token 预算配置
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 pub struct TokenBudget {
     /// 单次请求最大 Token 数
     pub max_request_tokens: Option<u64>,

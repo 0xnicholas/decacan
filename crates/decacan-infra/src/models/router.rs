@@ -1,4 +1,5 @@
 use super::anthropic::AnthropicProvider;
+use super::budget::{estimate_tokens, BudgetError, BudgetManager, TokenBudget};
 use super::config::ModelRouterConfig;
 use super::openai::OpenAiProvider;
 use super::provider::{ModelProvider, ProviderError};
@@ -12,6 +13,7 @@ pub struct ModelRouter {
     providers: HashMap<String, Box<dyn ModelProvider>>,
     default_provider: String,
     fallback_chain: Vec<String>,
+    budget_manager: BudgetManager,
 }
 
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
@@ -22,6 +24,8 @@ pub enum RouterError {
     NoProviders,
     #[error("Provider error: {0}")]
     ProviderError(String),
+    #[error("Budget error: {0}")]
+    BudgetError(#[from] BudgetError),
 }
 
 impl From<ProviderError> for RouterError {
@@ -50,10 +54,14 @@ impl ModelRouter {
             return Err(RouterError::NoProviders);
         }
 
+        // 初始化预算管理器
+        let budget_manager = BudgetManager::new(config.budget);
+
         Ok(Self {
             providers,
             default_provider: config.default_provider,
             fallback_chain: config.fallback_chain,
+            budget_manager,
         })
     }
 
@@ -114,8 +122,16 @@ impl ModelRouter {
         model: &str,
         prompt: &str,
     ) -> Result<String, RouterError> {
+        // 检查预算
+        let estimated_tokens = estimate_tokens(prompt);
+        self.budget_manager.check_request(estimated_tokens)?;
+
         let request = ModelRequest::new(model, prompt);
         let response = self.try_with_fallback(request).await?;
+
+        // 记录使用的 token
+        self.budget_manager.record_usage(estimated_tokens);
+
         Ok(response.content)
     }
 
@@ -124,14 +140,42 @@ impl ModelRouter {
         &self,
         request: ModelRequest,
     ) -> Result<ModelResponse, RouterError> {
-        self.try_with_fallback(request).await
+        // 检查预算 - 计算所有消息中的 token 数
+        let content: String = request
+            .messages
+            .iter()
+            .map(|m| m.content.clone())
+            .collect::<Vec<_>>()
+            .join(" ");
+        let estimated_tokens = estimate_tokens(&content);
+        self.budget_manager.check_request(estimated_tokens)?;
+
+        let response = self.try_with_fallback(request).await?;
+
+        // 记录使用的 token
+        self.budget_manager.record_usage(estimated_tokens);
+
+        Ok(response)
     }
 
     /// 使用默认模型执行请求
     pub async fn complete(&self, prompt: &str) -> Result<String, RouterError> {
+        // 检查预算
+        let estimated_tokens = estimate_tokens(prompt);
+        self.budget_manager.check_request(estimated_tokens)?;
+
         let request = ModelRequest::new(&self.default_provider, prompt);
         let response = self.try_with_fallback(request).await?;
+
+        // 记录使用的 token
+        self.budget_manager.record_usage(estimated_tokens);
+
         Ok(response.content)
+    }
+
+    /// 获取预算管理器（用于测试和监控）
+    pub fn budget_manager(&self) -> &BudgetManager {
+        &self.budget_manager
     }
 }
 
