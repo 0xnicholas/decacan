@@ -6,7 +6,6 @@ use super::provider::{ModelProvider, ProviderError};
 use super::types::{ModelRequest, ModelResponse};
 use decacan_runtime::ports::model::ModelPort;
 use std::collections::HashMap;
-use std::future::Future;
 use thiserror::Error;
 
 pub struct ModelRouter {
@@ -71,31 +70,6 @@ impl ModelRouter {
             .ok_or_else(|| RouterError::ProviderNotFound(name.to_string()))
     }
 
-    fn block_on<F, T>(&self, future: F) -> Result<T, RouterError>
-    where
-        F: Future<Output = Result<T, RouterError>> + Send,
-        T: Send,
-    {
-        std::thread::scope(|scope| {
-            scope
-                .spawn(move || {
-                    tokio::runtime::Builder::new_current_thread()
-                        .enable_all()
-                        .build()
-                        .map_err(|error| {
-                            RouterError::ProviderError(format!(
-                                "Failed to create tokio runtime: {error}"
-                            ))
-                        })?
-                        .block_on(future)
-                })
-                .join()
-                .map_err(|_| {
-                    RouterError::ProviderError("Model runtime worker thread panicked".to_string())
-                })?
-        })
-    }
-
     async fn try_with_fallback(&self, request: ModelRequest) -> Result<ModelResponse, RouterError> {
         // 按 fallback 链顺序尝试
         for provider_name in &self.fallback_chain {
@@ -122,17 +96,28 @@ impl ModelRouter {
         model: &str,
         prompt: &str,
     ) -> Result<String, RouterError> {
-        // 检查预算
+        // 原子性预留预算
         let estimated_tokens = estimate_tokens(prompt);
-        self.budget_manager.check_request(estimated_tokens)?;
+        let reservation = self.budget_manager.reserve(estimated_tokens)?;
 
         let request = ModelRequest::new(model, prompt);
-        let response = self.try_with_fallback(request).await?;
+        
+        // 执行请求
+        let result = self.try_with_fallback(request).await;
+        
+        match &result {
+            Ok(response) => {
+                // 成功：调整预留为实际使用量
+                let actual_tokens = response.usage.as_ref().map(|u| u.total_tokens as u64).unwrap_or(0);
+                self.budget_manager.adjust_usage(reservation, actual_tokens);
+            }
+            Err(_) => {
+                // 失败：释放预留的预算
+                self.budget_manager.release(reservation);
+            }
+        }
 
-        // 记录使用的 token
-        self.budget_manager.record_usage(estimated_tokens);
-
-        Ok(response.content)
+        result.map(|r| r.content)
     }
 
     /// 使用完整请求对象
@@ -140,7 +125,7 @@ impl ModelRouter {
         &self,
         request: ModelRequest,
     ) -> Result<ModelResponse, RouterError> {
-        // 检查预算 - 计算所有消息中的 token 数
+        // 原子性预留预算 - 计算所有消息中的 token 数
         let content: String = request
             .messages
             .iter()
@@ -148,29 +133,50 @@ impl ModelRouter {
             .collect::<Vec<_>>()
             .join(" ");
         let estimated_tokens = estimate_tokens(&content);
-        self.budget_manager.check_request(estimated_tokens)?;
+        let reservation = self.budget_manager.reserve(estimated_tokens)?;
 
-        let response = self.try_with_fallback(request).await?;
+        // 执行请求
+        let result = self.try_with_fallback(request).await;
+        
+        match &result {
+            Ok(response) => {
+                // 成功：调整预留为实际使用量
+                let actual_tokens = response.usage.as_ref().map(|u| u.total_tokens as u64).unwrap_or(0);
+                self.budget_manager.adjust_usage(reservation, actual_tokens);
+            }
+            Err(_) => {
+                // 失败：释放预留的预算
+                self.budget_manager.release(reservation);
+            }
+        }
 
-        // 记录使用的 token
-        self.budget_manager.record_usage(estimated_tokens);
-
-        Ok(response)
+        result
     }
 
     /// 使用默认模型执行请求
     pub async fn complete(&self, prompt: &str) -> Result<String, RouterError> {
-        // 检查预算
+        // 原子性预留预算
         let estimated_tokens = estimate_tokens(prompt);
-        self.budget_manager.check_request(estimated_tokens)?;
+        let reservation = self.budget_manager.reserve(estimated_tokens)?;
 
         let request = ModelRequest::new(&self.default_provider, prompt);
-        let response = self.try_with_fallback(request).await?;
+        
+        // 执行请求
+        let result = self.try_with_fallback(request).await;
+        
+        match &result {
+            Ok(response) => {
+                // 成功：调整预留为实际使用量
+                let actual_tokens = response.usage.as_ref().map(|u| u.total_tokens as u64).unwrap_or(0);
+                self.budget_manager.adjust_usage(reservation, actual_tokens);
+            }
+            Err(_) => {
+                // 失败：释放预留的预算
+                self.budget_manager.release(reservation);
+            }
+        }
 
-        // 记录使用的 token
-        self.budget_manager.record_usage(estimated_tokens);
-
-        Ok(response.content)
+        result.map(|r| r.content)
     }
 
     /// 获取预算管理器（用于测试和监控）

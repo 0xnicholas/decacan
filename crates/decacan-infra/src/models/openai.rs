@@ -71,10 +71,12 @@ impl OpenAiProvider {
         if !response.status().is_success() {
             let status = response.status();
             let text = response.text().await.unwrap_or_default();
-            return Err(ProviderError::ApiError(format!(
-                "HTTP {}: {}",
-                status, text
-            )));
+            return Err(match status.as_u16() {
+                401 | 403 => ProviderError::AuthenticationError(text),
+                429 => ProviderError::RateLimitError(text),
+                408 => ProviderError::TimeoutError(text),
+                _ => ProviderError::ApiError(format!("HTTP {}: {}", status, text)),
+            });
         }
 
         let api_response: OpenAiApiResponse = response.json().await?;

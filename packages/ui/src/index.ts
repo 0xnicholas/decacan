@@ -82,3 +82,6 @@ export * from './components/word-rotate';
 
 // Hooks
 export { useIsMobile } from './hooks/use-mobile';
+
+// Theme Provider
+export { ThemeProvider, useTheme } from './components/theme-provider';
