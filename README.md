@@ -80,7 +80,7 @@ Store
 | App | Purpose |
 |-----|---------|
 | `apps/workspaces` | Default workspace-scoped execution surface for tasks, deliverables, approvals, and collaboration |
-| `apps/admin` | Account-level Console for cross-workspace work aggregation plus playbook design and publishing |
+| `apps/console` | Account-level Console for cross-workspace work aggregation plus playbook design and publishing |
 
 ### Documentation
 
@@ -172,14 +172,14 @@ VITE_ACCOUNT_HUB_URL=http://localhost:3001
 
 If unset, `apps/workspaces` defaults the Console link to `http://localhost:3001`.
 
-`apps/admin` also hands users back into the workspace execution surface. If you run the workspace app on a non-default origin, set:
+`apps/console` also hands users back into the workspace execution surface. If you run the workspace app on a non-default origin, set:
 
 ```bash
 VITE_WORKSPACES_APP_URL=http://localhost:5173
 ```
 
-If unset, `apps/admin` defaults workspace links to `http://localhost:5173`. In local development the repo now reserves:
-- `apps/admin` on `http://localhost:3001`
+If unset, `apps/console` defaults workspace links to `http://localhost:5173`. In local development the repo now reserves:
+- `apps/console` on `http://localhost:3001`
 - `apps/workspaces` on `http://localhost:5173`
 
 ## Configuration

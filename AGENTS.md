@@ -344,7 +344,7 @@ cargo test -p decacan-infra
 
 # Frontend
 cd apps/workspaces && pnpm dev
-cd apps/admin && pnpm dev
+cd apps/console && pnpm dev
 
 # Database
 sqlx migrate run

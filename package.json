@@ -4,8 +4,8 @@
   "workspaces": ["apps/*"],
   "scripts": {
     "dev:workspaces": "pnpm --filter decacan-workspaces dev",
-    "dev:console": "pnpm --filter decacan-admin dev",
-    "dev:admin": "pnpm --filter decacan-admin dev",
+    "dev:console": "pnpm --filter decacan-console dev",
+    "dev:admin": "pnpm --filter decacan-console dev",
     "build": "pnpm --filter '*' build"
   }
 }
