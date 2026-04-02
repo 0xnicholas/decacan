@@ -1,324 +1,283 @@
 # Decacan
 
-Decacan is an agent-driven automation platform that manages end-to-end playbook lifecycles while keeping runtime behavior deterministic via built-in playbooks and single-path compilation. The platform supports both single-agent and minimal team execution modes, with full versioning, governance, and artifact management.
+Decacan is an agent-driven execution platform with a Rust backend and two React product surfaces:
 
-## Core Features
+- `apps/workspaces`: workspace-scoped execution (tasks, deliverables, approvals, members, activity)
+- `apps/console`: account-scoped hub (cross-workspace aggregation + playbook operations)
 
-### Playbook Lifecycle Management
-- **Store & Versioning**: Official playbook store with forking to user handles
-- **Draft Editing**: Long-term editable work copies with health validation
-- **Publish & Release**: Immutable versions with capability and team snapshots
-- **Execution Packages**: Compiled runtime artifacts with bound inputs and policies
+## Architecture (Current Repo)
 
-### Execution Modes
-- **Single Mode**: Traditional single-agent workflow execution
-- **Team Mode**: Parallel role group execution with merge aggregation
-  - Built-in team specifications (e.g., research-team)
-  - Runtime-mediated collaboration (no direct agent communication)
-  - Single-level parallel groups with `all_required` completion
+### Runtime Boundaries
 
-### Model Routing
-- **Multi-provider Support**: OpenAI and Anthropic with unified interface
-- **Automatic Fallback**: Failover chain when providers are unavailable
-- **Configurable**: Per-provider API keys, base URLs, timeouts
+- Workspace surface stays inside a single workspace context.
+- Console surface is account-first and can route users across workspaces.
+- Backend APIs expose both account and workspace routes, for example:
+  - account: `/api/account/home`
+  - workspace: `/api/workspaces/:workspace_id/...`
 
-### Infrastructure
-- **Configuration**: Layered config system (default → dev/prod → env → CLI)
-- **Secrets Management**: Environment-based secret injection
-- **Structured Logging**: JSON format with rotation support
-- **PostgreSQL Storage**: Persistent storage with SQLx migrations
+### Backend Layers
 
-## Architecture
-
-Decacan follows a five-layer architecture:
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  Layer 1: Content & Lifecycle                               │
-│  Store → Handle → Draft → Version                           │
-├─────────────────────────────────────────────────────────────┤
-│  Layer 2: Registry & Reference                              │
-│  Capability Registry │ TeamSpec Registry │ Validator        │
-├─────────────────────────────────────────────────────────────┤
-│  Layer 3: Compilation & Execution Preparation               │
-│  Runtime Compiler → Execution Package → Policy Resolution   │
-├─────────────────────────────────────────────────────────────┤
-│  Layer 4: Runtime Execution                                 │
-│  Task/Run → Workflow → Tool Gateway → Artifact              │
-├─────────────────────────────────────────────────────────────┤
-│  Layer 5: Team Extension (MVP)                              │
-│  TeamSpec → Role Assignment → Parallel Group → Merge        │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Main Data Flow
-
-```
-Store
-  → fork to Handle
-  → edit Draft
-  → publish to Version
-  → compile to Execution Package
-  → create Task/Run
-  → execute (single or team workflow)
-  → produce Artifact
-```
+| Layer | Crate | Responsibility |
+|---|---|---|
+| API | `crates/decacan-app` | Axum routers, DTOs, HTTP contracts, app wiring |
+| Domain Runtime | `crates/decacan-runtime` | Playbook lifecycle, task/run workflow, policies, team execution, artifacts |
+| Infra Adapters | `crates/decacan-infra` | Model providers/router, storage adapters, config/secrets/logging utilities |
+| Auth | `crates/decacan-auth` | Auth service, token/session flow, storage adapter |
 
 ## Project Structure
 
-### Backend (Rust)
-
-| Crate | Purpose |
-|-------|---------|
-| `crates/decacan-runtime` | Core domain logic, playbook lifecycle, workflow compilation, task/run state machine, policy/tools gates, team execution |
-| `crates/decacan-app` | Product-facing Axum API server, DTOs, routers, user workflows |
-| `crates/decacan-infra` | Infrastructure adapters: config, secrets, logging, storage, model routing |
-| `crates/decacan-auth` | Authentication and authorization utilities |
-
-### Frontend (React 19 + Tailwind v4)
-
-| App | Purpose |
-|-----|---------|
-| `apps/workspaces` | Default workspace-scoped execution surface for tasks, deliverables, approvals, and collaboration |
-| `apps/console` | Account-level Console for cross-workspace work aggregation plus playbook design and publishing |
-
-### Documentation
-
-- `docs/superpowers/specs/`: Architecture and design specifications
-- `docs/superpowers/plans/`: Implementation plans and summaries
+```text
+crates/
+  decacan-app/
+  decacan-runtime/
+  decacan-infra/
+  decacan-auth/
+apps/
+  workspaces/
+  console/
+packages/
+  ui/
+config/
+  default.yaml
+  dev.yaml
+docs/
+  superpowers/
+    specs/
+    plans/
+    plans/archive/
+```
 
 ## Tech Stack
 
-- **Backend**: Rust, Axum, Tokio, SQLx (PostgreSQL), Serde, Tracing
-- **Frontend**: React 19, Tailwind CSS v4, React Router v7, shadcn/ui
-- **Models**: OpenAI (GPT-4), Anthropic (Claude 3)
-- **Build**: Cargo (Rust), pnpm (Node.js)
+- Backend: Rust, Axum, Tokio, SQLx, Serde, Tracing
+- Frontend: React 19, React Router 7, Tailwind CSS v4, Vite
+- Package/tooling: Cargo, pnpm workspace
+- Model providers (current infra router): OpenAI + Anthropic
 
 ## Getting Started
 
 ### Prerequisites
 
-- Rust 1.80+ with Cargo
-- Node.js 20+ with pnpm
-- PostgreSQL 15+
+- Rust (with Cargo)
+- Node.js 20+
+- pnpm 10+
+- PostgreSQL 15+ (for DB-backed flows)
 
-### Environment Setup
+### Install
 
-1. Copy environment template:
+```bash
+pnpm install
+cargo check --workspace
+```
+
+### Environment
+
+Copy and edit:
+
 ```bash
 cp .env.example .env
 ```
 
-2. Edit `.env` with your configuration:
-```bash
-# Database
-DATABASE_URL=postgres://postgres:password@localhost/decacan
+Common variables used by current code and configs:
 
-# Model Providers
-OPENAI_API_KEY=sk-...
-ANTHROPIC_API_KEY=sk-ant-...
+- `DECACAN_APP_PORT` (backend port, default `3000`)
+- `DECACAN_PROFILE`
+- `DECACAN_POSTGRES_URL`
+- `DECACAN_OPENAI_API_KEY`
+- `DECACAN_ANTHROPIC_API_KEY`
+- `JWT_SECRET` (required for non-test/production auth boot paths)
 
-# App
-APP_PORT=8080
-RUST_LOG=info
-```
+## Run
 
 ### Backend
 
 ```bash
-# Run migrations
+# optional: run SQL migrations if using PostgreSQL storage paths
 sqlx migrate run
 
-# Run tests
-cargo test --workspace
-cargo test -p decacan-app -- --nocapture    # API smoke tests
-cargo test -p decacan-runtime team          # Team execution tests
-
-# Start development server
+# start API server (defaults to 127.0.0.1:3000)
 cargo run -p decacan-app
-
-# With specific config profile
-APP_PROFILE=dev cargo run -p decacan-app
 ```
 
 ### Frontend
 
 ```bash
-# Install dependencies
-pnpm install
-
-# Run workspaces app
+# workspaces dev (builds @decacan/ui first, then starts app)
 pnpm dev:workspaces
 
-# Run console app
+# console dev
 pnpm dev:console
-
-# Backward-compatible alias
-pnpm dev:admin
-
-# Build all apps
-pnpm build
 ```
 
-### Frontend Handoff
+Default local URLs:
 
-`apps/workspaces` treats the Console as a separate surface. If you run the apps on different local origins, point the workspace top-bar handoff at the console app:
+- `apps/workspaces`: `http://127.0.0.1:5173`
+- `apps/console`: `http://localhost:3001`
+- backend API: `http://127.0.0.1:3000`
+
+## Frontend Handoff Config
+
+`apps/workspaces` -> Console link:
+
+- `VITE_CONSOLE_URL`
+- fallback: `VITE_ACCOUNT_HUB_URL`
+- default: `http://localhost:3001`
+
+`apps/console` -> Workspaces link:
+
+- `VITE_WORKSPACES_APP_URL`
+- default: `http://localhost:5173`
+
+## API Route Quick Reference
+
+Current API router source: `crates/decacan-app/src/api/`.
+
+### Top 20 Most Used
+
+- `GET /api/account/home`
+- `GET /api/workspaces`
+- `GET /api/workspaces/:workspace_id/home`
+- `GET /api/workspaces/:workspace_id/tasks`
+- `GET /api/workspaces/:workspace_id/tasks/:task_id`
+- `GET /api/workspaces/:workspace_id/tasks/:task_id/events/stream`
+- `POST /api/workspaces/:workspace_id/tasks/:task_id/instructions`
+- `GET /api/workspaces/:workspace_id/deliverables`
+- `GET /api/workspaces/:workspace_id/deliverables/:deliverable_id`
+- `POST /api/workspaces/:workspace_id/deliverables/:deliverable_id/review`
+- `GET /api/workspaces/:workspace_id/approvals`
+- `POST /api/workspaces/:workspace_id/approvals/:approval_id/decision`
+- `GET /api/workspaces/:workspace_id/members`
+- `POST /api/workspaces/:workspace_id/members`
+- `PUT /api/workspaces/:workspace_id/members/:member_id`
+- `DELETE /api/workspaces/:workspace_id/members/:member_id`
+- `GET /api/playbooks`
+- `POST /api/tasks`
+- `GET /api/tasks/:task_id`
+- `POST /auth/login`
+
+### Full Route List
+
+<details>
+<summary>Expand full API list</summary>
+
+Account scope:
+- `GET /api/account/home`
+- `GET /api/inbox`
+- `GET /api/me/tasks`
+- `GET /api/me/permissions`
+- `GET /api/permissions/check`
+- `GET /api/roles/:role/permissions`
+
+Workspace scope:
+- `GET /api/workspaces`
+- `GET /api/workspaces/:workspace_id/home`
+- `GET /api/workspaces/:workspace_id/tasks`
+- `GET /api/workspaces/:workspace_id/tasks/:task_id`
+- `GET /api/workspaces/:workspace_id/tasks/:task_id/events/stream`
+- `POST /api/workspaces/:workspace_id/tasks/:task_id/instructions`
+- `GET /api/workspaces/:workspace_id/deliverables`
+- `GET /api/workspaces/:workspace_id/deliverables/:deliverable_id`
+- `POST /api/workspaces/:workspace_id/deliverables/:deliverable_id/review`
+- `GET /api/workspaces/:workspace_id/approvals`
+- `POST /api/workspaces/:workspace_id/approvals/:approval_id/decision`
+- `GET /api/workspaces/:workspace_id/members`
+- `POST /api/workspaces/:workspace_id/members`
+- `PUT /api/workspaces/:workspace_id/members/:member_id`
+- `DELETE /api/workspaces/:workspace_id/members/:member_id`
+
+Playbook and team:
+- `GET/POST /api/playbooks`
+- `GET/PUT/DELETE /api/playbooks/:handle_id`
+- `PUT /api/playbooks/:handle_id/draft`
+- `POST /api/playbooks/:handle_id/publish`
+- `POST /api/playbooks/fork`
+- `GET /api/playbook-store`
+- `GET /api/published-playbooks`
+- `GET/POST /api/studio/playbooks`
+- `GET/PUT/DELETE /api/studio/playbooks/:handle_id`
+- `PUT /api/studio/playbooks/:handle_id/draft`
+- `POST /api/studio/playbooks/:handle_id/publish`
+- `GET/POST /api/teams`
+- `GET/PUT/DELETE /api/teams/:team_id`
+
+Task/approval/artifact/trace:
+- `GET/POST /api/tasks`
+- `GET /api/tasks/:task_id`
+- `POST /api/tasks/:task_id/retry`
+- `POST /api/tasks/:task_id/instructions`
+- `GET /api/tasks/:task_id/events`
+- `GET /api/tasks/:task_id/events/stream`
+- `POST /api/tasks/:task_id/approvals`
+- `GET /api/approvals/:approval_id`
+- `POST /api/approvals/:approval_id/decision`
+- `GET /api/artifacts/:artifact_id`
+- `GET /api/artifacts/:artifact_id/content`
+- `GET /api/tasks/:task_id/trace`
+- `GET /api/tasks/:task_id/attribution`
+- `GET /api/playbooks/:handle_id/versions/:version_id/stats`
+
+Auth (non-`/api` prefix):
+- `POST /auth/register`
+- `POST /auth/login`
+- `POST /auth/refresh`
+- `POST /auth/logout`
+
+</details>
+
+## Testing and Verification
+
+### Rust
 
 ```bash
-VITE_CONSOLE_URL=http://localhost:3001
-# backward-compatible fallback
-VITE_ACCOUNT_HUB_URL=http://localhost:3001
+cargo test --workspace
+cargo clippy --workspace -- -D warnings
+cargo fmt --check
 ```
 
-If unset, `apps/workspaces` defaults the Console link to `http://localhost:3001`.
-
-`apps/console` also hands users back into the workspace execution surface. If you run the workspace app on a non-default origin, set:
+### Frontend
 
 ```bash
-VITE_WORKSPACES_APP_URL=http://localhost:5173
+pnpm --filter decacan-workspaces test
+pnpm --filter decacan-console test
 ```
 
-If unset, `apps/console` defaults workspace links to `http://localhost:5173`. In local development the repo now reserves:
-- `apps/console` on `http://localhost:3001`
-- `apps/workspaces` on `http://localhost:5173`
+## Troubleshooting
 
-## Configuration
+### Port in use (5173 / 3001)
 
-The platform uses a layered configuration system:
-
-```
-config/default.yaml    → Base configuration
-config/dev.yaml        → Development overrides (optional)
-config/prod.yaml       → Production overrides (optional)
-.env                   → Environment variables
-CLI flags              → Command-line overrides
+```bash
+lsof -ti tcp:5173 | xargs kill -9
+lsof -ti tcp:3001 | xargs kill -9
 ```
 
-### Key Configuration Sections
+### `@decacan/ui` import resolution failures in workspaces dev
 
-```yaml
-# Model routing
-models:
-  default_provider: openai
-  fallback_chain: [openai, anthropic]
-  providers:
-    openai:
-      api_key: "${OPENAI_API_KEY}"
-      base_url: https://api.openai.com/v1
-      default_model: gpt-4
-      timeout_seconds: 60
+`dev:workspaces` already builds `@decacan/ui` before Vite startup. If issues persist:
 
-# Logging
-logging:
-  level: info
-  stdout: true
-  file:
-    enabled: true
-    path: logs/decacan.log
-    rotation: daily
-
-# Database
-postgres:
-  url: "${DATABASE_URL}"
-  max_connections: 10
-  auto_migrate: false
+```bash
+pnpm install
+pnpm --filter @decacan/ui build
+pnpm dev:workspaces
 ```
 
-## Development Guidelines
+## Documentation Map
 
-### Testing Strategy
+- Architecture/design specs: `docs/superpowers/specs/`
+- Active implementation plans: `docs/superpowers/plans/`
+- Historical plans archive: `docs/superpowers/plans/archive/`
 
-- **Unit Tests**: `cargo test -p <crate>` for isolated component tests
-- **Integration Tests**: `cargo test --workspace` for cross-crate integration
-- **Smoke Tests**: `crates/decacan-app/tests/http_smoke.rs` for API validation
-- **Team Tests**: `cargo test -p decacan-runtime team` for team execution
+Recommended starting points:
 
-### Code Organization
-
-- **Runtime**: Domain logic must remain pure (no async I/O in core)
-- **App**: HTTP layer handles serialization, auth, and request routing
-- **Infra**: All external dependencies (DB, HTTP clients, filesystem)
-
-### Database Changes
-
-1. Create new migration: `sqlx migrate add <name>`
-2. Write up/down SQL in `migrations/`
-3. Run migrations: `sqlx migrate run`
-4. Update queries and regenerate query metadata: `cargo sqlx prepare`
-
-## Model Router Usage
-
-```rust
-use decacan_infra::models::{ModelRouter, ModelRouterConfig};
-use decacan_runtime::ports::model::ModelPort;
-
-// Configure with providers
-let config = ModelRouterConfig::default()
-    .with_openai(std::env::var("OPENAI_API_KEY")?)
-    .with_anthropic(std::env::var("ANTHROPIC_API_KEY")?);
-
-// Create router with automatic fallback
-let router = ModelRouter::new(config)?;
-
-// Use unified interface
-let response = router.complete("Explain Rust lifetimes").await?;
-
-// Use specific model
-let response = router
-    .complete_with_model("claude-3-opus-20240229", "Your prompt")
-    .await?;
-```
-
-## Team Execution Example
-
-```rust
-use decacan_runtime::team::builtin::BuiltinTeamSpecRegistry;
-use decacan_runtime::team::registry::TeamSpecRegistry;
-use decacan_runtime::run::entity::ParallelRoleGroupState;
-
-// Get built-in team spec
-let registry = BuiltinTeamSpecRegistry::new();
-let team = registry.resolve(&TeamSpecId::new("research-team"))?;
-
-// Create parallel role group
-let mut group = ParallelRoleGroupState::new(team.id().clone());
-
-// Assign work to each role
-for role in team.roles() {
-    let assignment = RoleAssignment::new(
-        RoleAssignmentId::new(format!("assign-{}", role.id().as_str())),
-        role.id().clone(),
-        team.id().clone(),
-    );
-    group.add_assignment(assignment);
-}
-
-// Execute and merge
-// See: docs/superpowers/specs/2026-03-29-decacan-minimal-team-execution-spec.md
-```
-
-## Documentation
-
-### Key Specifications
-
-1. [Backend Architecture Overview](docs/superpowers/specs/2026-03-29-decacan-backend-spec-index.md)
-2. [MVP Module Map](docs/superpowers/specs/2026-03-29-decacan-mvp-backend-module-map-spec.md)
-3. [Playbook Store & Versioning](docs/superpowers/specs/2026-03-28-decacan-playbook-store-and-versioning-spec.md)
-4. [Minimal Team Execution](docs/superpowers/specs/2026-03-29-decacan-minimal-team-execution-spec.md)
-5. [Model Router Design](docs/superpowers/plans/2026-04-01-models-router.md)
-
-### Implementation Plans
-
-- Current plans: `docs/superpowers/plans/`
-- Recent additions: config system, logging, storage, models
+1. `docs/superpowers/specs/2026-03-29-decacan-backend-spec-index.md`
+2. `docs/superpowers/specs/2026-04-01-decacan-account-hub-and-workspace-boundaries-design.md`
 
 ## Contributing
 
-1. Branch from `main` for new features
-2. Run the smoke suite before submitting: `cargo test -p decacan-app`
-3. Follow existing code patterns in each crate
-4. Update documentation for architectural changes
+1. Create a feature branch from `main`
+2. Keep changes scoped to one concern
+3. Run relevant tests before opening review
+4. Update docs when architecture or behavior changes
 
 ## License
 
-[Your License Here]
+Apache License 2.0
