@@ -150,7 +150,10 @@ pnpm install
 # Run workspaces app
 pnpm dev:workspaces
 
-# Run admin app  
+# Run console app
+pnpm dev:console
+
+# Backward-compatible alias
 pnpm dev:admin
 
 # Build all apps
@@ -159,9 +162,11 @@ pnpm build
 
 ### Frontend Handoff
 
-`apps/workspaces` treats the Console as a separate surface. If you run the apps on different local origins, point the workspace top-bar handoff at the admin app:
+`apps/workspaces` treats the Console as a separate surface. If you run the apps on different local origins, point the workspace top-bar handoff at the console app:
 
 ```bash
+VITE_CONSOLE_URL=http://localhost:3001
+# backward-compatible fallback
 VITE_ACCOUNT_HUB_URL=http://localhost:3001
 ```
 
