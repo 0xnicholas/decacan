@@ -1,3 +1,4 @@
+use super::retry::RetryConfig;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -20,6 +21,8 @@ pub struct ProviderConfig {
     pub default_model: Option<String>,
     #[serde(default)]
     pub timeout_seconds: u64,
+    #[serde(default)]
+    pub retry_config: RetryConfig,
 }
 
 fn default_provider() -> String {
@@ -40,6 +43,14 @@ impl Default for ModelRouterConfig {
     }
 }
 
+impl ProviderConfig {
+    /// 设置重试配置（链式调用）
+    pub fn with_retry(mut self, retry_config: RetryConfig) -> Self {
+        self.retry_config = retry_config;
+        self
+    }
+}
+
 impl ModelRouterConfig {
     pub fn with_openai(mut self, api_key: impl Into<String>) -> Self {
         self.providers.insert(
@@ -49,6 +60,7 @@ impl ModelRouterConfig {
                 base_url: "https://api.openai.com/v1".to_string(),
                 default_model: Some("gpt-4o".to_string()),
                 timeout_seconds: 60,
+                retry_config: RetryConfig::default(),
             },
         );
         self
@@ -62,6 +74,7 @@ impl ModelRouterConfig {
                 base_url: "https://api.anthropic.com/v1".to_string(),
                 default_model: Some("claude-3-5-sonnet-20241022".to_string()),
                 timeout_seconds: 60,
+                retry_config: RetryConfig::default(),
             },
         );
         self

@@ -1,5 +1,6 @@
 use super::config::ProviderConfig;
 use super::provider::{ModelProvider, ProviderError};
+use super::retry::RetryConfig;
 use super::types::{Message, ModelRequest, ModelResponse, Role, Usage};
 use async_trait::async_trait;
 use reqwest::Client;
@@ -7,6 +8,7 @@ use serde::{Deserialize, Serialize};
 
 pub struct OpenAiProvider {
     config: ProviderConfig,
+    retry_config: RetryConfig,
     client: Client,
 }
 
@@ -18,7 +20,8 @@ impl OpenAiProvider {
             .build()
             .map_err(|e| ProviderError::NetworkError(format!("Failed to build HTTP client: {}", e)))?;
 
-        Ok(Self { config, client })
+        let retry_config = config.retry_config;
+        Ok(Self { config, retry_config, client })
     }
 
     fn to_openai_messages(&self, request: &ModelRequest) -> Vec<OpenAiMessage> {
@@ -47,35 +50,8 @@ impl OpenAiProvider {
 
         messages
     }
-}
 
-#[async_trait]
-impl ModelProvider for OpenAiProvider {
-    fn name(&self) -> &str {
-        "openai"
-    }
-
-    fn supported_models(&self) -> Vec<&str> {
-        vec![
-            // GPT-4o 系列（推荐）
-            "gpt-4o",
-            "gpt-4o-mini",
-            "gpt-4o-latest",
-            // GPT-4 系列
-            "gpt-4",
-            "gpt-4-turbo",
-            "gpt-4-turbo-preview",
-            // GPT-3.5 系列
-            "gpt-3.5-turbo",
-            "gpt-3.5-turbo-0125",
-            // o1 系列（推理模型）
-            "o1",
-            "o1-mini",
-            "o1-preview",
-        ]
-    }
-
-    async fn complete(&self, request: ModelRequest) -> Result<ModelResponse, ProviderError> {
+    async fn complete_internal(&self, request: ModelRequest) -> Result<ModelResponse, ProviderError> {
         let api_request = OpenAiApiRequest {
             model: request.model.clone(),
             messages: self.to_openai_messages(&request),
@@ -118,6 +94,37 @@ impl ModelProvider for OpenAiProvider {
                 total_tokens: u.total_tokens,
             }),
         })
+    }
+}
+
+#[async_trait]
+impl ModelProvider for OpenAiProvider {
+    fn name(&self) -> &str {
+        "openai"
+    }
+
+    fn supported_models(&self) -> Vec<&str> {
+        vec![
+            // GPT-4o 系列（推荐）
+            "gpt-4o",
+            "gpt-4o-mini",
+            "gpt-4o-latest",
+            // GPT-4 系列
+            "gpt-4",
+            "gpt-4-turbo",
+            "gpt-4-turbo-preview",
+            // GPT-3.5 系列
+            "gpt-3.5-turbo",
+            "gpt-3.5-turbo-0125",
+            // o1 系列（推理模型）
+            "o1",
+            "o1-mini",
+            "o1-preview",
+        ]
+    }
+
+    async fn complete(&self, request: ModelRequest) -> Result<ModelResponse, ProviderError> {
+        self.retry_config.execute(|| self.complete_internal(request.clone())).await
     }
 }
 

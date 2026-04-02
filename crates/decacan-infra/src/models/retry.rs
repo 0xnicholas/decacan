@@ -1,7 +1,8 @@
+use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
 /// 重试策略配置
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct RetryConfig {
     /// 最大重试次数
     pub max_retries: u32,

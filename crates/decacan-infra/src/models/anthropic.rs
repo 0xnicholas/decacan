@@ -1,5 +1,6 @@
 use super::config::ProviderConfig;
 use super::provider::{ModelProvider, ProviderError};
+use super::retry::RetryConfig;
 use super::types::{Message, ModelRequest, ModelResponse, Role, Usage};
 use async_trait::async_trait;
 use reqwest::Client;
@@ -7,6 +8,7 @@ use serde::{Deserialize, Serialize};
 
 pub struct AnthropicProvider {
     config: ProviderConfig,
+    retry_config: RetryConfig,
     client: Client,
 }
 
@@ -18,7 +20,8 @@ impl AnthropicProvider {
             .build()
             .map_err(|e| ProviderError::NetworkError(format!("Failed to build HTTP client: {}", e)))?;
 
-        Ok(Self { config, client })
+        let retry_config = config.retry_config;
+        Ok(Self { config, retry_config, client })
     }
 
     fn to_anthropic_messages(
@@ -45,27 +48,8 @@ impl AnthropicProvider {
 
         (system, messages)
     }
-}
 
-#[async_trait]
-impl ModelProvider for AnthropicProvider {
-    fn name(&self) -> &str {
-        "anthropic"
-    }
-
-    fn supported_models(&self) -> Vec<&str> {
-        vec![
-            // Claude 3.5 系列（最新）
-            "claude-3-5-sonnet-20241022",
-            "claude-3-5-haiku-20241022",
-            // Claude 3 系列
-            "claude-3-opus-20240229",
-            "claude-3-sonnet-20240229",
-            "claude-3-haiku-20240307",
-        ]
-    }
-
-    async fn complete(&self, request: ModelRequest) -> Result<ModelResponse, ProviderError> {
+    async fn complete_internal(&self, request: ModelRequest) -> Result<ModelResponse, ProviderError> {
         let (system, messages) = self.to_anthropic_messages(&request);
 
         let api_request = AnthropicApiRequest {
@@ -112,6 +96,29 @@ impl ModelProvider for AnthropicProvider {
                 total_tokens: u.input_tokens + u.output_tokens,
             }),
         })
+    }
+}
+
+#[async_trait]
+impl ModelProvider for AnthropicProvider {
+    fn name(&self) -> &str {
+        "anthropic"
+    }
+
+    fn supported_models(&self) -> Vec<&str> {
+        vec![
+            // Claude 3.5 系列（最新）
+            "claude-3-5-sonnet-20241022",
+            "claude-3-5-haiku-20241022",
+            // Claude 3 系列
+            "claude-3-opus-20240229",
+            "claude-3-sonnet-20240229",
+            "claude-3-haiku-20240307",
+        ]
+    }
+
+    async fn complete(&self, request: ModelRequest) -> Result<ModelResponse, ProviderError> {
+        self.retry_config.execute(|| self.complete_internal(request.clone())).await
     }
 }
 

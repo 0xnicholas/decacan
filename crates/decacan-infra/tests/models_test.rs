@@ -35,6 +35,7 @@ mod model_list_tests {
     use decacan_infra::models::config::ProviderConfig;
     use decacan_infra::models::openai::OpenAiProvider;
     use decacan_infra::models::provider::ModelProvider;
+    use decacan_infra::models::retry::RetryConfig;
 
     #[test]
     fn test_openai_includes_gpt4o() {
@@ -43,6 +44,7 @@ mod model_list_tests {
             base_url: "https://api.openai.com/v1".to_string(),
             default_model: None,
             timeout_seconds: 60,
+            retry_config: RetryConfig::default(),
         };
         let provider = OpenAiProvider::new(config).unwrap();
         let models = provider.supported_models();
@@ -58,6 +60,7 @@ mod model_list_tests {
             base_url: "https://api.anthropic.com/v1".to_string(),
             default_model: None,
             timeout_seconds: 60,
+            retry_config: RetryConfig::default(),
         };
         let provider = AnthropicProvider::new(config).unwrap();
         let models = provider.supported_models();
