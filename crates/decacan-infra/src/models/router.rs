@@ -133,10 +133,11 @@ impl ModelRouter {
     }
 }
 
+#[async_trait::async_trait]
 impl ModelPort for ModelRouter {
     type Error = RouterError;
 
-    fn complete(&self, prompt: &str) -> Result<String, Self::Error> {
-        self.block_on(ModelRouter::complete(self, prompt))
+    async fn complete(&self, prompt: &str) -> Result<String, Self::Error> {
+        ModelRouter::complete(self, prompt).await
     }
 }

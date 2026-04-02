@@ -1,4 +1,5 @@
 use crate::config::PostgresConfig;
+use async_trait::async_trait;
 use decacan_runtime::ports::storage::StoragePort;
 use sqlx::{Pool, Postgres, Row};
 use std::error::Error;
@@ -139,14 +140,15 @@ impl PostgresStorage {
     }
 }
 
+#[async_trait]
 impl StoragePort for PostgresStorage {
     type Error = PostgresStorageError;
 
-    fn put(&self, key: &str, value: &str) -> Result<(), Self::Error> {
-        self.block_on(PostgresStorage::put(self, key, value))
+    async fn put(&self, key: &str, value: &str) -> Result<(), Self::Error> {
+        PostgresStorage::put(self, key, value).await
     }
 
-    fn get(&self, key: &str) -> Result<Option<String>, Self::Error> {
-        self.block_on(PostgresStorage::get(self, key))
+    async fn get(&self, key: &str) -> Result<Option<String>, Self::Error> {
+        PostgresStorage::get(self, key).await
     }
 }
