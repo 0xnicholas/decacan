@@ -1,10 +1,10 @@
 import { Card, CardContent, CardHeader } from "@decacan/ui";
 
-import type { WorkspaceDiscussionItem } from "../../entities/workspace-home/types";
+import type { WorkspaceWorkbenchModel } from "../../entities/workbench/types";
 import { EmptyState } from "../../shared/ui";
 
 interface DiscussionPanelProps {
-  items: WorkspaceDiscussionItem[];
+  items: WorkspaceWorkbenchModel["discussion"];
 }
 
 export function DiscussionPanel({ items }: DiscussionPanelProps) {

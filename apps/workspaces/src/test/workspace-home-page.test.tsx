@@ -114,6 +114,61 @@ describe("WorkspaceHomePage", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("shows an explicit empty state for team activity when no activity or team data exists", async () => {
+    fetchMock.mockImplementation(async (input, init) => {
+      const url = typeof input === "string" ? input : input.toString();
+      const method = init?.method ?? "GET";
+
+      if (url.endsWith("/api/workspaces") && method === "GET") {
+        return new Response(
+          JSON.stringify([
+            {
+              id: "workspace-1",
+              title: "Workspace 1",
+              root_path: "/workspace-1",
+            },
+          ]),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        );
+      }
+
+      if (url.endsWith("/api/workspaces/workspace-1/home") && method === "GET") {
+        return new Response(
+          JSON.stringify({
+            attention: [],
+            task_health: {
+              running: 0,
+              waiting_approval: 0,
+              blocked: 0,
+              completed_today: 0,
+            },
+            activity: [],
+            deliverables: [],
+            team_snapshot: [],
+            discussion: [],
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        );
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url}`);
+    });
+
+    renderAppAtRoute("/workspaces/workspace-1");
+
+    expect(await screen.findByRole("heading", { name: "Team Activity" })).toBeInTheDocument();
+    expect(screen.getByText("No team activity yet")).toBeInTheDocument();
+    expect(
+      screen.getByText("Activity updates and teammate focus will appear here as work starts moving."),
+    ).toBeInTheDocument();
+  });
+
   it("ignores stale home responses after switching workspaces", async () => {
     const user = userEvent.setup();
 
