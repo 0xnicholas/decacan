@@ -1,35 +1,34 @@
 import { useEffect, useRef, useState } from "react";
 
+import { normalizeWorkspaceHome } from "../../entities/workbench/normalizeWorkspaceHome";
+import type { WorkspaceWorkbenchModel } from "../../entities/workbench/types";
 import type { WorkspaceHomeData } from "../../entities/workspace-home/types";
 import { fetchWorkspaceHome } from "../../shared/api/workspace-home";
 import { LoadingState, PageHeader } from "../../shared/ui";
-import { ExecutionOverviewPanel } from "./ExecutionOverviewPanel";
-import { NeedsAttentionPanel } from "./NeedsAttentionPanel";
-import { TeamSnapshotPanel } from "./TeamSnapshotPanel";
-import { WorkspaceDeliverablesPanel } from "./WorkspaceDeliverablesPanel";
+import { WorkbenchLayout } from "./WorkbenchLayout";
 
 interface WorkspaceHomePageProps {
   workspaceId: string;
 }
 
 export function WorkspaceHomePage({ workspaceId }: WorkspaceHomePageProps) {
-  const [homeData, setHomeData] = useState<WorkspaceHomeData | null>(null);
+  const [workbench, setWorkbench] = useState<WorkspaceWorkbenchModel | null>(null);
   const requestSequence = useRef(0);
 
   useEffect(() => {
     const requestId = requestSequence.current + 1;
     requestSequence.current = requestId;
-    setHomeData(null);
+    setWorkbench(null);
 
     async function loadWorkspaceHome() {
       try {
         const data = await fetchWorkspaceHome(workspaceId);
         if (requestSequence.current == requestId) {
-          setHomeData(data);
+          setWorkbench(normalizeWorkspaceHome(workspaceId, data));
         }
       } catch {
         if (requestSequence.current == requestId) {
-          setHomeData({
+          const fallbackData: WorkspaceHomeData = {
             attention: [],
             task_health: {
               running: 0,
@@ -40,7 +39,8 @@ export function WorkspaceHomePage({ workspaceId }: WorkspaceHomePageProps) {
             activity: [],
             deliverables: [],
             team_snapshot: [],
-          });
+          };
+          setWorkbench(normalizeWorkspaceHome(workspaceId, fallbackData));
         }
       }
     }
@@ -48,17 +48,14 @@ export function WorkspaceHomePage({ workspaceId }: WorkspaceHomePageProps) {
     void loadWorkspaceHome();
   }, [workspaceId]);
 
-  if (!homeData) {
-    return <LoadingState message="Loading workspace control center…" />;
+  if (!workbench) {
+    return <LoadingState message="Loading workspace workbench…" />;
   }
 
   return (
     <div>
       <PageHeader title="Workspace Home" />
-      <NeedsAttentionPanel items={homeData.attention} />
-      <ExecutionOverviewPanel taskHealth={homeData.task_health} activity={homeData.activity} />
-      <WorkspaceDeliverablesPanel deliverables={homeData.deliverables} />
-      <TeamSnapshotPanel team={homeData.team_snapshot} />
+      <WorkbenchLayout model={workbench} onOpenPrimary={() => {}} />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, vi } from "vitest";
 
@@ -86,24 +86,28 @@ describe("WorkspaceHomePage", () => {
     });
   });
 
-  it("renders the control-center panels on workspace home", async () => {
+  it("renders the resume-first workbench regions in priority order", async () => {
     renderAppAtRoute("/workspaces/workspace-1");
 
-    expect(await screen.findByRole("heading", { name: "Needs Attention" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Execution Overview" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Deliverables" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Team Snapshot" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Resume Work" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Current Work" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "My Queue" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Team Activity" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Discussion" })).toBeInTheDocument();
+
+    const headings = screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent);
+
+    expect(headings.slice(0, 5)).toEqual([
+      "Resume Work",
+      "Current Work",
+      "My Queue",
+      "Team Activity",
+      "Discussion",
+    ]);
+
     expect(screen.getByText("Legal copy sign-off pending")).toBeInTheDocument();
     expect(screen.getByText(/Running: 4/)).toBeInTheDocument();
-    const deliverablesPanel = screen.getByRole("region", { name: "Deliverables panel" });
-    expect(within(deliverablesPanel).getByText(/Release Notes Draft/)).toBeInTheDocument();
-    expect(
-      within(deliverablesPanel).getByText(
-        (_, element) =>
-          element?.tagName.toLowerCase() === "li" &&
-          (element.textContent?.includes("output/release-notes.md") ?? false),
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getAllByText(/Release Notes Draft/)).toHaveLength(2);
     expect(screen.getByText(/Ari/)).toBeInTheDocument();
     expect(
       screen.queryByText("Content for this route will be implemented in later tasks."),
@@ -289,7 +293,7 @@ describe("WorkspaceHomePage", () => {
     expect(await screen.findByText("Workspace 1 current payload")).toBeInTheDocument();
     await user.selectOptions(screen.getByLabelText("Workspace switcher"), "workspace-2");
 
-    expect(await screen.findByText("Loading workspace control center…")).toBeInTheDocument();
+    expect(await screen.findByText("Loading workspace workbench…")).toBeInTheDocument();
     expect(screen.queryByText("Workspace 1 current payload")).not.toBeInTheDocument();
 
     (resolveWorkspace2Home as unknown as (response: Response) => void)?.(
