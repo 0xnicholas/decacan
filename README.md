@@ -3,11 +3,19 @@
 Decacan is a multi-agent work orchestration product for teams that need to turn repeatable playbooks into reliable execution.
 It helps teams launch work from reusable playbooks, coordinate approvals and deliverables, and track progress from workspace execution to account-level oversight.
 
-## Who Decacan Is For
+## Who Should Read This README
 
-- Product teams that need a repeatable way to move from intent to execution outcomes
-- Engineering teams that need clear workspace boundaries, approval points, and observable task state
-- Cross-workspace operators who need account-level visibility without losing workspace-level ownership
+This README is written for:
+- Product managers and project owners defining playbook-driven workflows
+- Engineers implementing workspace and account-level product surfaces
+- Operators responsible for cross-workspace visibility and execution governance
+
+## Who Decacan Serves
+
+Decacan serves teams that need to:
+- Convert repeatable operating procedures into executable playbooks
+- Run work reliably within explicit workspace boundaries
+- Coordinate approvals and outputs while keeping account-level visibility
 
 ## Product Overview
 
