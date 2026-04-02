@@ -24400,22 +24400,21 @@ function gk({
 }) {
   const [a, i] = M.useState(
     () => typeof window < "u" && localStorage.getItem(n) || t
-  );
+  ), [o, s] = M.useState("light");
   M.useEffect(() => {
-    const s = window.document.documentElement;
-    if (s.classList.remove("light", "dark"), a === "system") {
-      const l = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-      s.classList.add(l);
-    } else
-      s.classList.add(a);
+    const c = window.document.documentElement;
+    c.classList.remove("light", "dark");
+    let d;
+    a === "system" ? d = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light" : d = a, c.classList.add(d), s(d);
   }, [a]);
-  const o = {
+  const l = {
     theme: a,
-    setTheme: (s) => {
-      localStorage.setItem(n, s), i(s);
+    resolvedTheme: o,
+    setTheme: (c) => {
+      localStorage.setItem(n, c), i(c);
     }
   };
-  return /* @__PURE__ */ u.jsx(q0.Provider, { ...r, value: o, children: e });
+  return /* @__PURE__ */ u.jsx(q0.Provider, { ...r, value: l, children: e });
 }
 const vk = () => {
   const e = M.useContext(q0);

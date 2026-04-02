@@ -1817,6 +1817,7 @@ export declare function useStepper(): StepperContextValue;
 
 export declare const useTheme: () => {
     theme: string;
+    resolvedTheme: "light" | "dark";
     setTheme: (theme: string) => void;
 };
 

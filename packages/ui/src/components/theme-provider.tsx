@@ -5,6 +5,7 @@ import * as React from "react";
 const ThemeProviderContext = React.createContext<
   | {
       theme: string;
+      resolvedTheme: "light" | "dark";
       setTheme: (theme: string) => void;
     }
   | undefined
@@ -26,25 +27,29 @@ export function ThemeProvider({
       : defaultTheme
   );
 
+  const [resolvedTheme, setResolvedTheme] = React.useState<"light" | "dark">("light");
+
   React.useEffect(() => {
     const root = window.document.documentElement;
 
     root.classList.remove("light", "dark");
 
+    let resolved: "light" | "dark";
     if (theme === "system") {
-      const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
-        .matches
+      resolved = window.matchMedia("(prefers-color-scheme: dark)").matches
         ? "dark"
         : "light";
-
-      root.classList.add(systemTheme);
     } else {
-      root.classList.add(theme);
+      resolved = theme as "light" | "dark";
     }
+
+    root.classList.add(resolved);
+    setResolvedTheme(resolved);
   }, [theme]);
 
   const value = {
     theme,
+    resolvedTheme,
     setTheme: (theme: string) => {
       localStorage.setItem(storageKey, theme);
       setTheme(theme);
