@@ -138,6 +138,87 @@ describe("TaskPage", () => {
     });
   });
 
+  it("opens task detail in agent mode when assistant context is handed off in route state", async () => {
+    fetchMock.mockImplementation(async (input, init) => {
+      const url = typeof input === "string" ? input : input.toString();
+      const method = init?.method ?? "GET";
+
+      if (url.endsWith("/api/workspaces/workspace-1/tasks/task-1") && method === "GET") {
+        return new Response(
+          JSON.stringify({
+            task: {
+              id: "task-1",
+              workspace_id: "workspace-1",
+              playbook_key: "总结资料",
+              input: "Summarize notes",
+              status: "running",
+              status_summary: "Task is running",
+              artifact_id: "artifact-1"
+            },
+            plan: {
+              steps: ["Scan markdown files"],
+              current_step_index: 0,
+              status: "running"
+            },
+            approvals: [],
+            artifacts: [],
+            timeline: [],
+            collaboration: {
+              agent_messages: [],
+              instruction_actions: [],
+            }
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      if (url.endsWith("/api/workspaces/workspace-1/tasks") && method === "GET") {
+        return new Response(JSON.stringify([]), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+
+      if (url.endsWith("/api/workspaces") && method === "GET") {
+        return new Response(
+          JSON.stringify([{ id: "workspace-1", title: "Workspace 1", root_path: "/tmp/workspace-1" }]),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      throw new Error(`Unhandled request: ${url}`);
+    });
+
+    window.history.replaceState(
+      {
+        usr: {
+          assistantContext: {
+            source: "workspace-assistant-dock",
+            summary: "Catch up on the launch blocker before you queue more work.",
+            actionLabel: "Open launch blocker task",
+            targetKind: "task",
+            targetId: "task-1",
+          },
+        },
+      },
+      "",
+      "/workspaces/workspace-1/tasks/task-1",
+    );
+
+    renderAppAtRoute();
+
+    const agentTab = await screen.findByRole("tab", { name: "Agent" });
+    const contextTab = screen.getByRole("tab", { name: "Context" });
+
+    expect(agentTab).toHaveAttribute("aria-selected", "true");
+    expect(contextTab).toHaveAttribute("aria-selected", "false");
+    expect(screen.getByText("Opened from Workspace Assistant")).toBeInTheDocument();
+    expect(
+      screen.getByText("Catch up on the launch blocker before you queue more work."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Open launch blocker task")).toBeInTheDocument();
+  });
+
   it("shows a workspace-scoped not-found state when task does not belong to route workspace", async () => {
     let scopedTaskListCalled = false;
     fetchMock.mockImplementation(async (input, init) => {

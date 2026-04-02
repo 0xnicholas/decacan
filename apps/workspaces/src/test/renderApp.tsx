@@ -9,7 +9,7 @@ export function renderAppAtRoute(route?: string) {
     route ??
     (`${window.location.pathname}${window.location.search}${window.location.hash}` || "/");
 
-  window.history.replaceState({}, "", resolvedRoute);
+  window.history.replaceState(window.history.state ?? {}, "", resolvedRoute);
 
   return render(
     <ThemeProvider defaultTheme="light" storageKey="test-theme">

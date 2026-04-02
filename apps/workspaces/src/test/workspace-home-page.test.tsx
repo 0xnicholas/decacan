@@ -114,6 +114,85 @@ describe("WorkspaceHomePage", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("renders the workspace assistant dock with suggested actions", async () => {
+    fetchMock.mockImplementation(async (input, init) => {
+      const url = typeof input === "string" ? input : input.toString();
+      const method = init?.method ?? "GET";
+
+      if (url.endsWith("/api/workspaces") && method === "GET") {
+        return new Response(
+          JSON.stringify([
+            {
+              id: "workspace-1",
+              title: "Workspace 1",
+              root_path: "/workspace-1",
+            },
+          ]),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        );
+      }
+
+      if (url.endsWith("/api/workspaces/workspace-1/home") && method === "GET") {
+        return new Response(
+          JSON.stringify({
+            attention: [],
+            task_health: {
+              running: 1,
+              waiting_approval: 0,
+              blocked: 0,
+              completed_today: 2,
+            },
+            activity: [],
+            deliverables: [
+              {
+                id: "deliverable-1",
+                label: "Release Notes Draft",
+                canonical_path: "output/release-notes.md",
+                status: "reviewing",
+              },
+            ],
+            team_snapshot: [],
+            assistant: {
+              summary: "Catch up on the launch blockers before you queue more work.",
+              suggested_actions: [
+                {
+                  id: "action-task-1",
+                  label: "Open launch blocker task",
+                  target_kind: "task",
+                  target_id: "task-42",
+                },
+                {
+                  id: "action-deliverable-1",
+                  label: "Review release notes draft",
+                  target_kind: "deliverable",
+                  target_id: "deliverable-1",
+                },
+              ],
+            },
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        );
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url}`);
+    });
+
+    renderAppAtRoute("/workspaces/workspace-1");
+
+    expect(await screen.findByRole("heading", { name: "Workspace Assistant" })).toBeInTheDocument();
+    expect(
+      screen.getByText("Catch up on the launch blockers before you queue more work."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open launch blocker task" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Review release notes draft" })).toBeInTheDocument();
+  });
+
   it("shows an explicit empty state for team activity when no activity or team data exists", async () => {
     fetchMock.mockImplementation(async (input, init) => {
       const url = typeof input === "string" ? input : input.toString();

@@ -1,19 +1,24 @@
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
+import { defaultAssistantDock } from "../../entities/workbench/defaultTemplate";
 import { normalizeWorkspaceHome } from "../../entities/workbench/normalizeWorkspaceHome";
 import type { WorkspaceWorkbenchModel } from "../../entities/workbench/types";
 import type { WorkspaceHomeData } from "../../entities/workspace-home/types";
 import { fetchWorkspaceHome } from "../../shared/api/workspace-home";
 import { LoadingState, PageHeader } from "../../shared/ui";
 import { WorkbenchLayout } from "./WorkbenchLayout";
+import { WorkspaceAssistantDock } from "./WorkspaceAssistantDock";
 
 interface WorkspaceHomePageProps {
   workspaceId: string;
 }
 
 export function WorkspaceHomePage({ workspaceId }: WorkspaceHomePageProps) {
+  const navigate = useNavigate();
   const [workbench, setWorkbench] = useState<WorkspaceWorkbenchModel | null>(null);
   const requestSequence = useRef(0);
+  const assistant = workbench?.assistant ?? defaultAssistantDock;
 
   useEffect(() => {
     const requestId = requestSequence.current + 1;
@@ -55,7 +60,20 @@ export function WorkspaceHomePage({ workspaceId }: WorkspaceHomePageProps) {
   return (
     <div>
       <PageHeader title="Workspace Home" />
-      <WorkbenchLayout model={workbench} onOpenPrimary={() => {}} />
+      <WorkbenchLayout
+        model={workbench}
+        onOpenPrimary={() => {}}
+        assistantDock={
+          <WorkspaceAssistantDock
+            assistant={assistant}
+            onOpenTask={(taskId, context) => {
+              navigate(`/workspaces/${workspaceId}/tasks/${taskId}`, {
+                state: { assistantContext: context },
+              });
+            }}
+          />
+        }
+      />
     </div>
   );
 }

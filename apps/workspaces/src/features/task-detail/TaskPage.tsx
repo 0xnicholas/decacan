@@ -1,8 +1,13 @@
 import { useState } from "react";
+import { useLocation } from "react-router-dom";
 
 import type { ArtifactContent } from "../../entities/artifact/types";
 import { fetchArtifactContent } from "../../shared/api/artifacts";
 import { decideApproval, sendTaskInstruction } from "../../shared/api/tasks";
+import {
+  AssistantContextNotice,
+  readAssistantContextState,
+} from "./AssistantContextNotice";
 import { AgentRail } from "./AgentRail";
 import { ApprovalPanel } from "./ApprovalPanel";
 import { ArtifactPanel } from "./ArtifactPanel";
@@ -23,16 +28,24 @@ interface TaskPageProps {
 type RailTab = "agent" | "context" | "history";
 
 export function TaskPage({ taskId, workspaceId }: TaskPageProps) {
+  const location = useLocation();
   const { connectionState, latestEvent, loadState, recentTasks, taskDetail, reload } = useTaskDetail(
     taskId,
     workspaceId,
   );
+  const assistantContext = readAssistantContextState(location.state);
+  const activeAssistantContext =
+    assistantContext?.targetKind === "task" && assistantContext.targetId === taskId
+      ? assistantContext
+      : null;
   const [copyNotice, setCopyNotice] = useState<string | null>(null);
   const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [preview, setPreview] = useState<ArtifactContent | null>(null);
-  const [activeRailTab, setActiveRailTab] = useState<RailTab>("context");
+  const [activeRailTab, setActiveRailTab] = useState<RailTab>(
+    activeAssistantContext ? "agent" : "context",
+  );
   const [pendingInstructionKey, setPendingInstructionKey] = useState<string | null>(null);
 
   if (loadState === "not_found") {
@@ -147,6 +160,7 @@ export function TaskPage({ taskId, workspaceId }: TaskPageProps) {
       >
         <section className="task-main-column">
         <p className="eyebrow">Decacan</p>
+        {activeAssistantContext ? <AssistantContextNotice context={activeAssistantContext} /> : null}
         <TaskHeader task={taskDetail.task} />
         <LiveActivityStrip latestEvent={latestEvent} connectionState={connectionState} />
         <div className="task-grid">
