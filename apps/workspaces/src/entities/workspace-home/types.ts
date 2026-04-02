@@ -33,10 +33,38 @@ export interface TeamMember {
   status: string;
 }
 
+export interface WorkspaceHomeTemplateConfig {
+  id: string;
+  title: string;
+  slot_order: string[];
+  labels?: Partial<Record<"task" | "deliverable" | "approval", string>>;
+  primary_cta_label?: string;
+}
+
+export interface WorkspaceDiscussionItem {
+  id: string;
+  title: string;
+  summary: string;
+  status: "open" | "resolved";
+}
+
+export interface WorkspaceAssistantData {
+  summary: string;
+  suggested_actions: Array<{
+    id: string;
+    label: string;
+    target_kind: "task" | "deliverable" | "discussion";
+    target_id: string;
+  }>;
+}
+
 export interface WorkspaceHomeData {
   attention: AttentionItem[];
   task_health: TaskHealth;
   activity: ActivityItem[];
   deliverables: DeliverableItem[];
   team_snapshot: TeamMember[];
+  discussion?: WorkspaceDiscussionItem[];
+  template?: WorkspaceHomeTemplateConfig;
+  assistant?: WorkspaceAssistantData;
 }

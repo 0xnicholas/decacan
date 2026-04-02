@@ -146,8 +146,6 @@ describe("ActivityPage", () => {
       throw new Error(`Unhandled request: ${url}`);
     });
 
-    const user = userEvent.setup();
-    
     // Navigate to error workspace
     window.history.replaceState({}, "", "/workspaces/error-workspace/activity");
     renderAppAtRoute();

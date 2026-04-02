@@ -1,46 +1,58 @@
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
+import { defaultAssistantDock } from "../../entities/workbench/defaultTemplate";
+import { normalizeWorkspaceHome } from "../../entities/workbench/normalizeWorkspaceHome";
+import type { WorkspaceWorkbenchModel } from "../../entities/workbench/types";
 import type { WorkspaceHomeData } from "../../entities/workspace-home/types";
 import { fetchWorkspaceHome } from "../../shared/api/workspace-home";
 import { LoadingState, PageHeader } from "../../shared/ui";
-import { ExecutionOverviewPanel } from "./ExecutionOverviewPanel";
-import { NeedsAttentionPanel } from "./NeedsAttentionPanel";
-import { TeamSnapshotPanel } from "./TeamSnapshotPanel";
-import { WorkspaceDeliverablesPanel } from "./WorkspaceDeliverablesPanel";
+import { WorkbenchLayout } from "./WorkbenchLayout";
+import { WorkspaceAssistantDock } from "./WorkspaceAssistantDock";
 
 interface WorkspaceHomePageProps {
   workspaceId: string;
 }
 
+const fallbackWorkspaceHomeData: WorkspaceHomeData = {
+  attention: [],
+  task_health: {
+    running: 0,
+    waiting_approval: 0,
+    blocked: 0,
+    completed_today: 0,
+  },
+  activity: [],
+  deliverables: [],
+  team_snapshot: [],
+  discussion: [],
+  // Keep the fallback payload raw so normalization stays explicit in the feature seam.
+  assistant: {
+    summary: "",
+    suggested_actions: [],
+  },
+};
+
 export function WorkspaceHomePage({ workspaceId }: WorkspaceHomePageProps) {
-  const [homeData, setHomeData] = useState<WorkspaceHomeData | null>(null);
+  const navigate = useNavigate();
+  const [workbench, setWorkbench] = useState<WorkspaceWorkbenchModel | null>(null);
   const requestSequence = useRef(0);
+  const assistant = workbench?.assistant ?? defaultAssistantDock;
 
   useEffect(() => {
     const requestId = requestSequence.current + 1;
     requestSequence.current = requestId;
-    setHomeData(null);
+    setWorkbench(null);
 
     async function loadWorkspaceHome() {
       try {
         const data = await fetchWorkspaceHome(workspaceId);
         if (requestSequence.current == requestId) {
-          setHomeData(data);
+          setWorkbench(normalizeWorkspaceHome(workspaceId, data));
         }
       } catch {
         if (requestSequence.current == requestId) {
-          setHomeData({
-            attention: [],
-            task_health: {
-              running: 0,
-              waiting_approval: 0,
-              blocked: 0,
-              completed_today: 0,
-            },
-            activity: [],
-            deliverables: [],
-            team_snapshot: [],
-          });
+          setWorkbench(normalizeWorkspaceHome(workspaceId, fallbackWorkspaceHomeData));
         }
       }
     }
@@ -48,17 +60,41 @@ export function WorkspaceHomePage({ workspaceId }: WorkspaceHomePageProps) {
     void loadWorkspaceHome();
   }, [workspaceId]);
 
-  if (!homeData) {
-    return <LoadingState message="Loading workspace control center…" />;
+  if (!workbench) {
+    return <LoadingState message="Loading workspace workbench…" />;
   }
+
+  const handleOpenPrimary = () => {
+    if (workbench.resume.target_task_id) {
+      navigate(`/workspaces/${workspaceId}/tasks/${workbench.resume.target_task_id}`);
+      return;
+    }
+
+    if (workbench.resume.has_current_work) {
+      navigate(`/workspaces/${workspaceId}/tasks`);
+      return;
+    }
+
+    navigate(`/workspaces/${workspaceId}/new-task`);
+  };
 
   return (
     <div>
-      <PageHeader title="Workspace Home" />
-      <NeedsAttentionPanel items={homeData.attention} />
-      <ExecutionOverviewPanel taskHealth={homeData.task_health} activity={homeData.activity} />
-      <WorkspaceDeliverablesPanel deliverables={homeData.deliverables} />
-      <TeamSnapshotPanel team={homeData.team_snapshot} />
+      <PageHeader title="Workspace Home" subtitle={workbench.template.title} />
+      <WorkbenchLayout
+        model={workbench}
+        onOpenPrimary={handleOpenPrimary}
+        assistantDock={
+          <WorkspaceAssistantDock
+            assistant={assistant}
+            onOpenTask={(taskId, context) => {
+              navigate(`/workspaces/${workspaceId}/tasks/${taskId}`, {
+                state: { assistantContext: context },
+              });
+            }}
+          />
+        }
+      />
     </div>
   );
 }
