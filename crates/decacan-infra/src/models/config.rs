@@ -47,7 +47,7 @@ impl ModelRouterConfig {
             ProviderConfig {
                 api_key: api_key.into(),
                 base_url: "https://api.openai.com/v1".to_string(),
-                default_model: Some("gpt-4".to_string()),
+                default_model: Some("gpt-4o".to_string()),
                 timeout_seconds: 60,
             },
         );
@@ -60,7 +60,7 @@ impl ModelRouterConfig {
             ProviderConfig {
                 api_key: api_key.into(),
                 base_url: "https://api.anthropic.com/v1".to_string(),
-                default_model: Some("claude-3-opus-20240229".to_string()),
+                default_model: Some("claude-3-5-sonnet-20241022".to_string()),
                 timeout_seconds: 60,
             },
         );

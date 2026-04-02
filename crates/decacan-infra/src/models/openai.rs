@@ -56,7 +56,23 @@ impl ModelProvider for OpenAiProvider {
     }
 
     fn supported_models(&self) -> Vec<&str> {
-        vec!["gpt-4", "gpt-4-turbo", "gpt-3.5-turbo"]
+        vec![
+            // GPT-4o 系列（推荐）
+            "gpt-4o",
+            "gpt-4o-mini",
+            "gpt-4o-latest",
+            // GPT-4 系列
+            "gpt-4",
+            "gpt-4-turbo",
+            "gpt-4-turbo-preview",
+            // GPT-3.5 系列
+            "gpt-3.5-turbo",
+            "gpt-3.5-turbo-0125",
+            // o1 系列（推理模型）
+            "o1",
+            "o1-mini",
+            "o1-preview",
+        ]
     }
 
     async fn complete(&self, request: ModelRequest) -> Result<ModelResponse, ProviderError> {

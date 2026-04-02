@@ -55,6 +55,10 @@ impl ModelProvider for AnthropicProvider {
 
     fn supported_models(&self) -> Vec<&str> {
         vec![
+            // Claude 3.5 系列（最新）
+            "claude-3-5-sonnet-20241022",
+            "claude-3-5-haiku-20241022",
+            // Claude 3 系列
             "claude-3-opus-20240229",
             "claude-3-sonnet-20240229",
             "claude-3-haiku-20240307",
