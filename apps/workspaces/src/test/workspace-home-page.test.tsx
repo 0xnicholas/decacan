@@ -429,6 +429,159 @@ describe("WorkspaceHomePage", () => {
     expect(window.location.pathname).toBe("/workspaces/workspace-1/new-task");
   });
 
+  it("routes the resume CTA to the workspace tasks view when current work has no concrete task target", async () => {
+    const user = userEvent.setup();
+
+    fetchMock.mockImplementation(async (input, init) => {
+      const url = typeof input === "string" ? input : input.toString();
+      const method = init?.method ?? "GET";
+
+      if (url.endsWith("/api/workspaces") && method === "GET") {
+        return new Response(
+          JSON.stringify([
+            {
+              id: "workspace-1",
+              title: "Workspace 1",
+              root_path: "/workspace-1",
+            },
+          ]),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        );
+      }
+
+      if (url.endsWith("/api/workspaces/workspace-1/home") && method === "GET") {
+        return new Response(
+          JSON.stringify({
+            attention: [],
+            task_health: {
+              running: 1,
+              waiting_approval: 0,
+              blocked: 0,
+              completed_today: 0,
+            },
+            activity: [],
+            deliverables: [
+              {
+                id: "deliverable-1",
+                label: "Release Notes Draft",
+                canonical_path: "output/release-notes.md",
+                status: "reviewing",
+              },
+            ],
+            team_snapshot: [],
+            discussion: [],
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        );
+      }
+
+      if (url.endsWith("/api/workspaces/workspace-1/tasks") && method === "GET") {
+        return new Response(JSON.stringify([]), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url}`);
+    });
+
+    renderAppAtRoute("/workspaces/workspace-1");
+
+    const resumeButton = await screen.findByRole("button", { name: "Resume Work" });
+
+    expect(resumeButton).toBeEnabled();
+
+    await user.click(resumeButton);
+
+    await waitFor(() => {
+      expect(window.location.pathname).toBe("/workspaces/workspace-1/tasks");
+    });
+    expect(await screen.findByRole("heading", { name: "Tasks" })).toBeInTheDocument();
+  });
+
+  it("surfaces template terminology inside the workbench panels", async () => {
+    fetchMock.mockImplementation(async (input, init) => {
+      const url = typeof input === "string" ? input : input.toString();
+      const method = init?.method ?? "GET";
+
+      if (url.endsWith("/api/workspaces") && method === "GET") {
+        return new Response(
+          JSON.stringify([
+            {
+              id: "workspace-1",
+              title: "Workspace 1",
+              root_path: "/workspace-1",
+            },
+          ]),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        );
+      }
+
+      if (url.endsWith("/api/workspaces/workspace-1/home") && method === "GET") {
+        return new Response(
+          JSON.stringify({
+            attention: [],
+            task_health: {
+              running: 1,
+              waiting_approval: 1,
+              blocked: 0,
+              completed_today: 2,
+            },
+            activity: [],
+            deliverables: [
+              {
+                id: "deliverable-1",
+                label: "Release Notes Draft",
+                canonical_path: "output/release-notes.md",
+                status: "reviewing",
+              },
+            ],
+            team_snapshot: [],
+            discussion: [],
+            template: {
+              id: "launch-workbench",
+              title: "Launch Bench",
+              slot_order: [
+                "resume",
+                "current_work_primary",
+                "queue_secondary",
+                "collaboration_left",
+                "collaboration_right",
+                "assistant_dock",
+              ],
+              labels: {
+                task: "Work item",
+                deliverable: "Artifact",
+                approval: "Sign-off",
+              },
+            },
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        );
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url}`);
+    });
+
+    renderAppAtRoute("/workspaces/workspace-1");
+
+    expect(await screen.findByText("Track active work items and artifacts for Launch Bench.")).toBeInTheDocument();
+    expect(screen.getByText("Artifact path: output/release-notes.md")).toBeInTheDocument();
+    expect(screen.getByText("Sign-offs, blockers, and follow-ups assigned to you will appear here.")).toBeInTheDocument();
+  });
+
   it("keeps the workbench visible with local fallback guidance when the home request fails", async () => {
     fetchMock.mockImplementation(async (input, init) => {
       const url = typeof input === "string" ? input : input.toString();

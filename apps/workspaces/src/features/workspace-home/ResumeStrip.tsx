@@ -32,11 +32,9 @@ export function ResumeStrip({ resume, onOpenPrimary }: ResumeStripProps) {
         <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
             <p className="text-lg font-semibold">{resume.title}</p>
-            <p className="text-sm text-muted-foreground">
-              Pick up the most relevant task or artifact for this workspace.
-            </p>
+            <p className="text-sm text-muted-foreground">Pick up the most relevant active work for this workspace.</p>
           </div>
-          <Button disabled={!resume.target_task_id} onClick={onOpenPrimary} type="button">
+          <Button onClick={onOpenPrimary} type="button">
             {resume.primary_label}
           </Button>
         </CardContent>

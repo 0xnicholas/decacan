@@ -123,7 +123,6 @@ describe("Workspace workbench panel states", () => {
           primary_label: "Resume Work",
           title: "Resume current work",
           detail: "output/work.md",
-          target_task_id: "task-1",
           has_current_work: true,
         }}
         onOpenPrimary={vi.fn()}
@@ -165,12 +164,17 @@ describe("Workspace workbench panel states", () => {
         queue={{
           items: [],
         }}
+        templateLabels={{
+          task: "Task",
+          deliverable: "Deliverable",
+          approval: "Sign-off",
+        }}
       />,
     );
 
     expect(screen.getByText("Nothing is waiting in your queue")).toBeInTheDocument();
     expect(
-      screen.getByText("Approvals, blockers, and follow-ups assigned to you will appear here."),
+      screen.getByText("Sign-offs, blockers, and follow-ups assigned to you will appear here."),
     ).toBeInTheDocument();
   });
 });

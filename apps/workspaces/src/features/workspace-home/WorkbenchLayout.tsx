@@ -20,8 +20,8 @@ export function WorkbenchLayout({ model, onOpenPrimary, assistantDock }: Workben
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="grid gap-6">
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.9fr)]">
-            <CurrentWorkPanel currentWork={model.current_work} />
-            <MyQueuePanel queue={model.queue} />
+            <CurrentWorkPanel currentWork={model.current_work} template={model.template} />
+            <MyQueuePanel queue={model.queue} templateLabels={model.template.labels} />
           </div>
           <div className="grid gap-6 lg:grid-cols-2">
             <TeamActivityPanel items={model.activity} team={model.team_snapshot} />

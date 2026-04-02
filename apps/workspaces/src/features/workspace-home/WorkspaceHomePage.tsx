@@ -64,14 +64,26 @@ export function WorkspaceHomePage({ workspaceId }: WorkspaceHomePageProps) {
     return <LoadingState message="Loading workspace workbench…" />;
   }
 
+  const handleOpenPrimary = () => {
+    if (workbench.resume.target_task_id) {
+      navigate(`/workspaces/${workspaceId}/tasks/${workbench.resume.target_task_id}`);
+      return;
+    }
+
+    if (workbench.resume.has_current_work) {
+      navigate(`/workspaces/${workspaceId}/tasks`);
+      return;
+    }
+
+    navigate(`/workspaces/${workspaceId}/new-task`);
+  };
+
   return (
     <div>
-      <PageHeader title="Workspace Home" />
+      <PageHeader title="Workspace Home" subtitle={workbench.template.title} />
       <WorkbenchLayout
         model={workbench}
-        onOpenPrimary={() => {
-          navigate(`/workspaces/${workspaceId}/new-task`);
-        }}
+        onOpenPrimary={handleOpenPrimary}
         assistantDock={
           <WorkspaceAssistantDock
             assistant={assistant}

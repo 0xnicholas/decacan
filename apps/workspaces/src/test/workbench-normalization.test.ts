@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import type { WorkspaceHomeData } from "../entities/workspace-home/types";
 import { normalizeWorkspaceHome } from "../entities/workbench/normalizeWorkspaceHome";
+import { requiredWorkbenchSlotOrder } from "../entities/workbench/types";
+
+type WorkspaceAssistantData = NonNullable<WorkspaceHomeData["assistant"]>;
 
 const legacyPayload: WorkspaceHomeData = {
   attention: [
@@ -122,5 +125,33 @@ describe("normalizeWorkspaceHome", () => {
 
     expect(secondModel.template.labels.task).toBe("Task");
     expect(secondModel.assistant.suggested_actions).toHaveLength(0);
+  });
+
+  it("falls back safely when optional template and assistant payload arrays are malformed", () => {
+    const model = normalizeWorkspaceHome("workspace-1", {
+      ...legacyPayload,
+      template: {
+        id: "launch-workbench",
+        title: "Launch Workbench",
+        slot_order: "resume,current_work_primary" as unknown as string[],
+        labels: {
+          task: "Work item",
+          deliverable: "Artifact",
+          approval: "Sign-off",
+        },
+        primary_cta_label: "Resume flow",
+      },
+      assistant: {
+        summary: "Check the blockers before starting anything new.",
+        suggested_actions: {
+          id: "broken",
+        } as unknown as WorkspaceAssistantData["suggested_actions"],
+      },
+    });
+
+    expect(model.template.slot_order).toEqual([...requiredWorkbenchSlotOrder]);
+    expect(model.template.title).toBe("Launch Workbench");
+    expect(model.assistant.summary).toBe("Check the blockers before starting anything new.");
+    expect(model.assistant.suggested_actions).toEqual([]);
   });
 });

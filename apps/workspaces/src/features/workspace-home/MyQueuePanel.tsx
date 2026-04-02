@@ -5,16 +5,25 @@ import { EmptyState } from "../../shared/ui";
 
 interface MyQueuePanelProps {
   queue: QueueModel;
+  templateLabels: {
+    task: string;
+    deliverable: string;
+    approval: string;
+  };
 }
 
-export function MyQueuePanel({ queue }: MyQueuePanelProps) {
+function pluralizeLabel(label: string) {
+  return `${label}s`;
+}
+
+export function MyQueuePanel({ queue, templateLabels }: MyQueuePanelProps) {
   if (!queue.items.length) {
     return (
       <section aria-label="My queue">
         <h2 className="sr-only">My Queue</h2>
         <EmptyState
           title="Nothing is waiting in your queue"
-          message="Approvals, blockers, and follow-ups assigned to you will appear here."
+          message={`${pluralizeLabel(templateLabels.approval)}, blockers, and follow-ups assigned to you will appear here.`}
         />
       </section>
     );
