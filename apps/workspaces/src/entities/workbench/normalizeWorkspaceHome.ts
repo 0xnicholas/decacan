@@ -8,7 +8,9 @@ import {
   type WorkspaceWorkbenchModel,
 } from "./types";
 
-function isRequiredWorkbenchSlotOrder(slotOrder: string[]): slotOrder is RequiredWorkbenchSlotOrder {
+function isRequiredWorkbenchSlotOrder(
+  slotOrder: readonly string[],
+): slotOrder is RequiredWorkbenchSlotOrder {
   return (
     slotOrder.length === requiredWorkbenchSlotOrder.length &&
     slotOrder.every((slot, index) => slot === requiredWorkbenchSlotOrder[index])
