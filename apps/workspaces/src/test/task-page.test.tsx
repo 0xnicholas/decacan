@@ -1,7 +1,10 @@
-import { act, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { Route, Routes, MemoryRouter, useNavigate, useParams } from "react-router-dom";
 import { beforeEach, vi } from "vitest";
+import { ThemeProvider } from "@decacan/ui";
 
+import { TaskPage } from "../features/task-detail/TaskPage";
 import { renderAppAtRoute } from "./renderApp";
 
 const fetchMock = vi.fn<typeof fetch>();
@@ -45,6 +48,49 @@ class FakeEventSource {
 
 vi.stubGlobal("fetch", fetchMock);
 vi.stubGlobal("EventSource", FakeEventSource as unknown as typeof EventSource);
+
+function TaskPageRouteWrapper() {
+  const { taskId, workspaceId } = useParams();
+  return workspaceId && taskId ? <TaskPage taskId={taskId} workspaceId={workspaceId} /> : null;
+}
+
+function TaskPageNavigationHarness() {
+  const navigate = useNavigate();
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => {
+          navigate("/workspaces/workspace-1/tasks/task-1", {
+            state: {
+              assistantContext: {
+                source: "workspace-assistant-dock",
+                summary: "Catch up on the launch blocker before you queue more work.",
+                actionLabel: "Open launch blocker task",
+                targetKind: "task",
+                targetId: "task-1",
+              },
+            },
+          });
+        }}
+      >
+        Open task 1 with assistant context
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          navigate("/workspaces/workspace-1/tasks/task-2");
+        }}
+      >
+        Open task 2 without assistant context
+      </button>
+      <Routes>
+        <Route path="/workspaces/:workspaceId/tasks/:taskId" element={<TaskPageRouteWrapper />} />
+      </Routes>
+    </>
+  );
+}
 
 describe("TaskPage", () => {
   beforeEach(() => {
@@ -217,6 +263,115 @@ describe("TaskPage", () => {
       screen.getByText("Catch up on the launch blocker before you queue more work."),
     ).toBeInTheDocument();
     expect(screen.getByText("Open launch blocker task")).toBeInTheDocument();
+  });
+
+  it("re-syncs the default rail tab when assistant context or task id changes", async () => {
+    fetchMock.mockImplementation(async (input, init) => {
+      const url = typeof input === "string" ? input : input.toString();
+      const method = init?.method ?? "GET";
+
+      if (url.endsWith("/api/workspaces/workspace-1/tasks/task-1") && method === "GET") {
+        return new Response(
+          JSON.stringify({
+            task: {
+              id: "task-1",
+              workspace_id: "workspace-1",
+              playbook_key: "总结资料",
+              input: "Summarize notes",
+              status: "running",
+              status_summary: "Task 1 is running",
+              artifact_id: "artifact-1",
+            },
+            plan: {
+              steps: ["Scan markdown files"],
+              current_step_index: 0,
+              status: "running",
+            },
+            approvals: [],
+            artifacts: [],
+            timeline: [],
+            collaboration: {
+              agent_messages: [],
+              instruction_actions: [],
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      if (url.endsWith("/api/workspaces/workspace-1/tasks/task-2") && method === "GET") {
+        return new Response(
+          JSON.stringify({
+            task: {
+              id: "task-2",
+              workspace_id: "workspace-1",
+              playbook_key: "总结资料",
+              input: "Review blockers",
+              status: "running",
+              status_summary: "Task 2 is running",
+              artifact_id: "artifact-2",
+            },
+            plan: {
+              steps: ["Review blocker notes"],
+              current_step_index: 0,
+              status: "running",
+            },
+            approvals: [],
+            artifacts: [],
+            timeline: [],
+            collaboration: {
+              agent_messages: [],
+              instruction_actions: [],
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      if (url.endsWith("/api/workspaces/workspace-1/tasks") && method === "GET") {
+        return new Response(JSON.stringify([]), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+
+      if (url.endsWith("/api/workspaces") && method === "GET") {
+        return new Response(
+          JSON.stringify([{ id: "workspace-1", title: "Workspace 1", root_path: "/tmp/workspace-1" }]),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      throw new Error(`Unhandled request: ${url}`);
+    });
+
+    const user = userEvent.setup();
+
+    render(
+      <ThemeProvider defaultTheme="light" storageKey="test-theme">
+        <MemoryRouter initialEntries={["/workspaces/workspace-1/tasks/task-1"]}>
+          <TaskPageNavigationHarness />
+        </MemoryRouter>
+      </ThemeProvider>,
+    );
+
+    expect(await screen.findByRole("tab", { name: "Context" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+
+    await user.click(screen.getByRole("button", { name: "Open task 1 with assistant context" }));
+    await waitFor(() => {
+      expect(screen.getByRole("tab", { name: "Agent" })).toHaveAttribute("aria-selected", "true");
+    });
+    expect(screen.getByText("Opened from Workspace Assistant")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Open task 2 without assistant context" }));
+    await waitFor(() => {
+      expect(screen.getByRole("tab", { name: "Context" })).toHaveAttribute("aria-selected", "true");
+    });
+    expect(screen.queryByText("Opened from Workspace Assistant")).not.toBeInTheDocument();
+    expect(screen.getByText("Review blockers")).toBeInTheDocument();
   });
 
   it("shows a workspace-scoped not-found state when task does not belong to route workspace", async () => {

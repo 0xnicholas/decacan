@@ -1,13 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 
 import type { ArtifactContent } from "../../entities/artifact/types";
+import { readAssistantContextState } from "../../entities/workbench/assistantHandoff";
 import { fetchArtifactContent } from "../../shared/api/artifacts";
 import { decideApproval, sendTaskInstruction } from "../../shared/api/tasks";
-import {
-  AssistantContextNotice,
-  readAssistantContextState,
-} from "./AssistantContextNotice";
+import { AssistantContextNotice } from "./AssistantContextNotice";
 import { AgentRail } from "./AgentRail";
 import { ApprovalPanel } from "./ApprovalPanel";
 import { ArtifactPanel } from "./ArtifactPanel";
@@ -38,6 +36,15 @@ export function TaskPage({ taskId, workspaceId }: TaskPageProps) {
     assistantContext?.targetKind === "task" && assistantContext.targetId === taskId
       ? assistantContext
       : null;
+  const assistantContextKey = activeAssistantContext
+    ? [
+        activeAssistantContext.source,
+        activeAssistantContext.targetKind,
+        activeAssistantContext.targetId,
+        activeAssistantContext.actionLabel,
+        activeAssistantContext.summary,
+      ].join(":")
+    : null;
   const [copyNotice, setCopyNotice] = useState<string | null>(null);
   const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
@@ -47,6 +54,10 @@ export function TaskPage({ taskId, workspaceId }: TaskPageProps) {
     activeAssistantContext ? "agent" : "context",
   );
   const [pendingInstructionKey, setPendingInstructionKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    setActiveRailTab(activeAssistantContext ? "agent" : "context");
+  }, [taskId, assistantContextKey]);
 
   if (loadState === "not_found") {
     return (

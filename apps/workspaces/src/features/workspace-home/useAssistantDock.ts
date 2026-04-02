@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
+import type { AssistantContextState } from "../../entities/workbench/assistantHandoff";
 import type { WorkspaceWorkbenchModel } from "../../entities/workbench/types";
-import type { AssistantContextState } from "../task-detail/AssistantContextNotice";
 
 type AssistantModel = WorkspaceWorkbenchModel["assistant"];
 type SuggestedAction = AssistantModel["suggested_actions"][number];
