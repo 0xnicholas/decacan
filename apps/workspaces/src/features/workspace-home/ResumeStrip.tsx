@@ -1,13 +1,29 @@
 import { Button, Card, CardContent, CardDescription, CardHeader } from "@decacan/ui";
 
 import type { ResumeModel } from "../../entities/workbench/types";
+import { EmptyState } from "../../shared/ui";
 
 interface ResumeStripProps {
   resume: ResumeModel;
   onOpenPrimary: () => void;
 }
 
+const emptyResumeTitle = "Resume current work";
+
 export function ResumeStrip({ resume, onOpenPrimary }: ResumeStripProps) {
+  if (resume.title === emptyResumeTitle) {
+    return (
+      <section aria-label="Resume work">
+        <h2 className="sr-only">{resume.primary_label}</h2>
+        <EmptyState
+          title="Start new work"
+          message="There is no active work to resume in this workspace yet."
+          action={{ label: "Launch task", onClick: onOpenPrimary }}
+        />
+      </section>
+    );
+  }
+
   return (
     <section aria-label="Resume work">
       <Card>

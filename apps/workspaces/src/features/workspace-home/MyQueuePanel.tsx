@@ -1,12 +1,25 @@
 import { Card, CardContent, CardHeader } from "@decacan/ui";
 
 import type { QueueModel } from "../../entities/workbench/types";
+import { EmptyState } from "../../shared/ui";
 
 interface MyQueuePanelProps {
   queue: QueueModel;
 }
 
 export function MyQueuePanel({ queue }: MyQueuePanelProps) {
+  if (!queue.items.length) {
+    return (
+      <section aria-label="My queue">
+        <h2 className="sr-only">My Queue</h2>
+        <EmptyState
+          title="Nothing is waiting in your queue"
+          message="Approvals, blockers, and follow-ups assigned to you will appear here."
+        />
+      </section>
+    );
+  }
+
   return (
     <section aria-label="My queue">
       <Card className="h-full">

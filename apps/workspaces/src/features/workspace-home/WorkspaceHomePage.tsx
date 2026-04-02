@@ -14,6 +14,25 @@ interface WorkspaceHomePageProps {
   workspaceId: string;
 }
 
+const fallbackWorkspaceHomeData: WorkspaceHomeData = {
+  attention: [],
+  task_health: {
+    running: 0,
+    waiting_approval: 0,
+    blocked: 0,
+    completed_today: 0,
+  },
+  activity: [],
+  deliverables: [],
+  team_snapshot: [],
+  discussion: [],
+  // Keep the fallback payload raw so normalization stays explicit in the feature seam.
+  assistant: {
+    summary: "",
+    suggested_actions: [],
+  },
+};
+
 export function WorkspaceHomePage({ workspaceId }: WorkspaceHomePageProps) {
   const navigate = useNavigate();
   const [workbench, setWorkbench] = useState<WorkspaceWorkbenchModel | null>(null);
@@ -33,19 +52,7 @@ export function WorkspaceHomePage({ workspaceId }: WorkspaceHomePageProps) {
         }
       } catch {
         if (requestSequence.current == requestId) {
-          const fallbackData: WorkspaceHomeData = {
-            attention: [],
-            task_health: {
-              running: 0,
-              waiting_approval: 0,
-              blocked: 0,
-              completed_today: 0,
-            },
-            activity: [],
-            deliverables: [],
-            team_snapshot: [],
-          };
-          setWorkbench(normalizeWorkspaceHome(workspaceId, fallbackData));
+          setWorkbench(normalizeWorkspaceHome(workspaceId, fallbackWorkspaceHomeData));
         }
       }
     }
@@ -62,7 +69,9 @@ export function WorkspaceHomePage({ workspaceId }: WorkspaceHomePageProps) {
       <PageHeader title="Workspace Home" />
       <WorkbenchLayout
         model={workbench}
-        onOpenPrimary={() => {}}
+        onOpenPrimary={() => {
+          navigate(`/workspaces/${workspaceId}/new-task`);
+        }}
         assistantDock={
           <WorkspaceAssistantDock
             assistant={assistant}
