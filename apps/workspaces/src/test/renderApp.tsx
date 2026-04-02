@@ -1,5 +1,6 @@
 import { render } from "@testing-library/react";
 import { BrowserRouter } from "react-router-dom";
+import { ThemeProvider } from "@decacan/ui";
 
 import { App } from "../app/App";
 
@@ -11,8 +12,10 @@ export function renderAppAtRoute(route?: string) {
   window.history.replaceState({}, "", resolvedRoute);
 
   return render(
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>,
+    <ThemeProvider defaultTheme="light" storageKey="test-theme">
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </ThemeProvider>,
   );
 }
