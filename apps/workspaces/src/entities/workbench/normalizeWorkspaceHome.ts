@@ -67,8 +67,7 @@ export function normalizeWorkspaceHome(
     raw.deliverables.length > 0 ||
     raw.task_health.running > 0 ||
     raw.task_health.waiting_approval > 0 ||
-    raw.task_health.blocked > 0 ||
-    raw.task_health.completed_today > 0;
+    raw.task_health.blocked > 0;
 
   return {
     workspace_id: workspaceId,
