@@ -1,5 +1,12 @@
 # Decacan
 
+Decacan is a multi-agent work orchestration product for teams that need to turn repeatable playbooks into reliable execution.
+It helps teams launch work from reusable playbooks, coordinate approvals and deliverables, and track progress from workspace execution to account-level oversight.
+
+Product surfaces:
+- `apps/workspaces`: the daily execution workspace for running tasks, reviewing outputs, handling approvals, and collaborating with members
+- `apps/console`: the account hub for cross-workspace visibility, operational routing, and playbook lifecycle operations
+
 Decacan is an agent-driven execution platform with a Rust backend and two React product surfaces:
 
 - `apps/workspaces`: workspace-scoped execution (tasks, deliverables, approvals, members, activity)
