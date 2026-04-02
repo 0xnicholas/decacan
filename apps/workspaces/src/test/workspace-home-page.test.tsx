@@ -82,6 +82,13 @@ describe("WorkspaceHomePage", () => {
         );
       }
 
+      if (url.endsWith("/api/published-playbooks") && method === "GET") {
+        return new Response(JSON.stringify([]), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+
       throw new Error(`Unhandled request: ${method} ${url}`);
     });
   });
@@ -178,6 +185,13 @@ describe("WorkspaceHomePage", () => {
             headers: { "content-type": "application/json" },
           },
         );
+      }
+
+      if (url.endsWith("/api/published-playbooks") && method === "GET") {
+        return new Response(JSON.stringify([]), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
       }
 
       throw new Error(`Unhandled request: ${method} ${url}`);
@@ -299,6 +313,68 @@ describe("WorkspaceHomePage", () => {
     expect(await screen.findByText("Start new work")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Launch task" })).toBeInTheDocument();
     expect(screen.getByText("Nothing is waiting in your queue")).toBeInTheDocument();
+  });
+
+  it("navigates to new-task when launch task is clicked from the start surface", async () => {
+    const user = userEvent.setup();
+
+    fetchMock.mockImplementation(async (input, init) => {
+      const url = typeof input === "string" ? input : input.toString();
+      const method = init?.method ?? "GET";
+
+      if (url.endsWith("/api/workspaces") && method === "GET") {
+        return new Response(
+          JSON.stringify([
+            {
+              id: "workspace-1",
+              title: "Workspace 1",
+              root_path: "/workspace-1",
+            },
+          ]),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        );
+      }
+
+      if (url.endsWith("/api/workspaces/workspace-1/home") && method === "GET") {
+        return new Response(
+          JSON.stringify({
+            attention: [],
+            task_health: {
+              running: 0,
+              waiting_approval: 0,
+              blocked: 0,
+              completed_today: 0,
+            },
+            activity: [],
+            deliverables: [],
+            team_snapshot: [],
+            discussion: [],
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        );
+      }
+
+      if (url.endsWith("/api/published-playbooks") && method === "GET") {
+        return new Response(JSON.stringify([]), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url}`);
+    });
+
+    renderAppAtRoute("/workspaces/workspace-1");
+
+    await user.click(await screen.findByRole("button", { name: "Launch task" }));
+
+    expect(window.location.pathname).toBe("/workspaces/workspace-1/new-task");
   });
 
   it("keeps the workbench visible with local fallback guidance when the home request fails", async () => {

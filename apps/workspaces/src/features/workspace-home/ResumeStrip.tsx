@@ -8,10 +8,8 @@ interface ResumeStripProps {
   onOpenPrimary: () => void;
 }
 
-const emptyResumeTitle = "Resume current work";
-
 export function ResumeStrip({ resume, onOpenPrimary }: ResumeStripProps) {
-  if (resume.title === emptyResumeTitle) {
+  if (!resume.has_current_work) {
     return (
       <section aria-label="Resume work">
         <h2 className="sr-only">{resume.primary_label}</h2>

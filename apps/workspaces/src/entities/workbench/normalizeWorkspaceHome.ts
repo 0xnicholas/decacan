@@ -63,11 +63,18 @@ export function normalizeWorkspaceHome(
 ): WorkspaceWorkbenchModel {
   const template = normalizeTemplate(raw.template);
   const primaryDeliverable = raw.deliverables[0];
+  const hasCurrentWork =
+    raw.deliverables.length > 0 ||
+    raw.task_health.running > 0 ||
+    raw.task_health.waiting_approval > 0 ||
+    raw.task_health.blocked > 0 ||
+    raw.task_health.completed_today > 0;
 
   return {
     workspace_id: workspaceId,
     template,
     resume: {
+      has_current_work: hasCurrentWork,
       primary_label: template.primary_cta_label,
       title: primaryDeliverable?.label ?? "Resume current work",
       detail:

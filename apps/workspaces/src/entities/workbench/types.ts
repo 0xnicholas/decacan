@@ -35,6 +35,7 @@ export interface WorkbenchTemplate {
 }
 
 export interface ResumeModel {
+  has_current_work: boolean;
   primary_label: string;
   title: string;
   detail: string;

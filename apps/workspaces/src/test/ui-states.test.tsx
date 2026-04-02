@@ -103,8 +103,9 @@ describe("Workspace workbench panel states", () => {
       <ResumeStrip
         resume={{
           primary_label: "Resume Work",
-          title: "Resume current work",
-          detail: "Open the most relevant task, artifact, or queue item for this workspace.",
+          title: "Ignored title for empty resume",
+          detail: "Semantic empty-state detection should not depend on this copy.",
+          has_current_work: false,
         }}
         onOpenPrimary={vi.fn()}
       />,
@@ -113,6 +114,25 @@ describe("Workspace workbench panel states", () => {
     expect(screen.getByText("Start new work")).toBeInTheDocument();
     expect(screen.getByText("There is no active work to resume in this workspace yet.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Launch task" })).toBeInTheDocument();
+  });
+
+  it("keeps the resume card when current work exists even if the title matches the old fallback copy", () => {
+    render(
+      <ResumeStrip
+        resume={{
+          primary_label: "Resume Work",
+          title: "Resume current work",
+          detail: "output/work.md",
+          target_task_id: "task-1",
+          has_current_work: true,
+        }}
+        onOpenPrimary={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Resume current work")).toBeInTheDocument();
+    expect(screen.queryByText("Start new work")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Resume Work" })).toBeEnabled();
   });
 
   it("shows panel-level empty state for discussion without collapsing the page", () => {
