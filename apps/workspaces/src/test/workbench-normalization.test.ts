@@ -98,4 +98,29 @@ describe("normalizeWorkspaceHome", () => {
       "assistant_dock",
     ]);
   });
+
+  it("returns fresh fallback objects for missing template and assistant data", () => {
+    const firstModel = normalizeWorkspaceHome("workspace-1", {
+      ...legacyPayload,
+      template: undefined,
+      assistant: undefined,
+    });
+
+    firstModel.template.labels.task = "Mutated Task";
+    firstModel.assistant.suggested_actions.push({
+      id: "action-1",
+      label: "Mutated action",
+      target_kind: "task",
+      target_id: "task-1",
+    });
+
+    const secondModel = normalizeWorkspaceHome("workspace-1", {
+      ...legacyPayload,
+      template: undefined,
+      assistant: undefined,
+    });
+
+    expect(secondModel.template.labels.task).toBe("Task");
+    expect(secondModel.assistant.suggested_actions).toHaveLength(0);
+  });
 });

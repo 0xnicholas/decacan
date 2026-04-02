@@ -19,7 +19,11 @@ function isRequiredWorkbenchSlotOrder(
 
 function normalizeTemplate(rawTemplate: WorkspaceHomeData["template"]): WorkbenchTemplate {
   if (!rawTemplate) {
-    return defaultWorkbenchTemplate;
+    return {
+      ...defaultWorkbenchTemplate,
+      slot_order: [...requiredWorkbenchSlotOrder] as WorkbenchTemplate["slot_order"],
+      labels: { ...defaultWorkbenchTemplate.labels },
+    };
   }
 
   const slotOrder = isRequiredWorkbenchSlotOrder(rawTemplate.slot_order)
@@ -29,7 +33,7 @@ function normalizeTemplate(rawTemplate: WorkspaceHomeData["template"]): Workbenc
   return {
     id: rawTemplate.id,
     title: rawTemplate.title,
-    slot_order: slotOrder,
+    slot_order: [...slotOrder] as WorkbenchTemplate["slot_order"],
     primary_cta_label: rawTemplate.primary_cta_label ?? defaultWorkbenchTemplate.primary_cta_label,
     labels: {
       ...defaultWorkbenchTemplate.labels,
@@ -40,13 +44,16 @@ function normalizeTemplate(rawTemplate: WorkspaceHomeData["template"]): Workbenc
 
 function normalizeAssistant(rawAssistant: WorkspaceHomeData["assistant"]): AssistantDockModel {
   if (!rawAssistant) {
-    return defaultAssistantDock;
+    return {
+      ...defaultAssistantDock,
+      suggested_actions: [...defaultAssistantDock.suggested_actions],
+    };
   }
 
   return {
     state: "ambient",
     summary: rawAssistant.summary,
-    suggested_actions: rawAssistant.suggested_actions,
+    suggested_actions: [...rawAssistant.suggested_actions],
   };
 }
 
