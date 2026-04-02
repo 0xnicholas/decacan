@@ -1,1 +1,0 @@
-Summarize my notes about the project
