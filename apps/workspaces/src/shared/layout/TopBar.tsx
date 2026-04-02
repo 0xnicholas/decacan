@@ -19,7 +19,7 @@ export function TopBar({
   );
 
   return (
-    <header className="flex justify-between items-center gap-4 px-7 py-4 border-b border-foreground/10 bg-surface glass">
+    <header className="flex justify-between items-center gap-4 px-7 py-4 border-b border-border bg-background glass">
       <label className="grid gap-1.5 text-sm">
         Workspace
         <select
@@ -28,7 +28,7 @@ export function TopBar({
           onChange={(event) => {
             onWorkspaceChange(event.target.value);
           }}
-          className="min-w-56 px-3 py-2 border border-foreground/14 rounded-xl bg-surface-elevated font-inherit"
+          className="min-w-56 px-3 py-2 border border-border rounded-xl bg-card font-inherit"
         >
           {hasSelectedWorkspace ? null : (
             <option value={selectedWorkspaceId}>{selectedWorkspaceId}</option>
@@ -42,12 +42,12 @@ export function TopBar({
       </label>
       <div className="flex items-center gap-2.5">
         <a
-          className="w-fit px-3.5 py-2 border border-foreground/14 rounded-full bg-surface text-inherit no-underline"
+          className="w-fit px-3.5 py-2 border border-border rounded-full bg-background text-inherit no-underline"
           href={accountHubUrl}
         >
           Console
         </a>
-        <div className="px-3 py-1.5 border border-foreground/14 rounded-full bg-surface">
+        <div className="px-3 py-1.5 border border-border rounded-full bg-background">
           Workspace User
         </div>
         <button 

@@ -10,7 +10,7 @@ interface WorkspaceNavProps {
 
 export function WorkspaceNav({ currentSection, onNavigate }: WorkspaceNavProps) {
   return (
-    <nav className="grid content-start gap-1.5 px-4 py-6 border-r border-foreground/10 bg-surface/50" aria-label="Workspace navigation">
+    <nav className="grid content-start gap-1.5 px-4 py-6 border-r border-border bg-background/50" aria-label="Workspace navigation">
       {workspaceSectionMeta.map((item) => (
         <button
           key={item.key}

@@ -1691,6 +1691,12 @@ declare interface TextRevealProps {
     onComplete?: () => void;
 }
 
+export declare function ThemeProvider({ children, defaultTheme, storageKey, ...props }: {
+    children: React_2.ReactNode;
+    defaultTheme?: string;
+    storageKey?: string;
+}): JSX.Element;
+
 declare const THEMES: {
     readonly light: "";
     readonly dark: ".dark";
@@ -1808,6 +1814,11 @@ export declare function useIsMobile(): boolean;
 export declare function useStepItem(): StepItemContextValue;
 
 export declare function useStepper(): StepperContextValue;
+
+export declare const useTheme: () => {
+    theme: string;
+    setTheme: (theme: string) => void;
+};
 
 /**
  * VideoText displays content with a background video fill effect.

@@ -63,11 +63,13 @@ export function getRoleLabel(role: MemberRole): string {
 }
 
 export function getRoleColor(role: MemberRole): string {
+  // Role colors are semantic (represent permission levels) and use
+  // theme-agnostic colors that work in both light and dark modes
   const colors: Record<MemberRole, string> = {
-    owner: '#8B4513',
-    admin: '#2D5E3E',
-    editor: '#1E4D6B',
-    viewer: '#6B5B1E',
+    owner: 'hsl(25 60% 35%)',   // Warm brown - highest authority
+    admin: 'hsl(142 40% 30%)',  // Forest green - management
+    editor: 'hsl(200 50% 30%)', // Deep blue - creative
+    viewer: 'hsl(45 40% 35%)',  // Olive - observer
   };
-  return colors[role] || '#181311';
+  return colors[role] || 'hsl(20 12% 40%)';
 }
