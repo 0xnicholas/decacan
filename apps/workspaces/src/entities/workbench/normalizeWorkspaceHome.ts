@@ -1,16 +1,33 @@
 import type { WorkspaceHomeData } from "../workspace-home/types";
 import { defaultAssistantDock, defaultWorkbenchTemplate } from "./defaultTemplate";
-import type { AssistantDockModel, WorkbenchTemplate, WorkspaceWorkbenchModel } from "./types";
+import {
+  requiredWorkbenchSlotOrder,
+  type AssistantDockModel,
+  type RequiredWorkbenchSlotOrder,
+  type WorkbenchTemplate,
+  type WorkspaceWorkbenchModel,
+} from "./types";
+
+function isRequiredWorkbenchSlotOrder(slotOrder: string[]): slotOrder is RequiredWorkbenchSlotOrder {
+  return (
+    slotOrder.length === requiredWorkbenchSlotOrder.length &&
+    slotOrder.every((slot, index) => slot === requiredWorkbenchSlotOrder[index])
+  );
+}
 
 function normalizeTemplate(rawTemplate: WorkspaceHomeData["template"]): WorkbenchTemplate {
   if (!rawTemplate) {
     return defaultWorkbenchTemplate;
   }
 
+  const slotOrder = isRequiredWorkbenchSlotOrder(rawTemplate.slot_order)
+    ? rawTemplate.slot_order
+    : requiredWorkbenchSlotOrder;
+
   return {
     id: rawTemplate.id,
     title: rawTemplate.title,
-    slot_order: rawTemplate.slot_order as WorkbenchTemplate["slot_order"],
+    slot_order: slotOrder,
     primary_cta_label: rawTemplate.primary_cta_label ?? defaultWorkbenchTemplate.primary_cta_label,
     labels: {
       ...defaultWorkbenchTemplate.labels,

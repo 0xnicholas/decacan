@@ -71,4 +71,31 @@ describe("normalizeWorkspaceHome", () => {
     expect(model.assistant.state).toBe("ambient");
     expect(model.assistant.summary).toContain("Resume");
   });
+
+  it("restores the required phase-1 slot order when a template provides a non-compliant order", () => {
+    const model = normalizeWorkspaceHome("workspace-1", {
+      ...legacyPayload,
+      template: {
+        id: "custom-workbench",
+        title: "Custom Workbench",
+        slot_order: [
+          "resume",
+          "current_work_primary",
+          "queue_secondary",
+          "assistant_dock",
+          "collaboration_left",
+          "collaboration_right",
+        ],
+      },
+    });
+
+    expect(model.template.slot_order).toEqual([
+      "resume",
+      "current_work_primary",
+      "queue_secondary",
+      "collaboration_left",
+      "collaboration_right",
+      "assistant_dock",
+    ]);
+  });
 });

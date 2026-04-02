@@ -15,10 +15,21 @@ export type WorkbenchSlot =
   | "collaboration_right"
   | "assistant_dock";
 
+export const requiredWorkbenchSlotOrder = [
+  "resume",
+  "current_work_primary",
+  "queue_secondary",
+  "collaboration_left",
+  "collaboration_right",
+  "assistant_dock",
+] as const satisfies readonly WorkbenchSlot[];
+
+export type RequiredWorkbenchSlotOrder = typeof requiredWorkbenchSlotOrder;
+
 export interface WorkbenchTemplate {
   id: string;
   title: string;
-  slot_order: WorkbenchSlot[];
+  slot_order: RequiredWorkbenchSlotOrder;
   primary_cta_label: string;
   labels: Record<"task" | "deliverable" | "approval", string>;
 }

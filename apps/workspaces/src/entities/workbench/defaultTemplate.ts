@@ -1,16 +1,13 @@
-import type { AssistantDockModel, WorkbenchTemplate } from "./types";
+import {
+  requiredWorkbenchSlotOrder,
+  type AssistantDockModel,
+  type WorkbenchTemplate,
+} from "./types";
 
 export const defaultWorkbenchTemplate: WorkbenchTemplate = {
   id: "default-workbench",
   title: "Workspace Workbench",
-  slot_order: [
-    "resume",
-    "current_work_primary",
-    "queue_secondary",
-    "collaboration_left",
-    "collaboration_right",
-    "assistant_dock",
-  ],
+  slot_order: requiredWorkbenchSlotOrder,
   primary_cta_label: "Resume Work",
   labels: {
     task: "Task",
