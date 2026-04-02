@@ -29,6 +29,7 @@ sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "migrate", "t
 # 模型新增
 reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
 thiserror = "1"
+futures = "0.3"
 
 [dev-dependencies]
 tempfile = "3"

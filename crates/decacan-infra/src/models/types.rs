@@ -43,7 +43,7 @@ pub struct ModelResponse {
 }
 
 /// Token 使用量
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct Usage {
     pub prompt_tokens: u32,
     pub completion_tokens: u32,
