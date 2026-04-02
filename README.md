@@ -3,16 +3,91 @@
 Decacan is a multi-agent work orchestration product for teams that need to turn repeatable playbooks into reliable execution.
 It helps teams launch work from reusable playbooks, coordinate approvals and deliverables, and track progress from workspace execution to account-level oversight.
 
-Product surfaces:
+## Who Decacan Is For
+
+- Product teams that need a repeatable way to move from intent to execution outcomes
+- Engineering teams that need clear workspace boundaries, approval points, and observable task state
+- Cross-workspace operators who need account-level visibility without losing workspace-level ownership
+
+## Product Overview
+
+Core product surfaces:
 - `apps/workspaces`: the daily execution workspace for running tasks, reviewing outputs, handling approvals, and collaborating with members
 - `apps/console`: the account hub for cross-workspace visibility, operational routing, and playbook lifecycle operations
 
-Decacan is an agent-driven execution platform with a Rust backend and two React product surfaces:
+Product boundary rule:
+- Design and publish reusable playbooks in Console
+- Instantiate and execute work inside Workspaces
+- Track cross-workspace workload from account-level views without duplicating workspace detail flows
 
-- `apps/workspaces`: workspace-scoped execution (tasks, deliverables, approvals, members, activity)
-- `apps/console`: account-scoped hub (cross-workspace aggregation + playbook operations)
+### Non-goals / Out of Scope
 
-## Architecture (Current Repo)
+- `apps/console` is not a second workspace detail shell; it should not replicate full task-detail execution UX.
+- `apps/workspaces` is not the global account dashboard; cross-workspace aggregation belongs to Console.
+- Playbook authoring lifecycle (design/edit/publish) does not run inside Workspaces.
+- Workspace-specific execution decisions (task instructions, deliverable review flow, member operations) should not be driven from account-level pages.
+
+### Boundary Decision Table
+
+| Scenario | Primary Surface | Why |
+|---|---|---|
+| Cross-workspace "what needs my attention" | `apps/console` | Account-level aggregation and routing |
+| Launch task in a specific workspace | `apps/workspaces` | Requires concrete workspace context and local inputs |
+| Task detail execution (timeline, instructions, artifacts) | `apps/workspaces` | Execution supervision belongs to workspace runtime context |
+| Deliverable review for a workspace task | `apps/workspaces` | Decision is tied to workspace task ownership |
+| Member invite/role changes for a workspace | `apps/workspaces` | Workspace-scoped permission and accountability |
+| Playbook design/edit/version/publish | `apps/console` | Centralized reusable asset lifecycle |
+| Navigate to another workspace from account perspective | `apps/console` | Cross-workspace switching and account orchestration |
+| Global account workload summary | `apps/console` | Not tied to one workspace boundary |
+
+## R&D Collaboration Quickstart
+
+### Team Roles
+
+- Product: define playbook intent, approval rules, success criteria
+- Workspaces frontend: workspace-scoped UX for launch, task detail, deliverables, approvals, members, activity
+- Console frontend: account-scoped aggregation and playbook operations
+- Backend/API: account + workspace route boundaries, DTO contracts, auth/policy enforcement
+
+### Start Here
+
+```bash
+pnpm install
+cargo check --workspace
+```
+
+```bash
+# backend API
+cargo run -p decacan-app
+
+# workspaces app (builds @decacan/ui first)
+pnpm dev:workspaces
+
+# console app
+pnpm dev:console
+```
+
+Default local URLs:
+- backend API: `http://127.0.0.1:3000`
+- `apps/workspaces`: `http://127.0.0.1:5173`
+- `apps/console`: `http://localhost:3001`
+
+### Environment Essentials
+
+- `DECACAN_APP_PORT` (backend port, default `3000`)
+- `DECACAN_PROFILE`
+- `DECACAN_POSTGRES_URL`
+- `DECACAN_OPENAI_API_KEY`
+- `DECACAN_ANTHROPIC_API_KEY`
+- `JWT_SECRET` (required for non-test/production auth boot paths)
+
+Copy template:
+
+```bash
+cp .env.example .env
+```
+
+## Architecture Snapshot (Current Repo)
 
 ### Runtime Boundaries
 
@@ -31,7 +106,7 @@ Decacan is an agent-driven execution platform with a Rust backend and two React 
 | Infra Adapters | `crates/decacan-infra` | Model providers/router, storage adapters, config/secrets/logging utilities |
 | Auth | `crates/decacan-auth` | Auth service, token/session flow, storage adapter |
 
-## Project Structure
+## Repository Map
 
 ```text
 crates/
@@ -61,67 +136,6 @@ docs/
 - Package/tooling: Cargo, pnpm workspace
 - Model providers (current infra router): OpenAI + Anthropic
 
-## Getting Started
-
-### Prerequisites
-
-- Rust (with Cargo)
-- Node.js 20+
-- pnpm 10+
-- PostgreSQL 15+ (for DB-backed flows)
-
-### Install
-
-```bash
-pnpm install
-cargo check --workspace
-```
-
-### Environment
-
-Copy and edit:
-
-```bash
-cp .env.example .env
-```
-
-Common variables used by current code and configs:
-
-- `DECACAN_APP_PORT` (backend port, default `3000`)
-- `DECACAN_PROFILE`
-- `DECACAN_POSTGRES_URL`
-- `DECACAN_OPENAI_API_KEY`
-- `DECACAN_ANTHROPIC_API_KEY`
-- `JWT_SECRET` (required for non-test/production auth boot paths)
-
-## Run
-
-### Backend
-
-```bash
-# optional: run SQL migrations if using PostgreSQL storage paths
-sqlx migrate run
-
-# start API server (defaults to 127.0.0.1:3000)
-cargo run -p decacan-app
-```
-
-### Frontend
-
-```bash
-# workspaces dev (builds @decacan/ui first, then starts app)
-pnpm dev:workspaces
-
-# console dev
-pnpm dev:console
-```
-
-Default local URLs:
-
-- `apps/workspaces`: `http://127.0.0.1:5173`
-- `apps/console`: `http://localhost:3001`
-- backend API: `http://127.0.0.1:3000`
-
 ## Frontend Handoff Config
 
 `apps/workspaces` -> Console link:
@@ -134,6 +148,18 @@ Default local URLs:
 
 - `VITE_WORKSPACES_APP_URL`
 - default: `http://localhost:5173`
+
+## Workflow and Contribution
+
+1. Branch from `main` for one scoped concern
+2. Keep account/workspace API boundaries explicit in contracts and route naming
+3. Run verification before review:
+   - `cargo test --workspace`
+   - `cargo clippy --workspace -- -D warnings`
+   - `cargo fmt --check`
+   - `pnpm --filter decacan-workspaces test`
+   - `pnpm --filter decacan-console test`
+4. Update docs whenever product boundaries, architecture, or API contracts change
 
 ## API Route Quick Reference
 
