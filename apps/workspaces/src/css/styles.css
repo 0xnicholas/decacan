@@ -1,98 +1,24 @@
-/* Tailwind Core */
-@import 'tailwindcss';
+/* Import shared ReUI theme and styles */
+@import '@decacan/ui/css/styles.css';
 
-/* Theme Configuration */
-@theme {
-  /* Colors - Decacan warm palette */
-  --color-background: #f8f1de;
-  --color-background-gradient-start: #f8f1de;
-  --color-background-gradient-mid: #efe4c8;
-  --color-background-gradient-end: #e6d8b8;
-  --color-foreground: #181311;
-  --color-foreground-muted: rgba(24, 19, 17, 0.68);
-  --color-foreground-subtle: rgba(24, 19, 17, 0.5);
-  
-  /* Surface colors */
-  --color-surface: rgba(255, 252, 246, 0.7);
-  --color-surface-solid: #fffaf0;
-  --color-surface-elevated: rgba(255, 255, 255, 0.9);
-  --color-border: rgba(24, 19, 17, 0.1);
-  --color-border-strong: rgba(24, 19, 17, 0.14);
-  
-  /* Accent colors */
-  --color-primary: #181311;
-  --color-primary-foreground: #fff8ef;
-  --color-accent: rgba(24, 19, 17, 0.08);
-  
-  /* Status colors */
-  --color-success: rgba(45, 94, 62, 0.12);
-  --color-warning: rgba(168, 111, 41, 0.16);
-  --color-error: rgba(119, 50, 43, 0.14);
-  
-  /* Typography */
-  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-serif: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
-  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-  
-  /* Spacing */
-  --spacing-sidebar: 280px;
-  --spacing-nav: 220px;
-  
-  /* Border radius */
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 20px;
-  --radius-2xl: 24px;
-  --radius-full: 999px;
-  
-  /* Shadows */
-  --shadow-card: 0 8px 24px rgba(24, 19, 17, 0.1);
-  --shadow-elevated: 0 12px 30px rgba(24, 19, 17, 0.12);
-  --shadow-drawer: -12px 0 40px rgba(24, 19, 17, 0.12);
-  
-  /* Animations */
-  --animate-spin: spin 0.8s linear infinite;
-}
-
-/* Base styles */
+/* Minimal app-specific base styles */
 @layer base {
   * {
-    @apply box-border;
+    @apply border-border;
   }
-  
-  html {
-    @apply antialiased;
-  }
-  
-  body {
-    @apply m-0 min-h-screen;
-    font-family: var(--font-serif);
-    color: var(--color-foreground);
-    background: linear-gradient(135deg, var(--color-background-gradient-start) 0%, var(--color-background-gradient-mid) 50%, var(--color-background-gradient-end) 100%);
-  }
-  
-  #root {
-    @apply min-h-screen;
+
+  *:focus-visible {
+    @apply outline-ring rounded-xs shadow-none outline-2 outline-offset-3 transition-none!;
   }
 }
 
-/* Custom utility classes */
+/* App-specific utilities (keep minimal) */
 @layer utilities {
   .text-eyebrow {
-    @apply text-sm uppercase tracking-widest;
-  }
-  
-  .surface-glass {
-    background: var(--color-surface);
-    backdrop-filter: blur(12px);
-  }
-  
-  .surface-elevated {
-    background: var(--color-surface-elevated);
+    @apply text-xs uppercase tracking-wider text-muted-foreground;
   }
 }
 
-/* Dark/Light Theme Variant */
+/* Dark/Light Theme Variants */
 @custom-variant dark (&:is(.dark *));
 @custom-variant light (&:not(.dark *));
