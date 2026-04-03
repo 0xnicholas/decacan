@@ -53,4 +53,6 @@ pub struct WorkspaceHomeDto {
     pub activity: Vec<crate::dto::ActivityDto>,
     pub deliverables: Vec<WorkspaceDeliverableDto>,
     pub team_snapshot: Vec<crate::dto::MemberDto>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub assistant_session: Option<crate::dto::AssistantSessionSummaryDto>,
 }

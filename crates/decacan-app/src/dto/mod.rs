@@ -2,12 +2,14 @@ mod account;
 mod activity;
 mod approval;
 mod artifact;
+mod assistant;
 mod deliverable;
 mod member;
 mod playbook;
 pub mod policy;
 mod task;
 pub mod team;
+mod team_session;
 pub mod trace;
 mod workspace;
 
@@ -17,6 +19,11 @@ pub use account::{
 pub use activity::ActivityDto;
 pub use approval::{ApprovalDto, ApprovalRequestDto};
 pub use artifact::{ArtifactContentDto, ArtifactDto};
+pub use assistant::{
+    AssistantDelegationDto, AssistantObjectiveDto, AssistantSessionResponseDto,
+    AssistantSessionSummaryDto, CreateAssistantDelegationRequestDto,
+    CreateAssistantSessionRequestDto,
+};
 pub use deliverable::{
     DeliverableDetailDto, DeliverableDto, DeliverableLinkedTaskDto,
     DeliverableReviewHistoryEntryDto, DeliverableReviewRequestDto,
@@ -26,9 +33,9 @@ pub use playbook::{
     CreatePlaybookRequestDto, CreatePlaybookResponseDto, DraftHealthIssueDto, DraftHealthReportDto,
     ForkPlaybookRequestDto, ForkPlaybookResponseDto, PlaybookDetailDto, PlaybookDraftDto,
     PlaybookDto, PlaybookHandleDto, PlaybookStudioListItemDto, PlaybookVersionDto,
-    PublishedPlaybookDto,
-    PublishPlaybookResponseDto, SavePlaybookDraftRequestDto, SavePlaybookDraftResponseDto,
-    StoreEntryDto, UpdatePlaybookRequestDto, UpdatePlaybookResponseDto,
+    PublishPlaybookResponseDto, PublishedPlaybookDto, SavePlaybookDraftRequestDto,
+    SavePlaybookDraftResponseDto, StoreEntryDto, UpdatePlaybookRequestDto,
+    UpdatePlaybookResponseDto,
 };
 pub use policy::{
     CheckPermissionRequestDto, CheckPermissionResponseDto, PermissionDto,
@@ -44,6 +51,7 @@ pub use team::{
     CreateTeamRequestDto, CreateTeamResponseDto, CreateTeamRoleDto, ListTeamsResponseDto,
     TeamRoleDto, TeamSpecDto, UpdateTeamRequestDto,
 };
+pub use team_session::TeamSessionSnapshotDto;
 pub use trace::{
     AttributionResponse, AttributionTargetDto, StepTraceDto, TaskTraceResponse,
     VersionStatsResponse,

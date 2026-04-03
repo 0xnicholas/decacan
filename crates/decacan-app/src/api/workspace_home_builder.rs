@@ -79,5 +79,6 @@ pub fn build_workspace_home_stub(workspace_id: &str) -> WorkspaceHomeDto {
                 status: "heads-down".to_owned(),
             },
         ],
+        assistant_session: None,
     }
 }

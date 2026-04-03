@@ -10,7 +10,9 @@ use decacan_auth::{AuthService, SqliteUserStorage};
 use decacan_infra::clock::system::SystemClock;
 use decacan_infra::filesystem::local::LocalFilesystem;
 use decacan_infra::storage::memory::MemoryStorage;
+use decacan_infra::team::adapter::InProcessTeamOrchestrator;
 use decacan_runtime::artifact::entity::Artifact as RuntimeArtifact;
+use decacan_runtime::assistant::session::{AssistantDelegationBinding, AssistantSession};
 use decacan_runtime::events::{TaskEvent, TaskEventPayload};
 use decacan_runtime::playbook::authoring::{save_draft, SaveDraftCommand};
 use decacan_runtime::playbook::entity::{
@@ -28,9 +30,11 @@ use decacan_runtime::playbook::registry::{
 };
 use decacan_runtime::ports::clock::ClockPort;
 use decacan_runtime::ports::filesystem::FilesystemPort;
+use decacan_runtime::ports::team_orchestrator::{StartTeamSessionRequest, TeamOrchestratorPort};
 use decacan_runtime::run::entity::Run;
 use decacan_runtime::run::service::{SummaryPlaybookE2eResult, SummaryPlaybookExecutionError};
 use decacan_runtime::task::entity::{Task, TaskStatus};
+use decacan_runtime::team_session::snapshot::TeamSessionSnapshot;
 use decacan_runtime::workspace::entity::WorkspaceMembership;
 use decacan_runtime::workspace::rbac::WorkspaceRole;
 use decacan_runtime::workspace::service::member_service::{
@@ -40,16 +44,19 @@ use tokio::sync::broadcast;
 
 use crate::dto::{
     AccountHomeDto, AccountPlaybookShortcutDto, AccountTaskSummaryDto, AccountWorkItemDto,
-    ApprovalDto, ArtifactContentDto, ArtifactDto, CreatePlaybookRequestDto,
-    CreatePlaybookResponseDto, CreateTaskAcceptedResponse, CreateTaskRequest, CreateTeamRequestDto,
-    CreateTeamResponseDto, DraftHealthIssueDto, DraftHealthReportDto, ForkPlaybookResponseDto,
-    ListTeamsResponseDto, PermissionDto, PlaybookDetailDto, PlaybookDraftDto, PlaybookDto,
-    PlaybookHandleDto, PlaybookStudioListItemDto, PlaybookVersionDto, PublishPlaybookResponseDto,
+    ApprovalDto, ArtifactContentDto, ArtifactDto, AssistantDelegationDto, AssistantObjectiveDto,
+    AssistantSessionResponseDto, CreateAssistantDelegationRequestDto,
+    CreateAssistantSessionRequestDto, CreatePlaybookRequestDto, CreatePlaybookResponseDto,
+    CreateTaskAcceptedResponse, CreateTaskRequest, CreateTeamRequestDto, CreateTeamResponseDto,
+    DraftHealthIssueDto, DraftHealthReportDto, ForkPlaybookResponseDto, ListTeamsResponseDto,
+    PermissionDto, PlaybookDetailDto, PlaybookDraftDto, PlaybookDto, PlaybookHandleDto,
+    PlaybookStudioListItemDto, PlaybookVersionDto, PublishPlaybookResponseDto,
     PublishedPlaybookDto, RetryTaskRequest, SavePlaybookDraftResponseDto, StoreEntryDto,
     TaskAgentMessageDto, TaskCollaborationDto, TaskDetailDto, TaskDto, TaskEventEnvelopeDto,
     TaskInstructionActionDto, TaskPlanDto, TaskPreviewDto, TaskPreviewRequest, TaskSummaryDto,
-    TeamRoleDto, TeamSpecDto, UpdatePlaybookRequestDto, UpdatePlaybookResponseDto,
-    UpdateTeamRequestDto, UserPermissionsResponseDto, WorkspaceDto, WorkspacePermissionDto,
+    TeamRoleDto, TeamSessionSnapshotDto, TeamSpecDto, UpdatePlaybookRequestDto,
+    UpdatePlaybookResponseDto, UpdateTeamRequestDto, UserPermissionsResponseDto, WorkspaceDto,
+    WorkspacePermissionDto,
 };
 use crate::middleware::CurrentUser;
 
@@ -67,10 +74,12 @@ struct AppStateInner {
     lifecycle_playbooks: Mutex<HashMap<String, StoredLifecyclePlaybook>>,
     teams: Mutex<HashMap<String, StoredTeamSpec>>,
     tasks: Mutex<HashMap<String, StoredTask>>,
+    assistant_sessions: Mutex<HashMap<String, StoredAssistantSession>>,
     artifacts: Mutex<HashMap<String, StoredArtifact>>,
     approvals: Mutex<HashMap<String, ApprovalDto>>,
     task_events: Mutex<HashMap<String, Vec<TaskEventEnvelopeDto>>>,
     task_event_bus: broadcast::Sender<TaskEventEnvelopeDto>,
+    team_orchestrator: InProcessTeamOrchestrator,
     auth_service: AuthService<SqliteUserStorage>,
     member_service: MemberService,
 }
@@ -89,6 +98,14 @@ struct StoredTask {
     agent_messages: Vec<TaskAgentMessageDto>,
     runtime_task: Task,
     runtime_run: Run,
+}
+
+#[derive(Debug, Clone)]
+struct StoredAssistantSession {
+    workspace_id: String,
+    execution_mode: String,
+    objective: AssistantObjectiveDto,
+    session: AssistantSession,
 }
 
 #[derive(Debug, Clone)]
@@ -126,6 +143,14 @@ struct ExecutionOutcome {
     task: Task,
     run: Run,
     result: Result<SummaryPlaybookE2eResult, String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AssistantDelegationError {
+    WorkspaceNotFound,
+    SessionNotFound,
+    ActiveDelegationExists,
+    OrchestrationFailed,
 }
 
 impl AppState {
@@ -281,10 +306,12 @@ impl AppState {
                 lifecycle_playbooks: Mutex::new(HashMap::new()),
                 teams: Mutex::new(HashMap::new()),
                 tasks: Mutex::new(HashMap::new()),
+                assistant_sessions: Mutex::new(HashMap::new()),
                 artifacts: Mutex::new(HashMap::new()),
                 approvals: Mutex::new(HashMap::new()),
                 task_events: Mutex::new(HashMap::new()),
                 task_event_bus,
+                team_orchestrator: InProcessTeamOrchestrator::default(),
                 auth_service,
                 member_service,
             }),
@@ -317,6 +344,151 @@ impl AppState {
             user_id: "current-user".to_owned(),
             default_workspace_id: self.default_workspace_id(),
         }
+    }
+
+    pub async fn create_assistant_session(
+        &self,
+        request: CreateAssistantSessionRequestDto,
+    ) -> Result<AssistantSessionResponseDto, AssistantDelegationError> {
+        if !self.is_known_workspace(&request.workspace_id) {
+            return Err(AssistantDelegationError::WorkspaceNotFound);
+        }
+
+        let assistant_session_id = self.next_id("assistant-session");
+        let task_id = self.next_id("assistant-task");
+        let run_id = self.next_id("assistant-run");
+
+        let started = self
+            .inner
+            .team_orchestrator
+            .start_session(StartTeamSessionRequest::new_for_test(
+                request.workspace_id.clone(),
+                task_id.clone(),
+            ))
+            .await
+            .map_err(|_| AssistantDelegationError::OrchestrationFailed)?;
+
+        let session = AssistantSession::new_for_test(assistant_session_id.clone())
+            .with_active_delegation(
+                task_id.clone(),
+                run_id.clone(),
+                started.snapshot.session_id.clone(),
+            );
+
+        let binding = session
+            .active_delegation
+            .clone()
+            .ok_or(AssistantDelegationError::OrchestrationFailed)?;
+
+        let mut sessions = self
+            .inner
+            .assistant_sessions
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        sessions.insert(
+            assistant_session_id.clone(),
+            StoredAssistantSession {
+                workspace_id: request.workspace_id.clone(),
+                execution_mode: request.execution_mode.clone(),
+                objective: request.objective.clone(),
+                session,
+            },
+        );
+
+        Ok(build_assistant_session_response(
+            assistant_session_id,
+            request.workspace_id,
+            request.execution_mode,
+            request.objective,
+            binding,
+            started.snapshot,
+        ))
+    }
+
+    pub async fn create_assistant_delegation(
+        &self,
+        assistant_session_id: &str,
+        request: CreateAssistantDelegationRequestDto,
+    ) -> Result<AssistantSessionResponseDto, AssistantDelegationError> {
+        if !self.is_known_workspace(&request.workspace_id) {
+            return Err(AssistantDelegationError::WorkspaceNotFound);
+        }
+
+        let existing = {
+            let sessions = self
+                .inner
+                .assistant_sessions
+                .lock()
+                .unwrap_or_else(|e| e.into_inner());
+            sessions
+                .get(assistant_session_id)
+                .cloned()
+                .ok_or(AssistantDelegationError::SessionNotFound)?
+        };
+
+        if existing.session.can_start_new_delegation().is_err() {
+            return Err(AssistantDelegationError::ActiveDelegationExists);
+        }
+
+        let task_id = self.next_id("assistant-task");
+        let run_id = self.next_id("assistant-run");
+
+        let started = self
+            .inner
+            .team_orchestrator
+            .start_session(StartTeamSessionRequest::new_for_test(
+                request.workspace_id.clone(),
+                task_id.clone(),
+            ))
+            .await
+            .map_err(|_| AssistantDelegationError::OrchestrationFailed)?;
+
+        let session = existing.session.with_active_delegation(
+            task_id.clone(),
+            run_id.clone(),
+            started.snapshot.session_id.clone(),
+        );
+        let binding = session
+            .active_delegation
+            .clone()
+            .ok_or(AssistantDelegationError::OrchestrationFailed)?;
+
+        let mut sessions = self
+            .inner
+            .assistant_sessions
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        sessions.insert(
+            assistant_session_id.to_owned(),
+            StoredAssistantSession {
+                workspace_id: request.workspace_id.clone(),
+                execution_mode: request.execution_mode.clone(),
+                objective: request.objective.clone(),
+                session,
+            },
+        );
+
+        Ok(build_assistant_session_response(
+            assistant_session_id.to_owned(),
+            request.workspace_id,
+            request.execution_mode,
+            request.objective,
+            binding,
+            started.snapshot,
+        ))
+    }
+
+    pub async fn get_team_session_snapshot(
+        &self,
+        team_session_id: &str,
+    ) -> Option<TeamSessionSnapshotDto> {
+        self.inner
+            .team_orchestrator
+            .get_snapshot(team_session_id)
+            .await
+            .ok()
+            .flatten()
+            .map(TeamSessionSnapshotDto::from)
     }
 
     pub fn build_account_home(&self) -> AccountHomeDto {
@@ -1872,6 +2044,39 @@ fn map_registered_playbook_error(error: RegisteredPlaybookError) -> CreateTaskEr
         RegisteredPlaybookError::UnknownPlaybook | RegisteredPlaybookError::UnsupportedPlaybook => {
             CreateTaskError::UnknownPlaybook
         }
+    }
+}
+
+fn build_assistant_session_response(
+    assistant_session_id: String,
+    workspace_id: String,
+    execution_mode: String,
+    objective: AssistantObjectiveDto,
+    delegation: AssistantDelegationBinding,
+    team_session: TeamSessionSnapshot,
+) -> AssistantSessionResponseDto {
+    AssistantSessionResponseDto {
+        assistant_session_id,
+        workspace_id,
+        objective,
+        execution_mode,
+        delegation: AssistantDelegationDto {
+            task_id: delegation.task_id,
+            run_id: delegation.run_id,
+            team_session_id: delegation.team_session_id,
+            status: delegation_status_as_str(delegation.status).to_owned(),
+        },
+        team_session: TeamSessionSnapshotDto::from(team_session),
+    }
+}
+
+fn delegation_status_as_str(
+    status: decacan_runtime::assistant::session::AssistantDelegationStatus,
+) -> &'static str {
+    match status {
+        decacan_runtime::assistant::session::AssistantDelegationStatus::Active => "active",
+        decacan_runtime::assistant::session::AssistantDelegationStatus::Completed => "completed",
+        decacan_runtime::assistant::session::AssistantDelegationStatus::Cancelled => "cancelled",
     }
 }
 
