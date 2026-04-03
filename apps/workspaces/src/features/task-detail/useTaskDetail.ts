@@ -12,6 +12,7 @@ import {
   listWorkspaceTasks,
   taskEventsStreamPath,
 } from "../../shared/api/tasks";
+import { getTeamSessionSnapshot } from "../../shared/api/teamSessions";
 
 type TaskLoadState = "loading" | "ready" | "not_found";
 
@@ -32,7 +33,7 @@ export function useTaskDetail(taskId: string, workspaceId?: string) {
         const tasks = workspaceId
           ? await listWorkspaceTasks(workspaceId)
           : await listTasks();
-        const normalizedTask = normalizeTaskDetail(response);
+        const normalizedTask = await normalizeTaskDetail(response);
 
         if (active) {
           setTaskDetail(normalizedTask);
@@ -116,14 +117,26 @@ function filterRecentTasks(tasks: TaskListItem[], currentTaskId: string, workspa
     .slice(0, 3);
 }
 
-function normalizeTaskDetail(taskDetail: TaskDetail): TaskDetail {
+async function normalizeTaskDetail(taskDetail: TaskDetail): Promise<TaskDetail> {
   const collaboration = taskDetail.collaboration;
+  const teamSessionId = collaboration?.team_session_id;
+  let teamSession = collaboration?.team_session;
+
+  if (teamSessionId && !teamSession) {
+    try {
+      teamSession = await getTeamSessionSnapshot(teamSessionId);
+    } catch {
+      teamSession = undefined;
+    }
+  }
 
   return {
     ...taskDetail,
     collaboration: {
       agent_messages: collaboration?.agent_messages ?? [],
       instruction_actions: collaboration?.instruction_actions ?? [],
+      team_session_id: teamSessionId,
+      team_session: teamSession,
     },
   };
 }

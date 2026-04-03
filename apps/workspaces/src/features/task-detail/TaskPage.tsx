@@ -15,6 +15,7 @@ import { HistoryRail } from "./HistoryRail";
 import { LiveActivityStrip } from "./LiveActivityStrip";
 import { PlanProgressPanel } from "./PlanProgressPanel";
 import { TaskHeader } from "./TaskHeader";
+import { TeamSessionPanel } from "./TeamSessionPanel";
 import { TimelinePanel } from "./TimelinePanel";
 import { useTaskDetail } from "./useTaskDetail";
 
@@ -142,12 +143,19 @@ export function TaskPage({ taskId, workspaceId }: TaskPageProps) {
     
     if (activeRailTab === "agent") {
       return (
-        <AgentRail
-          instructionActions={taskDetail.collaboration?.instruction_actions ?? []}
-          isSubmittingKey={pendingInstructionKey}
-          messages={taskDetail.collaboration?.agent_messages ?? []}
-          onRunInstruction={handleInstruction}
-        />
+        <>
+          <AgentRail
+            instructionActions={taskDetail.collaboration?.instruction_actions ?? []}
+            isSubmittingKey={pendingInstructionKey}
+            messages={taskDetail.collaboration?.agent_messages ?? []}
+            onRunInstruction={handleInstruction}
+          />
+          {taskDetail.collaboration?.team_session ? (
+            <div style={{ marginTop: "12px" }}>
+              <TeamSessionPanel session={taskDetail.collaboration.team_session} />
+            </div>
+          ) : null}
+        </>
       );
     }
 

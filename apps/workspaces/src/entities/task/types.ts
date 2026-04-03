@@ -1,4 +1,5 @@
 import type { Approval } from "../approval/types";
+import type { TeamSessionSnapshot } from "../assistant/types";
 import type { Artifact } from "../artifact/types";
 
 export interface TaskEventEnvelope {
@@ -27,6 +28,8 @@ export interface TaskAgentMessage {
 export interface TaskCollaboration {
   agent_messages: TaskAgentMessage[];
   instruction_actions: TaskInstructionAction[];
+  team_session_id?: string;
+  team_session?: TeamSessionSnapshot;
 }
 
 export type TaskConnectionState = "live" | "reconnecting" | "offline";

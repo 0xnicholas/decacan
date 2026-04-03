@@ -184,6 +184,79 @@ describe("TaskPage", () => {
     });
   });
 
+  it("renders team session panel when collaboration includes team_session_id", async () => {
+    fetchMock.mockImplementation(async (input, init) => {
+      const url = typeof input === "string" ? input : input.toString();
+      const method = init?.method ?? "GET";
+
+      if (url.endsWith("/api/workspaces/workspace-1/tasks/task-1") && method === "GET") {
+        return new Response(
+          JSON.stringify({
+            task: {
+              id: "task-1",
+              workspace_id: "workspace-1",
+              playbook_key: "总结资料",
+              input: "Summarize notes",
+              status: "running",
+              status_summary: "Task is running",
+              artifact_id: "artifact-1",
+            },
+            plan: {
+              steps: ["Scan markdown files"],
+              current_step_index: 0,
+              status: "running",
+            },
+            approvals: [],
+            artifacts: [],
+            timeline: [],
+            collaboration: {
+              agent_messages: [],
+              instruction_actions: [],
+              team_session_id: "team-session-1",
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      if (url.endsWith("/api/team-sessions/team-session-1") && method === "GET") {
+        return new Response(
+          JSON.stringify({
+            session_id: "team-session-1",
+            status: "running",
+            phase: "planning",
+            snapshot_version: 3,
+            continuation_token: null,
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      if (url.endsWith("/api/workspaces/workspace-1/tasks") && method === "GET") {
+        return new Response(JSON.stringify([]), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+
+      if (url.endsWith("/api/workspaces") && method === "GET") {
+        return new Response(
+          JSON.stringify([{ id: "workspace-1", title: "Workspace 1", root_path: "/tmp/workspace-1" }]),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      throw new Error(`Unhandled request: ${url}`);
+    });
+
+    window.history.replaceState({}, "", "/workspaces/workspace-1/tasks/task-1");
+    renderAppAtRoute();
+
+    expect(await screen.findByRole("heading", { name: "Team Session" })).toBeInTheDocument();
+    expect(screen.getByText("running")).toBeInTheDocument();
+    expect(screen.getByText("planning")).toBeInTheDocument();
+  });
+
   it("opens task detail in agent mode when assistant context is handed off in route state", async () => {
     fetchMock.mockImplementation(async (input, init) => {
       const url = typeof input === "string" ? input : input.toString();
