@@ -4,6 +4,7 @@ import { useLocation } from "react-router-dom";
 import type { ArtifactContent } from "../../entities/artifact/types";
 import { readAssistantContextState } from "../../entities/workbench/assistantHandoff";
 import { fetchArtifactContent } from "../../shared/api/artifacts";
+import { reviewEvolutionProposal } from "../../shared/api/evolutionProposals";
 import { decideApproval, sendTaskInstruction } from "../../shared/api/tasks";
 import { AssistantContextNotice } from "./AssistantContextNotice";
 import { AgentRail } from "./AgentRail";
@@ -55,6 +56,7 @@ export function TaskPage({ taskId, workspaceId }: TaskPageProps) {
     activeAssistantContext ? "agent" : "context",
   );
   const [pendingInstructionKey, setPendingInstructionKey] = useState<string | null>(null);
+  const [pendingReviewProposalId, setPendingReviewProposalId] = useState<string | null>(null);
 
   useEffect(() => {
     setActiveRailTab(activeAssistantContext ? "agent" : "context");
@@ -138,6 +140,27 @@ export function TaskPage({ taskId, workspaceId }: TaskPageProps) {
     }
   }
 
+  async function handleProposalReview(proposalId: string, title: string, reviewState: string) {
+    const teamSessionId = taskDetail?.collaboration?.team_session?.session_id;
+    if (!teamSessionId) {
+      return;
+    }
+
+    setPendingReviewProposalId(proposalId);
+    try {
+      await reviewEvolutionProposal(proposalId, {
+        team_session_id: teamSessionId,
+        title,
+        review_state: reviewState,
+      });
+      reload();
+    } catch {
+      // Keep existing session panel state when review update fails.
+    } finally {
+      setPendingReviewProposalId(null);
+    }
+  }
+
   function renderRailContent() {
     if (!taskDetail) return null;
     
@@ -152,7 +175,11 @@ export function TaskPage({ taskId, workspaceId }: TaskPageProps) {
           />
           {taskDetail.collaboration?.team_session ? (
             <div style={{ marginTop: "12px" }}>
-              <TeamSessionPanel session={taskDetail.collaboration.team_session} />
+              <TeamSessionPanel
+                session={taskDetail.collaboration.team_session}
+                isReviewingProposalId={pendingReviewProposalId}
+                onReviewProposal={handleProposalReview}
+              />
             </div>
           ) : null}
         </>

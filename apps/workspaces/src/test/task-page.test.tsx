@@ -185,6 +185,8 @@ describe("TaskPage", () => {
   });
 
   it("renders team session panel when collaboration includes team_session_id", async () => {
+    let proposalReviewState = "pending";
+
     fetchMock.mockImplementation(async (input, init) => {
       const url = typeof input === "string" ? input : input.toString();
       const method = init?.method ?? "GET";
@@ -231,9 +233,22 @@ describe("TaskPage", () => {
               {
                 proposal_id: "proposal-1",
                 title: "Enable retrieval pre-pass",
-                review_state: "pending",
+                review_state: proposalReviewState,
               },
             ],
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      if (url.endsWith("/api/evolution-proposals/proposal-1/review") && method === "PATCH") {
+        proposalReviewState = "approved";
+        return new Response(
+          JSON.stringify({
+            proposal_id: "proposal-1",
+            team_session_id: "team-session-1",
+            title: "Enable retrieval pre-pass",
+            review_state: "approved",
           }),
           { status: 200, headers: { "content-type": "application/json" } },
         );
@@ -270,6 +285,12 @@ describe("TaskPage", () => {
     expect(screen.getByText(/\(review-only\)/i)).toBeInTheDocument();
     expect(screen.getByText(/Enable retrieval pre-pass/i)).toBeInTheDocument();
     expect(screen.getByText(/pending/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Approve proposal Enable retrieval pre-pass" }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Enable retrieval pre-pass - approved/i)).toBeInTheDocument();
+    });
   });
 
   it("opens task detail in agent mode when assistant context is handed off in route state", async () => {
