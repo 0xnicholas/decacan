@@ -5,6 +5,7 @@ import { defaultAssistantDock } from "../../entities/workbench/defaultTemplate";
 import { normalizeWorkspaceHome } from "../../entities/workbench/normalizeWorkspaceHome";
 import type { WorkspaceWorkbenchModel } from "../../entities/workbench/types";
 import type { WorkspaceHomeData } from "../../entities/workspace-home/types";
+import { createAssistantSession } from "../../shared/api/assistant";
 import { fetchWorkspaceHome } from "../../shared/api/workspace-home";
 import { LoadingState, PageHeader } from "../../shared/ui";
 import { WorkbenchLayout } from "./WorkbenchLayout";
@@ -36,6 +37,8 @@ const fallbackWorkspaceHomeData: WorkspaceHomeData = {
 export function WorkspaceHomePage({ workspaceId }: WorkspaceHomePageProps) {
   const navigate = useNavigate();
   const [workbench, setWorkbench] = useState<WorkspaceWorkbenchModel | null>(null);
+  const [isDelegating, setIsDelegating] = useState(false);
+  const [delegationStatus, setDelegationStatus] = useState<string | null>(null);
   const requestSequence = useRef(0);
   const assistant = workbench?.assistant ?? defaultAssistantDock;
 
@@ -92,6 +95,34 @@ export function WorkspaceHomePage({ workspaceId }: WorkspaceHomePageProps) {
                 state: { assistantContext: context },
               });
             }}
+            onDelegate={() => {
+              const objectiveTitle = assistant.suggested_actions[0]?.label ?? "Run workspace assistant plan";
+              const objectiveGoal =
+                assistant.summary.trim() || "Delegate workspace objective to agent team";
+              setIsDelegating(true);
+              setDelegationStatus(null);
+              void createAssistantSession({
+                workspace_id: workspaceId,
+                objective: {
+                  title: objectiveTitle,
+                  user_goal: objectiveGoal,
+                },
+                execution_mode: "interactive",
+              })
+                .then((response) => {
+                  setDelegationStatus(
+                    `Delegation started: ${response.delegation.team_session_id} (${response.team_session.status})`,
+                  );
+                })
+                .catch(() => {
+                  setDelegationStatus("Delegation failed. Please retry.");
+                })
+                .finally(() => {
+                  setIsDelegating(false);
+                });
+            }}
+            isDelegating={isDelegating}
+            delegationStatus={delegationStatus}
           />
         }
       />

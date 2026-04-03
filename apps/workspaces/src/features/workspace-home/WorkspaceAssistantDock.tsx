@@ -6,11 +6,17 @@ import { useAssistantDock } from "./useAssistantDock";
 interface WorkspaceAssistantDockProps {
   assistant: WorkspaceWorkbenchModel["assistant"];
   onOpenTask: (taskId: string, context: AssistantContextState) => void;
+  onDelegate: () => void;
+  isDelegating: boolean;
+  delegationStatus: string | null;
 }
 
 export function WorkspaceAssistantDock({
   assistant,
   onOpenTask,
+  onDelegate,
+  isDelegating,
+  delegationStatus,
 }: WorkspaceAssistantDockProps) {
   const { actions, selectedAction, state, summary, setSelectedActionId } = useAssistantDock(assistant);
   const trimmedSummary = summary.trim();
@@ -58,6 +64,19 @@ export function WorkspaceAssistantDock({
       {!isUnavailable && !actions.length ? (
         <p className="panel-copy">Suggested actions will appear here.</p>
       ) : null}
+      {!isUnavailable ? (
+        <div className="artifact-drawer-actions">
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={onDelegate}
+            disabled={isDelegating}
+          >
+            {isDelegating ? "Delegating..." : "Delegate with Agent Team"}
+          </button>
+        </div>
+      ) : null}
+      {delegationStatus ? <p className="panel-copy">{delegationStatus}</p> : null}
     </aside>
   );
 }

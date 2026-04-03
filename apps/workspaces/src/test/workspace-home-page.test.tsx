@@ -207,6 +207,115 @@ describe("WorkspaceHomePage", () => {
     expect(screen.getByRole("button", { name: "Review release notes draft" })).toBeInTheDocument();
   });
 
+  it("starts assistant delegation from the dock", async () => {
+    const user = userEvent.setup();
+
+    fetchMock.mockImplementation(async (input, init) => {
+      const url = typeof input === "string" ? input : input.toString();
+      const method = init?.method ?? "GET";
+
+      if (url.endsWith("/api/workspaces") && method === "GET") {
+        return new Response(
+          JSON.stringify([
+            {
+              id: "workspace-1",
+              title: "Workspace 1",
+              root_path: "/workspace-1",
+            },
+          ]),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        );
+      }
+
+      if (url.endsWith("/api/workspaces/workspace-1/home") && method === "GET") {
+        return new Response(
+          JSON.stringify({
+            attention: [],
+            task_health: {
+              running: 1,
+              waiting_approval: 0,
+              blocked: 0,
+              completed_today: 2,
+            },
+            activity: [],
+            deliverables: [],
+            team_snapshot: [],
+            assistant: {
+              summary: "Prepare launch brief",
+              suggested_actions: [
+                {
+                  id: "action-task-1",
+                  label: "Open launch blocker task",
+                  target_kind: "task",
+                  target_id: "task-42",
+                },
+              ],
+            },
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        );
+      }
+
+      if (url.endsWith("/api/assistant-sessions") && method === "POST") {
+        return new Response(
+          JSON.stringify({
+            assistant_session_id: "assistant-session-1",
+            workspace_id: "workspace-1",
+            objective: {
+              title: "Open launch blocker task",
+              user_goal: "Prepare launch brief",
+            },
+            execution_mode: "interactive",
+            delegation: {
+              task_id: "assistant-task-1",
+              run_id: "assistant-run-1",
+              team_session_id: "team-session-1",
+              status: "active",
+            },
+            team_session: {
+              session_id: "team-session-1",
+              status: "running",
+              phase: "planning",
+              snapshot_version: 1,
+              continuation_token: null,
+            },
+          }),
+          {
+            status: 201,
+            headers: { "content-type": "application/json" },
+          },
+        );
+      }
+
+      if (url.endsWith("/api/published-playbooks") && method === "GET") {
+        return new Response(JSON.stringify([]), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url}`);
+    });
+
+    renderAppAtRoute("/workspaces/workspace-1");
+
+    await user.click(await screen.findByRole("button", { name: "Delegate with Agent Team" }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/assistant-sessions",
+        expect.objectContaining({ method: "POST" }),
+      );
+    });
+    expect(screen.getByText(/Delegation started: team-session-1 \(running\)/)).toBeInTheDocument();
+  });
+
   it("shows an explicit empty state for team activity when no activity or team data exists", async () => {
     fetchMock.mockImplementation(async (input, init) => {
       const url = typeof input === "string" ? input : input.toString();

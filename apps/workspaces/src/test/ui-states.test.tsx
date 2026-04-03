@@ -149,6 +149,9 @@ describe("Workspace workbench panel states", () => {
           suggested_actions: [],
         }}
         onOpenTask={vi.fn()}
+        onDelegate={vi.fn()}
+        isDelegating={false}
+        delegationStatus={null}
       />,
     );
 
