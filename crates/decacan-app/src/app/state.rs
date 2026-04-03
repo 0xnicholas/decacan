@@ -56,7 +56,7 @@ use crate::dto::{
     TaskInstructionActionDto, TaskPlanDto, TaskPreviewDto, TaskPreviewRequest, TaskSummaryDto,
     TeamRoleDto, TeamSessionSnapshotDto, TeamSpecDto, UpdatePlaybookRequestDto,
     UpdatePlaybookResponseDto, UpdateTeamRequestDto, UserPermissionsResponseDto, WorkspaceDto,
-    WorkspacePermissionDto,
+    WorkspacePermissionDto, EvolutionProposalDto, EvolutionProposalReviewUpdateRequestDto,
 };
 use crate::middleware::CurrentUser;
 
@@ -75,6 +75,7 @@ struct AppStateInner {
     teams: Mutex<HashMap<String, StoredTeamSpec>>,
     tasks: Mutex<HashMap<String, StoredTask>>,
     assistant_sessions: Mutex<HashMap<String, StoredAssistantSession>>,
+    evolution_proposals: Mutex<HashMap<String, StoredEvolutionProposalRecord>>,
     artifacts: Mutex<HashMap<String, StoredArtifact>>,
     approvals: Mutex<HashMap<String, ApprovalDto>>,
     task_events: Mutex<HashMap<String, Vec<TaskEventEnvelopeDto>>>,
@@ -115,6 +116,14 @@ struct StoredArtifact {
 }
 
 #[derive(Debug, Clone)]
+struct StoredEvolutionProposalRecord {
+    proposal_id: String,
+    team_session_id: String,
+    title: String,
+    review_state: String,
+}
+
+#[derive(Debug, Clone)]
 struct StoredLifecyclePlaybook {
     handle: PlaybookHandle,
     draft: PlaybookDraft,
@@ -151,6 +160,12 @@ pub enum AssistantDelegationError {
     SessionNotFound,
     ActiveDelegationExists,
     OrchestrationFailed,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EvolutionProposalError {
+    TeamSessionNotFound,
+    InvalidReviewState,
 }
 
 impl AppState {
@@ -307,6 +322,7 @@ impl AppState {
                 teams: Mutex::new(HashMap::new()),
                 tasks: Mutex::new(HashMap::new()),
                 assistant_sessions: Mutex::new(HashMap::new()),
+                evolution_proposals: Mutex::new(HashMap::new()),
                 artifacts: Mutex::new(HashMap::new()),
                 approvals: Mutex::new(HashMap::new()),
                 task_events: Mutex::new(HashMap::new()),
@@ -489,6 +505,75 @@ impl AppState {
             .ok()
             .flatten()
             .map(TeamSessionSnapshotDto::from)
+    }
+
+    pub fn list_evolution_proposals(&self, team_session_id: Option<&str>) -> Vec<EvolutionProposalDto> {
+        let proposals = self
+            .inner
+            .evolution_proposals
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+
+        proposals
+            .values()
+            .filter(|proposal| {
+                if let Some(team_session_id) = team_session_id {
+                    proposal.team_session_id == team_session_id
+                } else {
+                    true
+                }
+            })
+            .map(|proposal| EvolutionProposalDto {
+                proposal_id: proposal.proposal_id.clone(),
+                team_session_id: proposal.team_session_id.clone(),
+                title: proposal.title.clone(),
+                review_state: proposal.review_state.clone(),
+            })
+            .collect()
+    }
+
+    pub async fn update_evolution_proposal_review(
+        &self,
+        proposal_id: &str,
+        request: EvolutionProposalReviewUpdateRequestDto,
+    ) -> Result<EvolutionProposalDto, EvolutionProposalError> {
+        if !matches!(request.review_state.as_str(), "pending" | "approved" | "rejected") {
+            return Err(EvolutionProposalError::InvalidReviewState);
+        }
+
+        let team_snapshot = self
+            .inner
+            .team_orchestrator
+            .get_snapshot(&request.team_session_id)
+            .await
+            .ok()
+            .flatten();
+
+        if team_snapshot.is_none() {
+            return Err(EvolutionProposalError::TeamSessionNotFound);
+        }
+
+        let mut proposals = self
+            .inner
+            .evolution_proposals
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+
+        let updated = StoredEvolutionProposalRecord {
+            proposal_id: proposal_id.to_owned(),
+            team_session_id: request.team_session_id,
+            title: request.title,
+            review_state: request.review_state,
+        };
+
+        proposals.insert(proposal_id.to_owned(), updated.clone());
+
+        Ok(EvolutionProposalDto {
+            proposal_id: updated.proposal_id,
+            team_session_id: updated.team_session_id,
+            title: updated.title,
+            review_state: updated.review_state,
+        })
     }
 
     pub fn build_account_home(&self) -> AccountHomeDto {

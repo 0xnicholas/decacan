@@ -41,3 +41,18 @@ pub struct AssistantSessionSummaryDto {
     pub active_team_session_id: Option<String>,
     pub state: String,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EvolutionProposalDto {
+    pub proposal_id: String,
+    pub team_session_id: String,
+    pub title: String,
+    pub review_state: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EvolutionProposalReviewUpdateRequestDto {
+    pub team_session_id: String,
+    pub title: String,
+    pub review_state: String,
+}

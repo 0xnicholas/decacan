@@ -22,7 +22,8 @@ pub use artifact::{ArtifactContentDto, ArtifactDto};
 pub use assistant::{
     AssistantDelegationDto, AssistantObjectiveDto, AssistantSessionResponseDto,
     AssistantSessionSummaryDto, CreateAssistantDelegationRequestDto,
-    CreateAssistantSessionRequestDto,
+    CreateAssistantSessionRequestDto, EvolutionProposalDto,
+    EvolutionProposalReviewUpdateRequestDto,
 };
 pub use deliverable::{
     DeliverableDetailDto, DeliverableDto, DeliverableLinkedTaskDto,
@@ -51,7 +52,7 @@ pub use team::{
     CreateTeamRequestDto, CreateTeamResponseDto, CreateTeamRoleDto, ListTeamsResponseDto,
     TeamRoleDto, TeamSpecDto, UpdateTeamRequestDto,
 };
-pub use team_session::TeamSessionSnapshotDto;
+pub use team_session::{TeamSessionEvolutionProposalDto, TeamSessionSnapshotDto};
 pub use trace::{
     AttributionResponse, AttributionTargetDto, StepTraceDto, TaskTraceResponse,
     VersionStatsResponse,
