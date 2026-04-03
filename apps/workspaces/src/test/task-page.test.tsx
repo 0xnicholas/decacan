@@ -252,6 +252,10 @@ describe("TaskPage", () => {
     window.history.replaceState({}, "", "/workspaces/workspace-1/tasks/task-1");
     renderAppAtRoute();
 
+    const user = userEvent.setup();
+    const agentTab = await screen.findByRole("tab", { name: "Agent" });
+    await user.click(agentTab);
+
     expect(await screen.findByRole("heading", { name: "Team Session" })).toBeInTheDocument();
     expect(screen.getByText("running")).toBeInTheDocument();
     expect(screen.getByText("planning")).toBeInTheDocument();
