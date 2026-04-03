@@ -46,12 +46,19 @@ export function WorkspaceHomePage({ workspaceId }: WorkspaceHomePageProps) {
     const requestId = requestSequence.current + 1;
     requestSequence.current = requestId;
     setWorkbench(null);
+    setDelegationStatus(null);
 
     async function loadWorkspaceHome() {
       try {
         const data = await fetchWorkspaceHome(workspaceId);
         if (requestSequence.current == requestId) {
           setWorkbench(normalizeWorkspaceHome(workspaceId, data));
+          const restoredTeamSessionId = data.assistant_session?.active_team_session_id;
+          if (restoredTeamSessionId) {
+            setDelegationStatus(
+              `Delegation active: ${restoredTeamSessionId} (${data.assistant_session?.state ?? "active"})`,
+            );
+          }
         }
       } catch {
         if (requestSequence.current == requestId) {
@@ -113,6 +120,17 @@ export function WorkspaceHomePage({ workspaceId }: WorkspaceHomePageProps) {
                   setDelegationStatus(
                     `Delegation started: ${response.delegation.team_session_id} (${response.team_session.status})`,
                   );
+                  navigate(`/workspaces/${workspaceId}/tasks/${response.delegation.task_id}`, {
+                    state: {
+                      assistantContext: {
+                        source: "workspace-assistant-dock",
+                        summary: response.objective.user_goal,
+                        actionLabel: response.objective.title,
+                        targetKind: "task",
+                        targetId: response.delegation.task_id,
+                      },
+                    },
+                  });
                 })
                 .catch(() => {
                   setDelegationStatus("Delegation failed. Please retry.");

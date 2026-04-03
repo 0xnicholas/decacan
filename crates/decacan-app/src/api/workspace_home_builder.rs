@@ -1,9 +1,12 @@
 use crate::dto::{
-    ActivityDto, MemberDto, WorkspaceDeliverableDto, WorkspaceHomeAttentionItemDto,
-    WorkspaceHomeDto, WorkspaceTaskHealthDto,
+    ActivityDto, AssistantSessionSummaryDto, MemberDto, WorkspaceDeliverableDto,
+    WorkspaceHomeAttentionItemDto, WorkspaceHomeDto, WorkspaceTaskHealthDto,
 };
 
-pub fn build_workspace_home_stub(workspace_id: &str) -> WorkspaceHomeDto {
+pub fn build_workspace_home_stub(
+    workspace_id: &str,
+    assistant_session: Option<AssistantSessionSummaryDto>,
+) -> WorkspaceHomeDto {
     WorkspaceHomeDto {
         attention: vec![
             WorkspaceHomeAttentionItemDto {
@@ -79,6 +82,6 @@ pub fn build_workspace_home_stub(workspace_id: &str) -> WorkspaceHomeDto {
                 status: "heads-down".to_owned(),
             },
         ],
-        assistant_session: None,
+        assistant_session,
     }
 }

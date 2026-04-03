@@ -43,6 +43,8 @@ async fn update_evolution_review_state(
 fn map_evolution_error_to_status(error: EvolutionProposalError) -> StatusCode {
     match error {
         EvolutionProposalError::TeamSessionNotFound => StatusCode::NOT_FOUND,
+        EvolutionProposalError::ProposalNotFound => StatusCode::NOT_FOUND,
+        EvolutionProposalError::ProposalTeamSessionMismatch => StatusCode::UNPROCESSABLE_ENTITY,
         EvolutionProposalError::InvalidReviewState => StatusCode::UNPROCESSABLE_ENTITY,
     }
 }

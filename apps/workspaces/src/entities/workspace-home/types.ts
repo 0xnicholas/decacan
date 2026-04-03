@@ -58,6 +58,12 @@ export interface WorkspaceAssistantData {
   }>;
 }
 
+export interface WorkspaceAssistantSessionSummary {
+  assistant_session_id: string;
+  active_team_session_id?: string | null;
+  state: string;
+}
+
 export interface WorkspaceHomeData {
   attention: AttentionItem[];
   task_health: TaskHealth;
@@ -67,4 +73,5 @@ export interface WorkspaceHomeData {
   discussion?: WorkspaceDiscussionItem[];
   template?: WorkspaceHomeTemplateConfig;
   assistant?: WorkspaceAssistantData;
+  assistant_session?: WorkspaceAssistantSessionSummary;
 }

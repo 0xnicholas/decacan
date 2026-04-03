@@ -165,6 +165,8 @@ pub enum AssistantDelegationError {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EvolutionProposalError {
     TeamSessionNotFound,
+    ProposalNotFound,
+    ProposalTeamSessionMismatch,
     InvalidReviewState,
 }
 
@@ -383,6 +385,7 @@ impl AppState {
             ))
             .await
             .map_err(|_| AssistantDelegationError::OrchestrationFailed)?;
+        self.sync_evolution_proposals_from_snapshot(&started.snapshot);
 
         let session = AssistantSession::new_for_test(assistant_session_id.clone())
             .with_active_delegation(
@@ -458,6 +461,7 @@ impl AppState {
             ))
             .await
             .map_err(|_| AssistantDelegationError::OrchestrationFailed)?;
+        self.sync_evolution_proposals_from_snapshot(&started.snapshot);
 
         let session = existing.session.with_active_delegation(
             task_id.clone(),
@@ -505,6 +509,75 @@ impl AppState {
             .ok()
             .flatten()
             .map(TeamSessionSnapshotDto::from)
+    }
+
+    pub async fn get_assistant_session(
+        &self,
+        assistant_session_id: &str,
+    ) -> Result<AssistantSessionResponseDto, AssistantDelegationError> {
+        let stored = {
+            let sessions = self
+                .inner
+                .assistant_sessions
+                .lock()
+                .unwrap_or_else(|e| e.into_inner());
+            sessions
+                .get(assistant_session_id)
+                .cloned()
+                .ok_or(AssistantDelegationError::SessionNotFound)?
+        };
+
+        let delegation = stored
+            .session
+            .active_delegation
+            .clone()
+            .ok_or(AssistantDelegationError::SessionNotFound)?;
+
+        let snapshot = self
+            .inner
+            .team_orchestrator
+            .get_snapshot(&delegation.team_session_id)
+            .await
+            .map_err(|_| AssistantDelegationError::OrchestrationFailed)?
+            .ok_or(AssistantDelegationError::SessionNotFound)?;
+
+        Ok(build_assistant_session_response(
+            assistant_session_id.to_owned(),
+            stored.workspace_id,
+            stored.execution_mode,
+            stored.objective,
+            delegation,
+            snapshot,
+        ))
+    }
+
+    pub fn latest_assistant_session_summary_for_workspace(
+        &self,
+        workspace_id: &str,
+    ) -> Option<crate::dto::AssistantSessionSummaryDto> {
+        let sessions = self
+            .inner
+            .assistant_sessions
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+
+        sessions
+            .iter()
+            .filter(|(_, stored)| stored.workspace_id == workspace_id)
+            .max_by_key(|(session_id, _)| assistant_session_id_sequence(session_id))
+            .map(|(assistant_session_id, stored)| crate::dto::AssistantSessionSummaryDto {
+                assistant_session_id: assistant_session_id.clone(),
+                active_team_session_id: stored
+                    .session
+                    .active_delegation
+                    .as_ref()
+                    .map(|delegation| delegation.team_session_id.clone()),
+                state: if stored.session.active_delegation.is_some() {
+                    "active".to_owned()
+                } else {
+                    "idle".to_owned()
+                },
+            })
     }
 
     pub fn list_evolution_proposals(&self, team_session_id: Option<&str>) -> Vec<EvolutionProposalDto> {
@@ -559,14 +632,18 @@ impl AppState {
             .lock()
             .unwrap_or_else(|e| e.into_inner());
 
-        let updated = StoredEvolutionProposalRecord {
-            proposal_id: proposal_id.to_owned(),
-            team_session_id: request.team_session_id,
-            title: request.title,
-            review_state: request.review_state,
-        };
+        let existing = proposals
+            .get_mut(proposal_id)
+            .ok_or(EvolutionProposalError::ProposalNotFound)?;
+        if existing.team_session_id != request.team_session_id {
+            return Err(EvolutionProposalError::ProposalTeamSessionMismatch);
+        }
+        if existing.title != request.title {
+            return Err(EvolutionProposalError::ProposalTeamSessionMismatch);
+        }
 
-        proposals.insert(proposal_id.to_owned(), updated.clone());
+        existing.review_state = request.review_state;
+        let updated = existing.clone();
 
         Ok(EvolutionProposalDto {
             proposal_id: updated.proposal_id,
@@ -574,6 +651,28 @@ impl AppState {
             title: updated.title,
             review_state: updated.review_state,
         })
+    }
+
+    fn sync_evolution_proposals_from_snapshot(&self, snapshot: &TeamSessionSnapshot) {
+        if snapshot.evolution_proposals.is_empty() {
+            return;
+        }
+
+        let mut proposals = self
+            .inner
+            .evolution_proposals
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        for proposal in &snapshot.evolution_proposals {
+            proposals.entry(proposal.proposal_id.clone()).or_insert_with(|| {
+                StoredEvolutionProposalRecord {
+                    proposal_id: proposal.proposal_id.clone(),
+                    team_session_id: snapshot.session_id.clone(),
+                    title: proposal.title.clone(),
+                    review_state: proposal.review_state.clone(),
+                }
+            });
+        }
     }
 
     pub fn build_account_home(&self) -> AccountHomeDto {
@@ -2175,6 +2274,14 @@ fn sort_tasks_newest_first(tasks: &mut [TaskDto]) {
 
 fn task_id_sequence(task_id: &str) -> u64 {
     task_id
+        .rsplit('-')
+        .next()
+        .and_then(|value| value.parse::<u64>().ok())
+        .unwrap_or(0)
+}
+
+fn assistant_session_id_sequence(assistant_session_id: &str) -> u64 {
+    assistant_session_id
         .rsplit('-')
         .next()
         .and_then(|value| value.parse::<u64>().ok())

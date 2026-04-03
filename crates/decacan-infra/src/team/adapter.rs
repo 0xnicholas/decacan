@@ -17,6 +17,13 @@ use std::sync::{Arc, RwLock};
 pub struct InProcessTeamOrchestrator {
     team_sessions: Arc<InMemoryTeamSessionStore>,
     action_dispositions: Arc<RwLock<HashMap<String, TeamActionDisposition>>>,
+    approval_continuations: Arc<RwLock<HashMap<String, StoredApprovalContinuation>>>,
+}
+
+#[derive(Debug, Clone)]
+struct StoredApprovalContinuation {
+    expected_token: String,
+    intent_version: u64,
 }
 
 impl Default for InProcessTeamOrchestrator {
@@ -24,6 +31,7 @@ impl Default for InProcessTeamOrchestrator {
         Self {
             team_sessions: Arc::new(InMemoryTeamSessionStore::new()),
             action_dispositions: Arc::new(RwLock::new(HashMap::new())),
+            approval_continuations: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 }
@@ -48,6 +56,10 @@ impl InProcessTeamOrchestrator {
         }
         format!("{}:{}", intent.intent_id, intent.intent_version)
     }
+
+    fn expected_continuation_token(approval_id: &str, intent_version: u64) -> String {
+        format!("ct-{approval_id}-{intent_version}")
+    }
 }
 
 #[async_trait::async_trait]
@@ -59,9 +71,15 @@ impl TeamOrchestratorPort for InProcessTeamOrchestrator {
         request: StartTeamSessionRequest,
     ) -> Result<StartTeamSessionResult, Self::Error> {
         let mut snapshot = TeamSessionSnapshot::new_for_test(request.session_id);
+        let session_id = snapshot.session_id.clone();
         snapshot.status = TeamSessionStatus::Running;
         snapshot.phase = TeamExecutionPhase::Planning;
         snapshot.snapshot_version = 1;
+        snapshot = snapshot.with_evolution_proposal_for_test(
+            format!("proposal-{session_id}"),
+            "Enable retrieval pre-pass",
+            "pending",
+        );
         self.team_sessions.save(snapshot.clone());
         Ok(StartTeamSessionResult { snapshot })
     }
@@ -138,8 +156,21 @@ impl TeamActionGateway for InProcessTeamOrchestrator {
         let disposition = if intent.risk_level == ActionRiskLevel::High
             || intent.kind.is_mandatory_human_confirm()
         {
+            let approval_id = format!("approval-{}", intent.intent_id);
+            let expected_token =
+                Self::expected_continuation_token(&approval_id, intent.intent_version);
+            self.approval_continuations
+                .write()
+                .unwrap_or_else(|e| e.into_inner())
+                .insert(
+                    approval_id.clone(),
+                    StoredApprovalContinuation {
+                        expected_token,
+                        intent_version: intent.intent_version,
+                    },
+                );
             TeamActionDisposition::ApprovalRequired {
-                approval_id: format!("approval-{}", intent.intent_id),
+                approval_id,
                 intent_version: intent.intent_version,
             }
         } else {
@@ -157,6 +188,29 @@ impl TeamActionGateway for InProcessTeamOrchestrator {
         &self,
         continuation: ApprovalContinuation,
     ) -> Result<TeamActionDisposition, Self::Error> {
+        let stored = self
+            .approval_continuations
+            .read()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(&continuation.approval_id)
+            .cloned();
+
+        let Some(stored) = stored else {
+            return Ok(TeamActionDisposition::approval_rejected(
+                continuation.approval_id,
+                continuation.intent_version,
+            ));
+        };
+
+        if stored.intent_version != continuation.intent_version
+            || stored.expected_token != continuation.continuation_token
+        {
+            return Ok(TeamActionDisposition::approval_rejected(
+                continuation.approval_id,
+                continuation.intent_version,
+            ));
+        }
+
         Ok(TeamActionDisposition::Applied {
             action_id: format!("action-{}", continuation.approval_id),
             intent_version: continuation.intent_version,

@@ -33,5 +33,9 @@ async fn get_workspace_home(
         return Err(StatusCode::NOT_FOUND);
     }
 
-    Ok(Json(build_workspace_home_stub(&workspace_id)))
+    let assistant_session = state.latest_assistant_session_summary_for_workspace(&workspace_id);
+    Ok(Json(build_workspace_home_stub(
+        &workspace_id,
+        assistant_session,
+    )))
 }

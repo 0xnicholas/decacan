@@ -52,18 +52,24 @@ async fn patch_evolution_proposal_review_returns_ok() {
     let create_json: Value = serde_json::from_slice(&create_body).unwrap();
     let team_session_id = create_json["team_session"]["session_id"].as_str().unwrap();
     let before_version = create_json["team_session"]["snapshot_version"].as_u64().unwrap();
+    let proposal_id = create_json["team_session"]["evolution_proposals"][0]["proposal_id"]
+        .as_str()
+        .unwrap();
+    let proposal_title = create_json["team_session"]["evolution_proposals"][0]["title"]
+        .as_str()
+        .unwrap();
 
     let request = Request::builder()
         .method("PATCH")
-        .uri("/api/evolution-proposals/proposal-1/review")
+        .uri(format!("/api/evolution-proposals/{proposal_id}/review"))
         .header("content-type", "application/json")
         .body(Body::from(format!(
             r#"{{
               "team_session_id":"{}",
-              "title":"Use stricter validator chain",
+              "title":"{}",
               "review_state":"approved"
             }}"#,
-            team_session_id
+            team_session_id, proposal_title
         )))
         .unwrap();
 
@@ -112,4 +118,51 @@ async fn patch_evolution_proposal_review_returns_ok() {
         session_json["snapshot_version"],
         Value::Number(before_version.into())
     );
+}
+
+#[tokio::test]
+async fn patch_evolution_proposal_review_rejects_unknown_proposal() {
+    let state = AppState::new_for_test().await;
+    let app = router_with_state(state.clone());
+
+    let create_assistant_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/assistant-sessions")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{
+                      "workspace_id": "workspace-1",
+                      "objective": {"title": "Prepare launch brief", "user_goal": "Create a brief"},
+                      "execution_mode": "interactive"
+                    }"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(create_assistant_response.status(), StatusCode::CREATED);
+    let create_body = axum::body::to_bytes(create_assistant_response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let create_json: Value = serde_json::from_slice(&create_body).unwrap();
+    let team_session_id = create_json["team_session"]["session_id"].as_str().unwrap();
+
+    let request = Request::builder()
+        .method("PATCH")
+        .uri("/api/evolution-proposals/proposal-does-not-exist/review")
+        .header("content-type", "application/json")
+        .body(Body::from(format!(
+            r#"{{
+              "team_session_id":"{}",
+              "title":"Nonexistent",
+              "review_state":"approved"
+            }}"#,
+            team_session_id
+        )))
+        .unwrap();
+    let response = app.oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }

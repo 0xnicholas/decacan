@@ -294,6 +294,45 @@ describe("WorkspaceHomePage", () => {
         );
       }
 
+      if (url.endsWith("/api/workspaces/workspace-1/tasks/assistant-task-1") && method === "GET") {
+        return new Response(
+          JSON.stringify({
+            task: {
+              id: "assistant-task-1",
+              workspace_id: "workspace-1",
+              playbook_key: "Assistant Delegated Task",
+              input: "Prepare launch brief",
+              status: "running",
+              status_summary: "Task is running",
+              artifact_id: null,
+            },
+            plan: {
+              steps: ["Delegate objective to team session"],
+              current_step_index: 0,
+              status: "running",
+            },
+            approvals: [],
+            artifacts: [],
+            timeline: [],
+            collaboration: {
+              agent_messages: [],
+              instruction_actions: [],
+            },
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        );
+      }
+
+      if (url.endsWith("/api/workspaces/workspace-1/tasks") && method === "GET") {
+        return new Response(JSON.stringify([]), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+
       if (url.endsWith("/api/published-playbooks") && method === "GET") {
         return new Response(JSON.stringify([]), {
           status: 200,
@@ -314,7 +353,77 @@ describe("WorkspaceHomePage", () => {
         expect.objectContaining({ method: "POST" }),
       );
     });
-    expect(screen.getByText(/Delegation started: team-session-1 \(running\)/)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(window.location.pathname).toBe("/workspaces/workspace-1/tasks/assistant-task-1");
+    });
+    expect(await screen.findByText("Assistant Delegated Task")).toBeInTheDocument();
+  });
+
+  it("restores delegation status from persisted assistant session summary", async () => {
+    fetchMock.mockImplementation(async (input, init) => {
+      const url = typeof input === "string" ? input : input.toString();
+      const method = init?.method ?? "GET";
+
+      if (url.endsWith("/api/workspaces") && method === "GET") {
+        return new Response(
+          JSON.stringify([
+            {
+              id: "workspace-1",
+              title: "Workspace 1",
+              root_path: "/workspace-1",
+            },
+          ]),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        );
+      }
+
+      if (url.endsWith("/api/workspaces/workspace-1/home") && method === "GET") {
+        return new Response(
+          JSON.stringify({
+            attention: [],
+            task_health: {
+              running: 1,
+              waiting_approval: 0,
+              blocked: 0,
+              completed_today: 0,
+            },
+            activity: [],
+            deliverables: [],
+            team_snapshot: [],
+            assistant: {
+              summary: "Prepare launch brief",
+              suggested_actions: [],
+            },
+            assistant_session: {
+              assistant_session_id: "assistant-session-1",
+              active_team_session_id: "team-session-1",
+              state: "active",
+            },
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        );
+      }
+
+      if (url.endsWith("/api/published-playbooks") && method === "GET") {
+        return new Response(JSON.stringify([]), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url}`);
+    });
+
+    renderAppAtRoute("/workspaces/workspace-1");
+    expect(
+      await screen.findByText(/Delegation active: team-session-1 \(active\)/),
+    ).toBeInTheDocument();
   });
 
   it("shows an explicit empty state for team activity when no activity or team data exists", async () => {

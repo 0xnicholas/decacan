@@ -46,10 +46,14 @@ async fn create_assistant_delegation(
 }
 
 async fn get_assistant_session(
-    State(_state): State<AppState>,
-    Path(_assistant_session_id): Path<String>,
-) -> StatusCode {
-    StatusCode::NOT_IMPLEMENTED
+    State(state): State<AppState>,
+    Path(assistant_session_id): Path<String>,
+) -> Result<Json<AssistantSessionResponseDto>, StatusCode> {
+    let session = state
+        .get_assistant_session(&assistant_session_id)
+        .await
+        .map_err(map_assistant_error_to_status)?;
+    Ok(Json(session))
 }
 
 fn map_assistant_error_to_status(error: AssistantDelegationError) -> StatusCode {

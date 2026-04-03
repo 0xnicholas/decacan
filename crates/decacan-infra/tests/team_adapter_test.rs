@@ -1,5 +1,5 @@
 use decacan_infra::team::adapter::InProcessTeamOrchestrator;
-use decacan_runtime::ports::team_action_gateway::TeamActionGateway;
+use decacan_runtime::ports::team_action_gateway::{ApprovalContinuation, TeamActionGateway};
 use decacan_runtime::ports::team_orchestrator::{
     AdvanceTeamSessionRequest, ApplyTeamInputRequest, StartTeamSessionRequest, TeamOrchestratorPort,
 };
@@ -34,6 +34,57 @@ async fn rejected_high_risk_action_stays_governed_and_idempotent() {
     let second = orchestrator.submit_action(intent).await.unwrap();
 
     assert_eq!(first, second);
+}
+
+#[tokio::test]
+async fn continuation_requires_matching_token_and_intent_version() {
+    let orchestrator = InProcessTeamOrchestrator::new_for_test();
+    let mut intent = TeamActionIntent::new_for_test(
+        "intent-77",
+        TeamActionKind::ExternalPublish,
+        ActionRiskLevel::High,
+    );
+    intent.intent_version = 3;
+    let first = orchestrator.submit_action(intent).await.unwrap();
+    let (approval_id, intent_version) = match first {
+        decacan_runtime::ports::team_action_gateway::TeamActionDisposition::ApprovalRequired {
+            approval_id,
+            intent_version,
+        } => (approval_id, intent_version),
+        other => panic!("expected approval required, got {other:?}"),
+    };
+
+    let rejected = orchestrator
+        .continue_after_approval(ApprovalContinuation {
+            approval_id: approval_id.clone(),
+            continuation_token: "wrong-token".to_owned(),
+            intent_version,
+        })
+        .await
+        .unwrap();
+    assert_eq!(
+        rejected,
+        decacan_runtime::ports::team_action_gateway::TeamActionDisposition::approval_rejected(
+            approval_id.clone(),
+            intent_version
+        )
+    );
+
+    let applied = orchestrator
+        .continue_after_approval(ApprovalContinuation {
+            approval_id: approval_id.clone(),
+            continuation_token: format!("ct-{approval_id}-{intent_version}"),
+            intent_version,
+        })
+        .await
+        .unwrap();
+    assert_eq!(
+        applied,
+        decacan_runtime::ports::team_action_gateway::TeamActionDisposition::Applied {
+            action_id: format!("action-{approval_id}"),
+            intent_version
+        }
+    );
 }
 
 #[tokio::test]
