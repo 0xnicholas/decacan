@@ -291,6 +291,101 @@ describe("TaskPage", () => {
     await waitFor(() => {
       expect(screen.getByText(/Enable retrieval pre-pass - approved/i)).toBeInTheDocument();
     });
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Proposal 'Enable retrieval pre-pass' marked as approved.",
+    );
+  });
+
+  it("shows an error alert when proposal review update fails", async () => {
+    fetchMock.mockImplementation(async (input, init) => {
+      const url = typeof input === "string" ? input : input.toString();
+      const method = init?.method ?? "GET";
+
+      if (url.endsWith("/api/workspaces/workspace-1/tasks/task-1") && method === "GET") {
+        return new Response(
+          JSON.stringify({
+            task: {
+              id: "task-1",
+              workspace_id: "workspace-1",
+              playbook_key: "总结资料",
+              input: "Summarize notes",
+              status: "running",
+              status_summary: "Task is running",
+              artifact_id: "artifact-1",
+            },
+            plan: {
+              steps: ["Scan markdown files"],
+              current_step_index: 0,
+              status: "running",
+            },
+            approvals: [],
+            artifacts: [],
+            timeline: [],
+            collaboration: {
+              agent_messages: [],
+              instruction_actions: [],
+              team_session_id: "team-session-1",
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      if (url.endsWith("/api/team-sessions/team-session-1") && method === "GET") {
+        return new Response(
+          JSON.stringify({
+            session_id: "team-session-1",
+            status: "running",
+            phase: "planning",
+            snapshot_version: 3,
+            continuation_token: null,
+            evolution_proposals: [
+              {
+                proposal_id: "proposal-1",
+                title: "Enable retrieval pre-pass",
+                review_state: "pending",
+              },
+            ],
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      if (url.endsWith("/api/evolution-proposals/proposal-1/review") && method === "PATCH") {
+        return new Response(JSON.stringify({ error: "downstream unavailable" }), {
+          status: 500,
+          headers: { "content-type": "application/json" },
+        });
+      }
+
+      if (url.endsWith("/api/workspaces/workspace-1/tasks") && method === "GET") {
+        return new Response(JSON.stringify([]), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+
+      if (url.endsWith("/api/workspaces") && method === "GET") {
+        return new Response(
+          JSON.stringify([{ id: "workspace-1", title: "Workspace 1", root_path: "/tmp/workspace-1" }]),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+
+      throw new Error(`Unhandled request: ${url}`);
+    });
+
+    window.history.replaceState({}, "", "/workspaces/workspace-1/tasks/task-1");
+    renderAppAtRoute();
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("tab", { name: "Agent" }));
+    await user.click(screen.getByRole("button", { name: "Approve proposal Enable retrieval pre-pass" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "PATCH /api/evolution-proposals/proposal-1/review failed with 500",
+    );
+    expect(screen.getByText(/Enable retrieval pre-pass - pending/i)).toBeInTheDocument();
   });
 
   it("opens task detail in agent mode when assistant context is handed off in route state", async () => {

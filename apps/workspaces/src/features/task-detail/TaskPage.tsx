@@ -26,6 +26,10 @@ interface TaskPageProps {
 }
 
 type RailTab = "agent" | "context" | "history";
+type ProposalReviewNotice = {
+  kind: "success" | "error";
+  message: string;
+};
 
 export function TaskPage({ taskId, workspaceId }: TaskPageProps) {
   const location = useLocation();
@@ -57,10 +61,15 @@ export function TaskPage({ taskId, workspaceId }: TaskPageProps) {
   );
   const [pendingInstructionKey, setPendingInstructionKey] = useState<string | null>(null);
   const [pendingReviewProposalId, setPendingReviewProposalId] = useState<string | null>(null);
+  const [proposalReviewNotice, setProposalReviewNotice] = useState<ProposalReviewNotice | null>(null);
 
   useEffect(() => {
     setActiveRailTab(activeAssistantContext ? "agent" : "context");
   }, [taskId, assistantContextKey]);
+
+  useEffect(() => {
+    setProposalReviewNotice(null);
+  }, [taskId]);
 
   if (loadState === "not_found") {
     return (
@@ -147,15 +156,23 @@ export function TaskPage({ taskId, workspaceId }: TaskPageProps) {
     }
 
     setPendingReviewProposalId(proposalId);
+    setProposalReviewNotice(null);
     try {
       await reviewEvolutionProposal(proposalId, {
         team_session_id: teamSessionId,
         title,
         review_state: reviewState,
       });
+      setProposalReviewNotice({
+        kind: "success",
+        message: `Proposal '${title}' marked as ${reviewState}.`,
+      });
       reload();
-    } catch {
-      // Keep existing session panel state when review update fails.
+    } catch (error) {
+      setProposalReviewNotice({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Failed to update proposal review state.",
+      });
     } finally {
       setPendingReviewProposalId(null);
     }
@@ -163,7 +180,7 @@ export function TaskPage({ taskId, workspaceId }: TaskPageProps) {
 
   function renderRailContent() {
     if (!taskDetail) return null;
-    
+
     if (activeRailTab === "agent") {
       return (
         <>
@@ -175,6 +192,11 @@ export function TaskPage({ taskId, workspaceId }: TaskPageProps) {
           />
           {taskDetail.collaboration?.team_session ? (
             <div style={{ marginTop: "12px" }}>
+              {proposalReviewNotice ? (
+                <p className="panel-copy" role={proposalReviewNotice.kind === "error" ? "alert" : "status"}>
+                  {proposalReviewNotice.message}
+                </p>
+              ) : null}
               <TeamSessionPanel
                 session={taskDetail.collaboration.team_session}
                 isReviewingProposalId={pendingReviewProposalId}
