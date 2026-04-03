@@ -66,3 +66,21 @@ fn assistant_delegation_binding_is_persisted_for_recovery() {
 
     assert_eq!(binding.team_session_id, "team-session-1");
 }
+
+#[test]
+fn evolution_proposal_is_review_projection_not_direct_strategy_mutation() {
+    let snapshot = TeamSessionSnapshot::new_for_test("session-1").with_evolution_proposal_for_test(
+        "proposal-1",
+        "Use stricter validator chain",
+        "pending",
+    );
+
+    assert_eq!(snapshot.evolution_proposals.len(), 1);
+    assert_eq!(snapshot.evolution_proposals[0].review_state, "pending");
+
+    let mut reviewed = snapshot.clone();
+    reviewed.evolution_proposals[0].review_state = "approved".to_owned();
+
+    assert_eq!(snapshot.evolution_proposals[0].review_state, "pending");
+    assert_eq!(reviewed.evolution_proposals[0].review_state, "approved");
+}
