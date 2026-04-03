@@ -114,6 +114,17 @@ cp .env.example .env
 | Infra Adapters | `crates/decacan-infra` | Model providers/router, storage adapters, config/secrets/logging utilities |
 | Auth | `crates/decacan-auth` | Auth service, token/session flow, storage adapter |
 
+### Agent Team Integration (Current)
+
+- Workspaces personal assistant can start delegation via `POST /api/assistant-sessions`.
+- Decacan runtime contracts own assistant authority rules, team-session status, and continuation semantics.
+- Decacan app orchestrates assistant delegation and exposes:
+  - `POST /api/assistant-sessions`
+  - `POST /api/assistant-sessions/:assistant_session_id/delegations`
+  - `GET /api/team-sessions/:team_session_id`
+- Current ATS integration is an **in-process adapter** (`decacan-infra::team::adapter::InProcessTeamOrchestrator`), intended as a phase bridge.
+- Limitation: this adapter is local-memory and non-distributed; production-grade ATS deployment should replace it with a durable/out-of-process adapter behind the same runtime ports.
+
 ## Repository Map
 
 ```text
