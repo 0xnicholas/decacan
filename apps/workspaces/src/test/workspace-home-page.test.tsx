@@ -284,6 +284,7 @@ describe("WorkspaceHomePage", () => {
               phase: "planning",
               snapshot_version: 1,
               continuation_token: null,
+              evolution_proposals: [],
             },
           }),
           {

@@ -16,12 +16,19 @@ export interface AssistantDelegation {
   status: string;
 }
 
+export interface TeamSessionEvolutionProposal {
+  proposal_id: string;
+  title: string;
+  review_state: string;
+}
+
 export interface TeamSessionSnapshot {
   session_id: string;
   status: string;
   phase: string;
   snapshot_version: number;
   continuation_token?: string | null;
+  evolution_proposals: TeamSessionEvolutionProposal[];
 }
 
 export interface AssistantSessionResponse {

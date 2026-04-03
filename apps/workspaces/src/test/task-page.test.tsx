@@ -227,6 +227,13 @@ describe("TaskPage", () => {
             phase: "planning",
             snapshot_version: 3,
             continuation_token: null,
+            evolution_proposals: [
+              {
+                proposal_id: "proposal-1",
+                title: "Enable retrieval pre-pass",
+                review_state: "pending",
+              },
+            ],
           }),
           { status: 200, headers: { "content-type": "application/json" } },
         );
@@ -259,6 +266,10 @@ describe("TaskPage", () => {
     expect(await screen.findByRole("heading", { name: "Team Session" })).toBeInTheDocument();
     expect(screen.getByText("running")).toBeInTheDocument();
     expect(screen.getByText("planning")).toBeInTheDocument();
+    expect(screen.getByText(/Evolution Proposals/i)).toBeInTheDocument();
+    expect(screen.getByText(/\(review-only\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/Enable retrieval pre-pass/i)).toBeInTheDocument();
+    expect(screen.getByText(/pending/i)).toBeInTheDocument();
   });
 
   it("opens task detail in agent mode when assistant context is handed off in route state", async () => {
