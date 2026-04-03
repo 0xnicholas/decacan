@@ -383,7 +383,7 @@ describe("TaskPage", () => {
     await user.click(screen.getByRole("button", { name: "Approve proposal Enable retrieval pre-pass" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "PATCH /api/evolution-proposals/proposal-1/review failed with 500",
+      "Could not mark proposal 'Enable retrieval pre-pass' as approved. Please try again. (server returned 500).",
     );
     expect(screen.getByText(/Enable retrieval pre-pass - pending/i)).toBeInTheDocument();
   });

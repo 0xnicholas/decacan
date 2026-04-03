@@ -31,6 +31,20 @@ type ProposalReviewNotice = {
   message: string;
 };
 
+function formatProposalReviewError(title: string, reviewState: string, error: unknown): string {
+  const base = `Could not mark proposal '${title}' as ${reviewState}. Please try again.`;
+  if (!(error instanceof Error)) {
+    return base;
+  }
+
+  const statusMatch = error.message.match(/\b(\d{3})\b/);
+  if (!statusMatch) {
+    return base;
+  }
+
+  return `${base} (server returned ${statusMatch[1]}).`;
+}
+
 export function TaskPage({ taskId, workspaceId }: TaskPageProps) {
   const location = useLocation();
   const { connectionState, latestEvent, loadState, recentTasks, taskDetail, reload } = useTaskDetail(
@@ -169,9 +183,10 @@ export function TaskPage({ taskId, workspaceId }: TaskPageProps) {
       });
       reload();
     } catch (error) {
+      console.error("proposal review update failed", { proposalId, reviewState, error });
       setProposalReviewNotice({
         kind: "error",
-        message: error instanceof Error ? error.message : "Failed to update proposal review state.",
+        message: formatProposalReviewError(title, reviewState, error),
       });
     } finally {
       setPendingReviewProposalId(null);
