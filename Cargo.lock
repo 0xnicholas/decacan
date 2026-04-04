@@ -468,10 +468,14 @@ dependencies = [
  "decacan-runtime",
  "dotenvy",
  "futures",
+ "hex",
+ "hmac",
  "once_cell",
  "reqwest 0.12.28",
  "serde",
+ "serde_json",
  "serde_yaml",
+ "sha2",
  "sqlx",
  "tempfile",
  "thiserror 1.0.69",
@@ -480,6 +484,7 @@ dependencies = [
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]
