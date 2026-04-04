@@ -15,25 +15,17 @@
 //! ```rust,no_run
 //! use decacan_infra::models::{
 //!     ModelRouter, ModelRouterConfig,
-//!     RetryConfig, TokenBudget
+//!     TokenBudget
 //! };
 //!
 //! #[tokio::main]
 //! async fn main() -> Result<(), Box<dyn std::error::Error>> {
-//!     // Configure retry and budget
-//!     let retry_config = RetryConfig {
-//!         max_retries: 3,
-//!         initial_backoff_ms: 1000,
-//!         max_backoff_ms: 60000,
-//!         backoff_multiplier: 2.0,
-//!     };
-//!     
+//!     // Configure token budget
 //!     let budget = TokenBudget::strict(4000, 100000);
 //!     
 //!     let config = ModelRouterConfig::default()
 //!         .with_openai("your-api-key")
-//!         .with_budget(budget)
-//!         .with_retry(retry_config);
+//!         .with_budget(budget);
 //!     
 //!     let router = ModelRouter::new(config)?;
 //!     let response = router.complete("Hello, AI!").await?;
