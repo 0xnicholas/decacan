@@ -1,3 +1,4 @@
+use crate::team::gateway_client::{GatewayClientError, TeamGatewayClient};
 use crate::team::storage::InMemoryTeamSessionStore;
 use decacan_runtime::ports::team_action_gateway::{
     ApprovalContinuation, TeamActionDisposition, TeamActionGateway,
@@ -12,6 +13,10 @@ use decacan_runtime::team_session::snapshot::TeamSessionSnapshot;
 use std::collections::HashMap;
 use std::convert::Infallible;
 use std::sync::{Arc, RwLock};
+use std::time::Duration;
+use thiserror::Error;
+
+// ============== InProcessTeamOrchestrator (existing implementation) ==============
 
 #[derive(Debug, Clone)]
 pub struct InProcessTeamOrchestrator {
@@ -215,5 +220,207 @@ impl TeamActionGateway for InProcessTeamOrchestrator {
             action_id: format!("action-{}", continuation.approval_id),
             intent_version: continuation.intent_version,
         })
+    }
+}
+
+// ============== TeamAdapter with Mode Switch ==============
+
+#[derive(Debug, Clone)]
+pub enum AdapterMode {
+    InProcess,
+    Gateway { url: String, timeout: Duration },
+}
+
+impl Default for AdapterMode {
+    fn default() -> Self {
+        AdapterMode::InProcess
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum AdapterError {
+    #[error("in-process adapter error")]
+    InProcessError,
+    #[error("gateway not configured")]
+    GatewayNotConfigured,
+    #[error("gateway error: {0}")]
+    GatewayError(#[from] GatewayClientError),
+}
+
+pub struct TeamAdapter {
+    mode: AdapterMode,
+    in_process: Arc<InProcessTeamOrchestrator>,
+    gateway: Option<Arc<TeamGatewayClient>>,
+}
+
+impl TeamAdapter {
+    pub fn new_in_process() -> Self {
+        Self {
+            mode: AdapterMode::InProcess,
+            in_process: Arc::new(InProcessTeamOrchestrator::default()),
+            gateway: None,
+        }
+    }
+
+    pub fn new_gateway(url: String, timeout: Duration) -> Self {
+        let gateway = Arc::new(TeamGatewayClient::new(url.clone(), timeout));
+        Self {
+            mode: AdapterMode::Gateway { url, timeout },
+            in_process: Arc::new(InProcessTeamOrchestrator::default()),
+            gateway: Some(gateway),
+        }
+    }
+
+    pub fn from_env() -> Self {
+        use std::env;
+
+        let mode = env::var("DECACAN_TEAM_ADAPTER_MODE")
+            .unwrap_or_else(|_| "in_process".to_string());
+
+        match mode.as_str() {
+            "gateway" => {
+                let url = env::var("DECACAN_TEAM_GATEWAY_URL")
+                    .expect("DECACAN_TEAM_GATEWAY_URL must be set when mode=gateway");
+                let timeout_secs = env::var("DECACAN_TEAM_GATEWAY_TIMEOUT_SECS")
+                    .ok()
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(30);
+                Self::new_gateway(url, Duration::from_secs(timeout_secs))
+            }
+            _ => Self::new_in_process(),
+        }
+    }
+
+    pub fn mode(&self) -> &AdapterMode {
+        &self.mode
+    }
+}
+
+#[async_trait::async_trait]
+impl TeamOrchestratorPort for TeamAdapter {
+    type Error = AdapterError;
+
+    async fn start_session(
+        &self,
+        request: StartTeamSessionRequest,
+    ) -> Result<StartTeamSessionResult, Self::Error> {
+        match &self.mode {
+            AdapterMode::InProcess => self
+                .in_process
+                .start_session(request)
+                .await
+                .map_err(|_| AdapterError::InProcessError),
+            AdapterMode::Gateway { .. } => {
+                let gateway = self.gateway.as_ref().ok_or(AdapterError::GatewayNotConfigured)?;
+                gateway.start_session(request).await.map_err(Into::into)
+            }
+        }
+    }
+
+    async fn apply_input(
+        &self,
+        request: ApplyTeamInputRequest,
+    ) -> Result<TeamSessionUpdate, Self::Error> {
+        match &self.mode {
+            AdapterMode::InProcess => self
+                .in_process
+                .apply_input(request)
+                .await
+                .map_err(|_| AdapterError::InProcessError),
+            AdapterMode::Gateway { .. } => {
+                let gateway = self.gateway.as_ref().ok_or(AdapterError::GatewayNotConfigured)?;
+                gateway.apply_input(request).await.map_err(Into::into)
+            }
+        }
+    }
+
+    async fn advance_session(
+        &self,
+        request: AdvanceTeamSessionRequest,
+    ) -> Result<TeamSessionUpdate, Self::Error> {
+        match &self.mode {
+            AdapterMode::InProcess => self
+                .in_process
+                .advance_session(request)
+                .await
+                .map_err(|_| AdapterError::InProcessError),
+            AdapterMode::Gateway { .. } => {
+                let gateway = self.gateway.as_ref().ok_or(AdapterError::GatewayNotConfigured)?;
+                gateway.advance_session(request).await.map_err(Into::into)
+            }
+        }
+    }
+
+    async fn get_snapshot(
+        &self,
+        session_id: &str,
+    ) -> Result<Option<TeamSessionSnapshot>, Self::Error> {
+        match &self.mode {
+            AdapterMode::InProcess => self
+                .in_process
+                .get_snapshot(session_id)
+                .await
+                .map_err(|_| AdapterError::InProcessError),
+            AdapterMode::Gateway { .. } => {
+                let gateway = self.gateway.as_ref().ok_or(AdapterError::GatewayNotConfigured)?;
+                gateway.get_snapshot(session_id).await.map_err(Into::into)
+            }
+        }
+    }
+
+    async fn terminate_session(
+        &self,
+        request: TerminateTeamSessionRequest,
+    ) -> Result<TeamSessionUpdate, Self::Error> {
+        match &self.mode {
+            AdapterMode::InProcess => self
+                .in_process
+                .terminate_session(request)
+                .await
+                .map_err(|_| AdapterError::InProcessError),
+            AdapterMode::Gateway { .. } => {
+                let gateway = self.gateway.as_ref().ok_or(AdapterError::GatewayNotConfigured)?;
+                gateway.terminate_session(request).await.map_err(Into::into)
+            }
+        }
+    }
+}
+
+#[async_trait::async_trait]
+impl TeamActionGateway for TeamAdapter {
+    type Error = AdapterError;
+
+    async fn submit_action(
+        &self,
+        intent: TeamActionIntent,
+    ) -> Result<TeamActionDisposition, Self::Error> {
+        match &self.mode {
+            AdapterMode::InProcess => self
+                .in_process
+                .submit_action(intent)
+                .await
+                .map_err(|_| AdapterError::InProcessError),
+            AdapterMode::Gateway { .. } => {
+                let gateway = self.gateway.as_ref().ok_or(AdapterError::GatewayNotConfigured)?;
+                gateway.submit_action(intent).await.map_err(Into::into)
+            }
+        }
+    }
+
+    async fn continue_after_approval(
+        &self,
+        continuation: ApprovalContinuation,
+    ) -> Result<TeamActionDisposition, Self::Error> {
+        match &self.mode {
+            AdapterMode::InProcess => self
+                .in_process
+                .continue_after_approval(continuation)
+                .await
+                .map_err(|_| AdapterError::InProcessError),
+            AdapterMode::Gateway { .. } => {
+                let gateway = self.gateway.as_ref().ok_or(AdapterError::GatewayNotConfigured)?;
+                gateway.continue_after_approval(continuation).await.map_err(Into::into)
+            }
+        }
     }
 }

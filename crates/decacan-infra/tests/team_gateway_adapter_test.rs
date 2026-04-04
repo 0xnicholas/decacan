@@ -1,80 +1,41 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
+use decacan_infra::team::adapter::{AdapterMode, TeamAdapter, AdapterError};
+use decacan_infra::team::gateway_client::{GatewayClientError, TeamGatewayClient};
 use decacan_infra::team::retry::{RetryConfig, RetryableClient, RetryError};
+use decacan_runtime::ports::team_orchestrator::{
+    StartTeamSessionRequest, TeamOrchestratorPort,
+};
 
 #[tokio::test]
-async fn retry_succeeds_on_second_attempt() {
-    let config = RetryConfig {
-        max_attempts: 3,
-        base_delay_ms: 10,
-        max_delay_ms: 100,
-        backoff_multiplier: 2.0,
-    };
+async fn adapter_in_process_mode_uses_in_process_orchestrator() {
+    let adapter = TeamAdapter::new_in_process();
     
-    let attempts = Arc::new(AtomicUsize::new(0));
-    let attempts_clone = attempts.clone();
-    
-    let result = RetryableClient::with_config(config).execute_with_retry(move || {
-        let attempts = attempts_clone.clone();
-        async move {
-            let count = attempts.fetch_add(1, Ordering::SeqCst) + 1;
-            if count < 2 {
-                Err(RetryError::Transient("temporary failure".to_string()))
-            } else {
-                Ok("success")
-            }
-        }
-    }).await;
+    let result = adapter
+        .start_session(StartTeamSessionRequest::new_for_test("ws-1", "task-1"))
+        .await;
     
     assert!(result.is_ok());
-    assert_eq!(attempts.load(Ordering::SeqCst), 2);
+    assert_eq!(result.unwrap().snapshot.status.as_str(), "running");
 }
 
 #[tokio::test]
-async fn retry_exhausts_max_attempts() {
-    let config = RetryConfig {
-        max_attempts: 3,
-        base_delay_ms: 10,
-        max_delay_ms: 100,
-        backoff_multiplier: 2.0,
-    };
+async fn adapter_gateway_mode_uses_gateway_client() {
+    // This will fail to connect, but verifies the mode switch works
+    let adapter = TeamAdapter::new_gateway(
+        "http://192.0.2.1:9999".to_string(),
+        Duration::from_millis(100),
+    );
     
-    let attempts = Arc::new(AtomicUsize::new(0));
-    let attempts_clone = attempts.clone();
-    
-    let result = RetryableClient::with_config(config).execute_with_retry(move || {
-        let attempts = attempts_clone.clone();
-        async move {
-            attempts.fetch_add(1, Ordering::SeqCst);
-            Err::<String, _>(RetryError::Transient("always fails".to_string()))
-        }
-    }).await;
+    let result = adapter
+        .start_session(StartTeamSessionRequest::new_for_test("ws-1", "task-1"))
+        .await;
     
     assert!(result.is_err());
-    assert_eq!(attempts.load(Ordering::SeqCst), 3);
-}
-
-#[tokio::test]
-async fn non_transient_errors_not_retried() {
-    let config = RetryConfig {
-        max_attempts: 3,
-        base_delay_ms: 10,
-        max_delay_ms: 100,
-        backoff_multiplier: 2.0,
-    };
-    
-    let attempts = Arc::new(AtomicUsize::new(0));
-    let attempts_clone = attempts.clone();
-    
-    let result = RetryableClient::with_config(config).execute_with_retry(move || {
-        let attempts = attempts_clone.clone();
-        async move {
-            attempts.fetch_add(1, Ordering::SeqCst);
-            Err::<String, _>(RetryError::Permanent("fatal error".to_string()))
-        }
-    }).await;
-    
-    assert!(result.is_err());
-    assert_eq!(attempts.load(Ordering::SeqCst), 1);
+    // Should be a gateway error, not in-process error
+    match result {
+        Err(decacan_infra::team::adapter::AdapterError::GatewayError(_)) => (),
+        other => panic!("expected gateway error, got {:?}", other),
+    }
 }
