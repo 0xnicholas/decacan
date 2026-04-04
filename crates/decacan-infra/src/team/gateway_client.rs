@@ -244,12 +244,14 @@ impl TeamOrchestratorPort for TeamGatewayClient {
             GatewayClientError::Serialization(e.to_string())
         })?;
         let path = self.get_path(&url);
+        let idempotency_key = Self::generate_idempotency_key(&body);
         
         self.retry_client
             .execute_with_retry(|| async {
                 let request_builder = self
                     .http_client
                     .post(&url)
+                    .header("X-Idempotency-Key", &idempotency_key)
                     .timeout(self.timeout)
                     .header("content-type", "application/json")
                     .body(body_bytes.clone());
@@ -303,12 +305,14 @@ impl TeamOrchestratorPort for TeamGatewayClient {
             GatewayClientError::Serialization(e.to_string())
         })?;
         let path = self.get_path(&url);
+        let idempotency_key = Self::generate_idempotency_key(&body);
         
         self.retry_client
             .execute_with_retry(|| async {
                 let request_builder = self
                     .http_client
                     .post(&url)
+                    .header("X-Idempotency-Key", &idempotency_key)
                     .timeout(self.timeout)
                     .header("content-type", "application/json")
                     .body(body_bytes.clone());
@@ -360,12 +364,14 @@ impl TeamOrchestratorPort for TeamGatewayClient {
             GatewayClientError::Serialization(e.to_string())
         })?;
         let path = self.get_path(&url);
+        let idempotency_key = Self::generate_idempotency_key(&body);
         
         self.retry_client
             .execute_with_retry(|| async {
                 let request_builder = self
                     .http_client
                     .post(&url)
+                    .header("X-Idempotency-Key", &idempotency_key)
                     .timeout(self.timeout)
                     .header("content-type", "application/json")
                     .body(body_bytes.clone());
@@ -465,12 +471,14 @@ impl TeamOrchestratorPort for TeamGatewayClient {
             GatewayClientError::Serialization(e.to_string())
         })?;
         let path = self.get_path(&url);
+        let idempotency_key = Self::generate_idempotency_key(&body);
         
         self.retry_client
             .execute_with_retry(|| async {
                 let request_builder = self
                     .http_client
                     .post(&url)
+                    .header("X-Idempotency-Key", &idempotency_key)
                     .timeout(self.timeout)
                     .header("content-type", "application/json")
                     .body(body_bytes.clone());
