@@ -4,6 +4,7 @@ use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use crate::team::auth::RequestSigner;
 use crate::team::retry::{RetryConfig, RetryError, RetryableClient};
 use decacan_runtime::ports::team_action_gateway::{
     ApprovalContinuation, TeamActionDisposition, TeamActionGateway,
@@ -29,6 +30,8 @@ pub enum GatewayClientError {
     ClientError { status: u16 },
     #[error("retry exhausted: {0}")]
     RetryExhausted(String),
+    #[error("configuration error: {0}")]
+    Configuration(String),
 }
 
 impl From<RetryError> for GatewayClientError {
@@ -51,6 +54,7 @@ pub struct TeamGatewayClient {
     http_client: Client,
     retry_client: RetryableClient,
     timeout: Duration,
+    signer: Option<RequestSigner>,
 }
 
 impl TeamGatewayClient {
@@ -60,12 +64,70 @@ impl TeamGatewayClient {
             http_client: Client::new(),
             retry_client: RetryableClient::with_config(RetryConfig::default()),
             timeout,
+            signer: None,
         }
     }
     
     pub fn with_retry_config(mut self, config: RetryConfig) -> Self {
         self.retry_client = RetryableClient::with_config(config);
         self
+    }
+    
+    pub fn with_signer(mut self, signer: RequestSigner) -> Self {
+        self.signer = Some(signer);
+        self
+    }
+    
+    pub fn from_env() -> Result<Self, GatewayClientError> {
+        use std::env;
+        
+        let url = env::var("DECACAN_TEAM_GATEWAY_URL")
+            .map_err(|_| GatewayClientError::Configuration("DECACAN_TEAM_GATEWAY_URL not set".to_string()))?;
+        
+        let timeout_secs = env::var("DECACAN_TEAM_GATEWAY_TIMEOUT_SECS")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(30);
+        
+        let mut client = Self::new(url, Duration::from_secs(timeout_secs));
+        
+        // Optional signing
+        if let (Ok(key_id), Ok(secret)) = (
+            env::var("DECACAN_TEAM_GATEWAY_KEY_ID"),
+            env::var("DECACAN_TEAM_GATEWAY_SECRET"),
+        ) {
+            client = client.with_signer(RequestSigner::new(key_id, secret.as_bytes()));
+        }
+        
+        Ok(client)
+    }
+    
+    fn add_auth_headers(
+        &self,
+        builder: reqwest::RequestBuilder,
+        method: &str,
+        path: &str,
+        body: &[u8],
+    ) -> reqwest::RequestBuilder {
+        if let Some(signer) = &self.signer {
+            if let Ok(signed) = signer.sign_request(method, path, body) {
+                return builder
+                    .header("X-Decacan-Timestamp", signed.timestamp.to_string())
+                    .header("X-Decacan-Nonce", signed.nonce)
+                    .header("X-Decacan-Signature", signed.signature)
+                    .header("X-Decacan-Key-Id", signed.key_id);
+            }
+        }
+        builder
+    }
+    
+    fn get_path(&self, full_url: &str) -> String {
+        // Extract path from full URL (e.g., "http://host/api/team-sessions" -> "/api/team-sessions")
+        if let Some(pos) = full_url.find("/api/") {
+            full_url[pos..].to_string()
+        } else {
+            "/".to_string()
+        }
     }
 }
 
@@ -148,25 +210,36 @@ impl TeamOrchestratorPort for TeamGatewayClient {
         };
         
         let url = format!("{}/api/team-sessions", self.base_url);
+        let body_bytes = serde_json::to_vec(&body).map_err(|e| {
+            GatewayClientError::Serialization(e.to_string())
+        })?;
+        let path = self.get_path(&url);
         
         self.retry_client
             .execute_with_retry(|| async {
-                let response = self
+                let request_builder = self
                     .http_client
                     .post(&url)
-                    .json(&body)
                     .timeout(self.timeout)
-                    .send()
-                    .await
-                    .map_err(|e| {
-                        if e.is_timeout() {
-                            RetryError::Transient(format!("timeout: {}", e))
-                        } else if e.is_connect() {
-                            RetryError::Transient(format!("connection: {}", e))
-                        } else {
-                            RetryError::Permanent(format!("request failed: {}", e))
-                        }
-                    })?;
+                    .header("content-type", "application/json")
+                    .body(body_bytes.clone());
+                
+                let request_builder = self.add_auth_headers(
+                    request_builder,
+                    "POST",
+                    &path,
+                    &body_bytes,
+                );
+                
+                let response = request_builder.send().await.map_err(|e| {
+                    if e.is_timeout() {
+                        RetryError::Transient(format!("timeout: {}", e))
+                    } else if e.is_connect() {
+                        RetryError::Transient(format!("connection: {}", e))
+                    } else {
+                        RetryError::Permanent(format!("request failed: {}", e))
+                    }
+                })?;
                 
                 match response.status() {
                     StatusCode::CREATED | StatusCode::OK => {
@@ -196,23 +269,34 @@ impl TeamOrchestratorPort for TeamGatewayClient {
         };
         
         let url = format!("{}/api/team-sessions/{}/input", self.base_url, body.session_id);
+        let body_bytes = serde_json::to_vec(&body).map_err(|e| {
+            GatewayClientError::Serialization(e.to_string())
+        })?;
+        let path = self.get_path(&url);
         
         self.retry_client
             .execute_with_retry(|| async {
-                let response = self
+                let request_builder = self
                     .http_client
                     .post(&url)
-                    .json(&body)
                     .timeout(self.timeout)
-                    .send()
-                    .await
-                    .map_err(|e| {
-                        if e.is_timeout() || e.is_connect() {
-                            RetryError::Transient(e.to_string())
-                        } else {
-                            RetryError::Permanent(e.to_string())
-                        }
-                    })?;
+                    .header("content-type", "application/json")
+                    .body(body_bytes.clone());
+                
+                let request_builder = self.add_auth_headers(
+                    request_builder,
+                    "POST",
+                    &path,
+                    &body_bytes,
+                );
+                
+                let response = request_builder.send().await.map_err(|e| {
+                    if e.is_timeout() || e.is_connect() {
+                        RetryError::Transient(e.to_string())
+                    } else {
+                        RetryError::Permanent(e.to_string())
+                    }
+                })?;
                 
                 match response.status() {
                     StatusCode::OK => {
@@ -242,23 +326,34 @@ impl TeamOrchestratorPort for TeamGatewayClient {
         };
         
         let url = format!("{}/api/team-sessions/{}/advance", self.base_url, body.session_id);
+        let body_bytes = serde_json::to_vec(&body).map_err(|e| {
+            GatewayClientError::Serialization(e.to_string())
+        })?;
+        let path = self.get_path(&url);
         
         self.retry_client
             .execute_with_retry(|| async {
-                let response = self
+                let request_builder = self
                     .http_client
                     .post(&url)
-                    .json(&body)
                     .timeout(self.timeout)
-                    .send()
-                    .await
-                    .map_err(|e| {
-                        if e.is_timeout() || e.is_connect() {
-                            RetryError::Transient(e.to_string())
-                        } else {
-                            RetryError::Permanent(e.to_string())
-                        }
-                    })?;
+                    .header("content-type", "application/json")
+                    .body(body_bytes.clone());
+                
+                let request_builder = self.add_auth_headers(
+                    request_builder,
+                    "POST",
+                    &path,
+                    &body_bytes,
+                );
+                
+                let response = request_builder.send().await.map_err(|e| {
+                    if e.is_timeout() || e.is_connect() {
+                        RetryError::Transient(e.to_string())
+                    } else {
+                        RetryError::Permanent(e.to_string())
+                    }
+                })?;
                 
                 match response.status() {
                     StatusCode::OK => {
@@ -284,22 +379,29 @@ impl TeamOrchestratorPort for TeamGatewayClient {
         session_id: &str,
     ) -> Result<Option<TeamSessionSnapshot>, Self::Error> {
         let url = format!("{}/api/team-sessions/{}", self.base_url, session_id);
+        let path = self.get_path(&url);
         
         self.retry_client
             .execute_with_retry(|| async {
-                let response = self
+                let request_builder = self
                     .http_client
                     .get(&url)
-                    .timeout(self.timeout)
-                    .send()
-                    .await
-                    .map_err(|e| {
-                        if e.is_timeout() || e.is_connect() {
-                            RetryError::Transient(e.to_string())
-                        } else {
-                            RetryError::Permanent(e.to_string())
-                        }
-                    })?;
+                    .timeout(self.timeout);
+                
+                let request_builder = self.add_auth_headers(
+                    request_builder,
+                    "GET",
+                    &path,
+                    b"",
+                );
+                
+                let response = request_builder.send().await.map_err(|e| {
+                    if e.is_timeout() || e.is_connect() {
+                        RetryError::Transient(e.to_string())
+                    } else {
+                        RetryError::Permanent(e.to_string())
+                    }
+                })?;
                 
                 match response.status() {
                     StatusCode::OK => {
@@ -329,23 +431,34 @@ impl TeamOrchestratorPort for TeamGatewayClient {
         };
         
         let url = format!("{}/api/team-sessions/{}/terminate", self.base_url, body.session_id);
+        let body_bytes = serde_json::to_vec(&body).map_err(|e| {
+            GatewayClientError::Serialization(e.to_string())
+        })?;
+        let path = self.get_path(&url);
         
         self.retry_client
             .execute_with_retry(|| async {
-                let response = self
+                let request_builder = self
                     .http_client
                     .post(&url)
-                    .json(&body)
                     .timeout(self.timeout)
-                    .send()
-                    .await
-                    .map_err(|e| {
-                        if e.is_timeout() || e.is_connect() {
-                            RetryError::Transient(e.to_string())
-                        } else {
-                            RetryError::Permanent(e.to_string())
-                        }
-                    })?;
+                    .header("content-type", "application/json")
+                    .body(body_bytes.clone());
+                
+                let request_builder = self.add_auth_headers(
+                    request_builder,
+                    "POST",
+                    &path,
+                    &body_bytes,
+                );
+                
+                let response = request_builder.send().await.map_err(|e| {
+                    if e.is_timeout() || e.is_connect() {
+                        RetryError::Transient(e.to_string())
+                    } else {
+                        RetryError::Permanent(e.to_string())
+                    }
+                })?;
                 
                 match response.status() {
                     StatusCode::OK => {
@@ -378,25 +491,36 @@ impl TeamActionGateway for TeamGatewayClient {
         let body = GatewaySubmitActionRequest { intent };
         
         let url = format!("{}/api/team-actions", self.base_url);
+        let body_bytes = serde_json::to_vec(&body).map_err(|e| {
+            GatewayClientError::Serialization(e.to_string())
+        })?;
+        let path = self.get_path(&url);
         let idempotency_key = Self::generate_idempotency_key(&body);
         
         self.retry_client
             .execute_with_retry(|| async {
-                let response = self
+                let request_builder = self
                     .http_client
                     .post(&url)
                     .header("X-Idempotency-Key", &idempotency_key)
-                    .json(&body)
                     .timeout(self.timeout)
-                    .send()
-                    .await
-                    .map_err(|e| {
-                        if e.is_timeout() || e.is_connect() {
-                            RetryError::Transient(e.to_string())
-                        } else {
-                            RetryError::Permanent(e.to_string())
-                        }
-                    })?;
+                    .header("content-type", "application/json")
+                    .body(body_bytes.clone());
+                
+                let request_builder = self.add_auth_headers(
+                    request_builder,
+                    "POST",
+                    &path,
+                    &body_bytes,
+                );
+                
+                let response = request_builder.send().await.map_err(|e| {
+                    if e.is_timeout() || e.is_connect() {
+                        RetryError::Transient(e.to_string())
+                    } else {
+                        RetryError::Permanent(e.to_string())
+                    }
+                })?;
                 
                 match response.status() {
                     StatusCode::OK | StatusCode::ACCEPTED | StatusCode::CREATED => {
@@ -422,23 +546,34 @@ impl TeamActionGateway for TeamGatewayClient {
         let body = GatewayContinueRequest { continuation };
         
         let url = format!("{}/api/team-actions/continue", self.base_url);
+        let body_bytes = serde_json::to_vec(&body).map_err(|e| {
+            GatewayClientError::Serialization(e.to_string())
+        })?;
+        let path = self.get_path(&url);
         
         self.retry_client
             .execute_with_retry(|| async {
-                let response = self
+                let request_builder = self
                     .http_client
                     .post(&url)
-                    .json(&body)
                     .timeout(self.timeout)
-                    .send()
-                    .await
-                    .map_err(|e| {
-                        if e.is_timeout() || e.is_connect() {
-                            RetryError::Transient(e.to_string())
-                        } else {
-                            RetryError::Permanent(e.to_string())
-                        }
-                    })?;
+                    .header("content-type", "application/json")
+                    .body(body_bytes.clone());
+                
+                let request_builder = self.add_auth_headers(
+                    request_builder,
+                    "POST",
+                    &path,
+                    &body_bytes,
+                );
+                
+                let response = request_builder.send().await.map_err(|e| {
+                    if e.is_timeout() || e.is_connect() {
+                        RetryError::Transient(e.to_string())
+                    } else {
+                        RetryError::Permanent(e.to_string())
+                    }
+                })?;
                 
                 match response.status() {
                     StatusCode::OK => {
