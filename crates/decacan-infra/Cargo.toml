@@ -37,7 +37,13 @@ hmac = "0.12"
 sha2 = "0.10"
 hex = "0.4"
 uuid = { version = "1", features = ["v4"] }
+lru = "0.12"
+url = "2"
+
+# Retry新增
+rand = "0.8"
 
 [dev-dependencies]
 tempfile = "3"
 tokio = { version = "1", features = ["rt", "macros"] }
+wiremock = "0.6"

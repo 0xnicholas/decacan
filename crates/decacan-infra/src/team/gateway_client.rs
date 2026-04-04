@@ -78,6 +78,30 @@ impl TeamGatewayClient {
         self
     }
     
+    pub fn has_signer(&self) -> bool {
+        self.signer.is_some()
+    }
+
+    /// Creates a client from environment variables.
+    ///
+    /// Required environment variables:
+    /// - `DECACAN_TEAM_GATEWAY_URL` - The gateway base URL
+    ///
+    /// Optional environment variables:
+    /// - `DECACAN_TEAM_GATEWAY_TIMEOUT_SECS` - Timeout in seconds (default: 30)
+    /// - `DECACAN_TEAM_GATEWAY_KEY_ID` - Signing key ID
+    /// - `DECACAN_TEAM_GATEWAY_SECRET` - Signing secret key
+    ///
+    /// # Errors
+    /// Returns `GatewayClientError::Configuration` if required env vars are missing.
+    ///
+    /// # Example
+    /// ```
+    /// use decacan_infra::team::gateway_client::TeamGatewayClient;
+    ///
+    /// std::env::set_var("DECACAN_TEAM_GATEWAY_URL", "http://gateway:8080");
+    /// let client = TeamGatewayClient::from_env();
+    /// ```
     pub fn from_env() -> Result<Self, GatewayClientError> {
         use std::env;
         
@@ -122,11 +146,17 @@ impl TeamGatewayClient {
     }
     
     fn get_path(&self, full_url: &str) -> String {
-        // Extract path from full URL (e.g., "http://host/api/team-sessions" -> "/api/team-sessions")
-        if let Some(pos) = full_url.find("/api/") {
-            full_url[pos..].to_string()
-        } else {
-            "/".to_string()
+        // Parse URL to extract path properly
+        match url::Url::parse(full_url) {
+            Ok(url) => url.path().to_string(),
+            Err(_) => {
+                // Fallback: extract path manually if URL parsing fails
+                if let Some(pos) = full_url.find("/api/") {
+                    full_url[pos..].to_string()
+                } else {
+                    "/".to_string()
+                }
+            }
         }
     }
 }

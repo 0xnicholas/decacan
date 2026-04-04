@@ -239,8 +239,8 @@ impl Default for AdapterMode {
 
 #[derive(Debug, Error)]
 pub enum AdapterError {
-    #[error("in-process adapter error")]
-    InProcessError,
+    #[error("in-process adapter error: {0}")]
+    InProcessError(String),
     #[error("gateway not configured")]
     GatewayNotConfigured,
     #[error("gateway error: {0}")]
@@ -309,7 +309,7 @@ impl TeamOrchestratorPort for TeamAdapter {
                 .in_process
                 .start_session(request)
                 .await
-                .map_err(|_| AdapterError::InProcessError),
+                .map_err(|e| AdapterError::InProcessError(e.to_string())),
             AdapterMode::Gateway { .. } => {
                 let gateway = self.gateway.as_ref().ok_or(AdapterError::GatewayNotConfigured)?;
                 gateway.start_session(request).await.map_err(Into::into)
@@ -326,7 +326,7 @@ impl TeamOrchestratorPort for TeamAdapter {
                 .in_process
                 .apply_input(request)
                 .await
-                .map_err(|_| AdapterError::InProcessError),
+                .map_err(|e| AdapterError::InProcessError(e.to_string())),
             AdapterMode::Gateway { .. } => {
                 let gateway = self.gateway.as_ref().ok_or(AdapterError::GatewayNotConfigured)?;
                 gateway.apply_input(request).await.map_err(Into::into)
@@ -343,7 +343,7 @@ impl TeamOrchestratorPort for TeamAdapter {
                 .in_process
                 .advance_session(request)
                 .await
-                .map_err(|_| AdapterError::InProcessError),
+                .map_err(|e| AdapterError::InProcessError(e.to_string())),
             AdapterMode::Gateway { .. } => {
                 let gateway = self.gateway.as_ref().ok_or(AdapterError::GatewayNotConfigured)?;
                 gateway.advance_session(request).await.map_err(Into::into)
@@ -360,7 +360,7 @@ impl TeamOrchestratorPort for TeamAdapter {
                 .in_process
                 .get_snapshot(session_id)
                 .await
-                .map_err(|_| AdapterError::InProcessError),
+                .map_err(|e| AdapterError::InProcessError(e.to_string())),
             AdapterMode::Gateway { .. } => {
                 let gateway = self.gateway.as_ref().ok_or(AdapterError::GatewayNotConfigured)?;
                 gateway.get_snapshot(session_id).await.map_err(Into::into)
@@ -377,7 +377,7 @@ impl TeamOrchestratorPort for TeamAdapter {
                 .in_process
                 .terminate_session(request)
                 .await
-                .map_err(|_| AdapterError::InProcessError),
+                .map_err(|e| AdapterError::InProcessError(e.to_string())),
             AdapterMode::Gateway { .. } => {
                 let gateway = self.gateway.as_ref().ok_or(AdapterError::GatewayNotConfigured)?;
                 gateway.terminate_session(request).await.map_err(Into::into)
@@ -399,7 +399,7 @@ impl TeamActionGateway for TeamAdapter {
                 .in_process
                 .submit_action(intent)
                 .await
-                .map_err(|_| AdapterError::InProcessError),
+                .map_err(|e| AdapterError::InProcessError(e.to_string())),
             AdapterMode::Gateway { .. } => {
                 let gateway = self.gateway.as_ref().ok_or(AdapterError::GatewayNotConfigured)?;
                 gateway.submit_action(intent).await.map_err(Into::into)
@@ -416,7 +416,7 @@ impl TeamActionGateway for TeamAdapter {
                 .in_process
                 .continue_after_approval(continuation)
                 .await
-                .map_err(|_| AdapterError::InProcessError),
+                .map_err(|e| AdapterError::InProcessError(e.to_string())),
             AdapterMode::Gateway { .. } => {
                 let gateway = self.gateway.as_ref().ok_or(AdapterError::GatewayNotConfigured)?;
                 gateway.continue_after_approval(continuation).await.map_err(Into::into)
