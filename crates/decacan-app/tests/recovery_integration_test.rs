@@ -5,7 +5,6 @@ use decacan_runtime::assistant::session::{AssistantDelegationBinding, AssistantD
 use decacan_runtime::persistence::assistant_delegations::AssistantDelegationBindingStore;
 
 /// Test that recovery runs successfully with active delegations
-/// Note: The current in-memory implementation returns all delegations, not just active ones
 #[tokio::test]
 async fn recovery_runs_successfully_with_delegations() {
     // Create a delegation store and populate it with active delegations
@@ -17,6 +16,7 @@ async fn recovery_runs_successfully_with_delegations() {
         task_id: "task-1".to_string(),
         run_id: "run-1".to_string(),
         team_session_id: "team-session-1".to_string(),
+        workspace_id: "workspace-1".to_string(),
         status: AssistantDelegationStatus::Active,
     };
 
@@ -25,6 +25,7 @@ async fn recovery_runs_successfully_with_delegations() {
         task_id: "task-2".to_string(),
         run_id: "run-2".to_string(),
         team_session_id: "team-session-2".to_string(),
+        workspace_id: "workspace-1".to_string(),
         status: AssistantDelegationStatus::Active,
     };
 
@@ -46,10 +47,9 @@ async fn recovery_runs_successfully_with_delegations() {
     assert!(report.errors.is_empty(), "Should have no errors");
 }
 
-/// Test that recovery runs with mixed status delegations
-/// Note: The current in-memory implementation returns all delegations regardless of status
+/// Test that recovery only restores active delegations
 #[tokio::test]
-async fn recovery_runs_with_mixed_status_delegations() {
+async fn recovery_only_restores_active_delegations() {
     let delegation_store = InMemoryAssistantDelegationBindingStore::new();
 
     // Create one active and one completed delegation
@@ -58,6 +58,7 @@ async fn recovery_runs_with_mixed_status_delegations() {
         task_id: "task-active".to_string(),
         run_id: "run-active".to_string(),
         team_session_id: "team-session-active".to_string(),
+        workspace_id: "workspace-1".to_string(),
         status: AssistantDelegationStatus::Active,
     };
 
@@ -66,6 +67,7 @@ async fn recovery_runs_with_mixed_status_delegations() {
         task_id: "task-completed".to_string(),
         run_id: "run-completed".to_string(),
         team_session_id: "team-session-completed".to_string(),
+        workspace_id: "workspace-1".to_string(),
         status: AssistantDelegationStatus::Completed,
     };
 
@@ -78,8 +80,8 @@ async fn recovery_runs_with_mixed_status_delegations() {
         .await
         .unwrap();
 
-    // Current implementation returns all delegations (no status filtering)
-    assert_eq!(report.sessions_recovered, 2, "Should recover all sessions from store");
+    // Only active delegations should be recovered
+    assert_eq!(report.sessions_recovered, 1, "Should recover only active sessions");
     assert!(report.errors.is_empty(), "Should have no errors");
 }
 

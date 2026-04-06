@@ -366,10 +366,16 @@ impl AppState {
 
         // Merge recovered sessions into stored sessions
         for (session_id, session) in sessions_to_recover {
-            // Create a StoredAssistantSession with default values for DTO fields
-            // In production, these would come from a separate assistant_sessions store
+            // Extract workspace_id from the delegation binding
+            let workspace_id = session
+                .active_delegation
+                .as_ref()
+                .map(|d| d.workspace_id.clone())
+                .unwrap_or_else(|| "recovered".to_string());
+
+            // Create a StoredAssistantSession with values from the binding
             let stored_session = StoredAssistantSession {
-                workspace_id: "recovered".to_string(), // Would come from persistence
+                workspace_id,
                 execution_mode: "standard".to_string(), // Would come from persistence
                 objective: crate::dto::AssistantObjectiveDto {
                     title: "Recovered session".to_string(),
@@ -436,6 +442,7 @@ impl AppState {
 
         let session = AssistantSession::new_for_test(assistant_session_id.clone())
             .with_active_delegation(
+                request.workspace_id.clone(),
                 task_id.clone(),
                 run_id.clone(),
                 started.snapshot.session_id.clone(),
@@ -511,6 +518,7 @@ impl AppState {
         self.sync_evolution_proposals_from_snapshot(&started.snapshot);
 
         let session = existing.session.with_active_delegation(
+            request.workspace_id.clone(),
             task_id.clone(),
             run_id.clone(),
             started.snapshot.session_id.clone(),

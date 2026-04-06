@@ -27,18 +27,21 @@ pub struct AssistantDelegationBinding {
     pub task_id: String,
     pub run_id: String,
     pub team_session_id: String,
+    pub workspace_id: String,
     pub status: AssistantDelegationStatus,
 }
 
 impl AssistantDelegationBinding {
     pub fn new_for_test(
         assistant_session_id: impl Into<String>,
+        workspace_id: impl Into<String>,
         task_id: impl Into<String>,
         run_id: impl Into<String>,
         team_session_id: impl Into<String>,
     ) -> Self {
         Self {
             assistant_session_id: assistant_session_id.into(),
+            workspace_id: workspace_id.into(),
             task_id: task_id.into(),
             run_id: run_id.into(),
             team_session_id: team_session_id.into(),
@@ -63,12 +66,14 @@ impl AssistantSession {
 
     pub fn with_active_delegation(
         mut self,
+        workspace_id: impl Into<String>,
         task_id: impl Into<String>,
         run_id: impl Into<String>,
         team_session_id: impl Into<String>,
     ) -> Self {
         let binding = AssistantDelegationBinding::new_for_test(
             self.assistant_session_id.clone(),
+            workspace_id.into(),
             task_id.into(),
             run_id.into(),
             team_session_id.into(),

@@ -24,7 +24,7 @@ impl AssistantDelegationBindingStore for PostgresAssistantDelegationBindingStore
     ) -> Result<Option<AssistantDelegationBinding>, Self::Error> {
         let row = sqlx::query(
             r#"
-            SELECT assistant_session_id, team_session_id, task_id, run_id, status
+            SELECT assistant_session_id, workspace_id, team_session_id, task_id, run_id, status
             FROM assistant_delegations
             WHERE assistant_session_id = $1
             "#,
@@ -36,6 +36,7 @@ impl AssistantDelegationBindingStore for PostgresAssistantDelegationBindingStore
 
         Ok(row.map(|r| AssistantDelegationBinding {
             assistant_session_id: r.get("assistant_session_id"),
+            workspace_id: r.get("workspace_id"),
             team_session_id: r.get("team_session_id"),
             task_id: r.get("task_id"),
             run_id: r.get("run_id"),
@@ -54,13 +55,14 @@ impl AssistantDelegationBindingStore for PostgresAssistantDelegationBindingStore
 
         sqlx::query(
             r#"
-            INSERT INTO assistant_delegations (assistant_session_id, team_session_id, task_id, run_id, status)
-            VALUES ($1, $2, $3, $4, $5)
+            INSERT INTO assistant_delegations (assistant_session_id, workspace_id, team_session_id, task_id, run_id, status)
+            VALUES ($1, $2, $3, $4, $5, $6)
             ON CONFLICT (assistant_session_id) DO UPDATE
-            SET team_session_id = $2, task_id = $3, run_id = $4, status = $5
+            SET workspace_id = $2, team_session_id = $3, task_id = $4, run_id = $5, status = $6
             "#,
         )
         .bind(&binding.assistant_session_id)
+        .bind(&binding.workspace_id)
         .bind(&binding.team_session_id)
         .bind(&binding.task_id)
         .bind(&binding.run_id)
@@ -75,7 +77,7 @@ impl AssistantDelegationBindingStore for PostgresAssistantDelegationBindingStore
     async fn list_active(&self) -> Result<Vec<AssistantDelegationBinding>, Self::Error> {
         let rows = sqlx::query(
             r#"
-            SELECT assistant_session_id, team_session_id, task_id, run_id, status
+            SELECT assistant_session_id, workspace_id, team_session_id, task_id, run_id, status
             FROM assistant_delegations
             WHERE status = 'active'
             ORDER BY created_at DESC
@@ -89,6 +91,7 @@ impl AssistantDelegationBindingStore for PostgresAssistantDelegationBindingStore
             .into_iter()
             .map(|r| AssistantDelegationBinding {
                 assistant_session_id: r.get("assistant_session_id"),
+                workspace_id: r.get("workspace_id"),
                 team_session_id: r.get("team_session_id"),
                 task_id: r.get("task_id"),
                 run_id: r.get("run_id"),

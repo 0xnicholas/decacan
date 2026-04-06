@@ -3,6 +3,7 @@
 
 CREATE TABLE IF NOT EXISTS assistant_delegations (
     assistant_session_id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL,
     team_session_id TEXT NOT NULL,
     task_id TEXT NOT NULL,
     run_id TEXT NOT NULL,

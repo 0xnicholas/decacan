@@ -1,4 +1,4 @@
-use decacan_runtime::assistant::session::AssistantDelegationBinding;
+use decacan_runtime::assistant::session::{AssistantDelegationBinding, AssistantDelegationStatus};
 use decacan_runtime::persistence::assistant_delegations::AssistantDelegationBindingStore;
 use std::collections::HashMap;
 use std::convert::Infallible;
@@ -35,6 +35,10 @@ impl AssistantDelegationBindingStore for InMemoryAssistantDelegationBindingStore
 
     async fn list_active(&self) -> Result<Vec<AssistantDelegationBinding>, Self::Error> {
         let bindings = self.bindings.read().unwrap_or_else(|e| e.into_inner());
-        Ok(bindings.values().cloned().collect())
+        Ok(bindings
+            .values()
+            .filter(|b| b.status == AssistantDelegationStatus::Active)
+            .cloned()
+            .collect())
     }
 }
