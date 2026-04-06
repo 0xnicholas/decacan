@@ -32,4 +32,9 @@ impl AssistantDelegationBindingStore for InMemoryAssistantDelegationBindingStore
         bindings.insert(binding.assistant_session_id.clone(), binding);
         Ok(())
     }
+
+    async fn list_active(&self) -> Result<Vec<AssistantDelegationBinding>, Self::Error> {
+        let bindings = self.bindings.read().unwrap_or_else(|e| e.into_inner());
+        Ok(bindings.values().cloned().collect())
+    }
 }

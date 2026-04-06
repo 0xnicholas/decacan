@@ -13,6 +13,7 @@ use decacan_infra::storage::memory::MemoryStorage;
 use decacan_infra::team::adapter::InProcessTeamOrchestrator;
 use decacan_runtime::artifact::entity::Artifact as RuntimeArtifact;
 use decacan_runtime::assistant::session::{AssistantDelegationBinding, AssistantSession};
+use decacan_runtime::persistence::assistant_delegations::AssistantDelegationBindingStore;
 use decacan_runtime::events::{TaskEvent, TaskEventPayload};
 use decacan_runtime::playbook::authoring::{save_draft, SaveDraftCommand};
 use decacan_runtime::playbook::entity::{
@@ -41,6 +42,8 @@ use decacan_runtime::workspace::service::member_service::{
     CreateMembershipInput, MemberService, UpdateRoleInput,
 };
 use tokio::sync::broadcast;
+
+use crate::app::recovery::RecoveryReport;
 
 use crate::dto::{
     AccountHomeDto, AccountPlaybookShortcutDto, AccountTaskSummaryDto, AccountWorkItemDto,
@@ -334,6 +337,50 @@ impl AppState {
                 member_service,
             }),
         })
+    }
+
+    /// Recover assistant sessions from persistence after app restart
+    /// This should be called once during application startup in production
+    pub async fn recover_assistant_sessions<Store>(
+        &self,
+        delegation_store: Store,
+    ) -> Result<RecoveryReport, Store::Error>
+    where
+        Store: AssistantDelegationBindingStore,
+    {
+        use crate::app::recovery::RecoveryService;
+
+        let recovery_service = RecoveryService::new(delegation_store);
+        let mut sessions_guard = self
+            .inner
+            .assistant_sessions
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+
+        // Extract just the AssistantSession part for recovery
+        let mut sessions_to_recover: HashMap<String, AssistantSession> = HashMap::new();
+
+        let report = recovery_service
+            .recover_sessions(&mut sessions_to_recover)
+            .await?;
+
+        // Merge recovered sessions into stored sessions
+        for (session_id, session) in sessions_to_recover {
+            // Create a StoredAssistantSession with default values for DTO fields
+            // In production, these would come from a separate assistant_sessions store
+            let stored_session = StoredAssistantSession {
+                workspace_id: "recovered".to_string(), // Would come from persistence
+                execution_mode: "standard".to_string(), // Would come from persistence
+                objective: crate::dto::AssistantObjectiveDto {
+                    title: "Recovered session".to_string(),
+                    user_goal: "Recovered from persistence".to_string(),
+                },
+                session,
+            };
+            sessions_guard.insert(session_id, stored_session);
+        }
+
+        Ok(report)
     }
 
     pub fn next_id(&self, prefix: &str) -> String {

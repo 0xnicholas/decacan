@@ -10,4 +10,6 @@ pub trait AssistantDelegationBindingStore: Send + Sync {
     ) -> Result<Option<AssistantDelegationBinding>, Self::Error>;
 
     async fn save(&self, binding: AssistantDelegationBinding) -> Result<(), Self::Error>;
+
+    async fn list_active(&self) -> Result<Vec<AssistantDelegationBinding>, Self::Error>;
 }

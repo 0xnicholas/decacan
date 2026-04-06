@@ -1,10 +1,24 @@
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AssistantDelegationStatus {
     Active,
     Completed,
     Cancelled,
+}
+
+impl FromStr for AssistantDelegationStatus {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "active" => Ok(AssistantDelegationStatus::Active),
+            "completed" => Ok(AssistantDelegationStatus::Completed),
+            "cancelled" => Ok(AssistantDelegationStatus::Cancelled),
+            _ => Err(format!("Unknown delegation status: {}", s)),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
