@@ -4,8 +4,13 @@
   "workspaces": ["apps/*"],
   "scripts": {
     "dev:workspaces": "pnpm --filter @decacan/ui build && pnpm --filter decacan-workspaces dev",
+    "dev:workspaces:drama": "pnpm --filter @decacan/ui build && pnpm --filter decacan-workspaces dev:drama",
+    "dev:workspaces:video": "pnpm --filter @decacan/ui build && pnpm --filter decacan-workspaces dev:video",
+    "dev:workspaces:all": "pnpm --filter decacan-workspaces dev:all",
     "dev:console": "pnpm --filter decacan-console dev",
     "dev:admin": "pnpm --filter decacan-console dev",
-    "build": "pnpm --filter '*' build"
+    "build": "pnpm --filter '*' build",
+    "build:workspaces:drama": "pnpm --filter decacan-workspaces build:drama",
+    "build:workspaces:video": "pnpm --filter decacan-workspaces build:video"
   }
 }
