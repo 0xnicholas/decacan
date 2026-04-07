@@ -4,13 +4,16 @@ import { BrowserRouter } from 'react-router-dom';
 import { ThemeProvider } from '@decacan/ui';
 
 import { App } from './app/App';
+import { IndustryProvider } from './app/providers';
 import './css/styles.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ThemeProvider defaultTheme="system" storageKey="workspaces-theme">
       <BrowserRouter>
-        <App />
+        <IndustryProvider>
+          <App />
+        </IndustryProvider>
       </BrowserRouter>
     </ThemeProvider>
   </React.StrictMode>,
