@@ -9,7 +9,7 @@ interface WorkspaceHomePageProps {
 }
 
 /**
- * Short Drama industry-specific workspace home page
+ * Short Video industry-specific workspace home page
  * Uses 3-column layout: Main Content | Info Panel | AI Assistant
  */
 export function WorkspaceHomePage({ workspaceId }: WorkspaceHomePageProps) {

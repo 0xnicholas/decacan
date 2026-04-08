@@ -2,10 +2,18 @@ import React, { Suspense } from 'react';
 import { Routes, Route, useParams } from 'react-router-dom';
 import { createLazyComponent } from './dynamicLoader';
 import { WorkspaceShell } from '../../shared/layout/WorkspaceShell';
-import { useIndustryConfig } from '../../app/providers';
+import { useIndustryConfig } from '../../app/providers/index';
 
 // Lazy-loaded components with industry support
 const LazyWorkspaceHomePage = createLazyComponent('workspace-home', 'WorkspaceHomePage');
+
+// Industry-specific page components (loaded dynamically)
+const LazyScriptPage = createLazyComponent('script', 'ScriptPage');
+const LazyStoryboardPage = createLazyComponent('storyboard', 'StoryboardPage');
+const LazyArtResourcesPage = createLazyComponent('art-resources', 'ArtResourcesPage');
+const LazyTopicsPage = createLazyComponent('topics', 'TopicsPage');
+const LazyAnalyticsPage = createLazyComponent('analytics', 'AnalyticsPage');
+const LazySchedulePage = createLazyComponent('schedule', 'SchedulePage');
 
 // Wrapper components with loading states
 function SuspenseWrapper({ children }: { children: React.ReactNode }) {
@@ -18,6 +26,20 @@ function SuspenseWrapper({ children }: { children: React.ReactNode }) {
       {children}
     </Suspense>
   );
+}
+
+// Wrapper for industry-specific routes
+interface IndustryRouteWrapperProps {
+  component: React.ComponentType<{ workspaceId: string }>;
+}
+
+function IndustryRouteWrapper({ component: Component }: IndustryRouteWrapperProps) {
+  const { workspaceId } = useParams();
+  return workspaceId ? (
+    <SuspenseWrapper>
+      <Component workspaceId={workspaceId} />
+    </SuspenseWrapper>
+  ) : null;
 }
 
 function WorkspaceHomeWrapper() {
@@ -45,21 +67,43 @@ function WorkspaceEntryRedirect() {
   return <div>Redirecting...</div>;
 }
 
+// Map route names to components
+const industryRouteComponents: Record<string, React.ComponentType> = {
+  'script': LazyScriptPage,
+  'storyboard': LazyStoryboardPage,
+  'art': LazyArtResourcesPage,
+  'topics': LazyTopicsPage,
+  'analytics': LazyAnalyticsPage,
+  'schedule': LazySchedulePage,
+};
+
 export function IndustryAwareRouter() {
   const config = useIndustryConfig();
-  
-  // Get visible routes based on industry config
-  const isRouteVisible = (route: string): boolean => {
-    if (!config.routes?.hiddenRoutes) return true;
-    return !config.routes.hiddenRoutes.includes(route);
-  };
+
+  // Generate additional routes from industry config
+  const additionalRoutes = (config.routes?.additionalRoutes ?? []).map((route): React.ReactNode => {
+    const Component = industryRouteComponents[route.component];
+    if (!Component) {
+      console.warn(`No component found for route: ${route.path}`);
+      return null;
+    }
+    return (
+      <Route 
+        key={route.path} 
+        path={route.path} 
+        element={<IndustryRouteWrapper component={Component} />}
+      />
+    );
+  });
 
   return (
     <Routes>
       {/* Workspace pages with shell */}
       <Route path="/workspaces/:workspaceId" element={<WorkspaceShell />}>
         <Route index element={<WorkspaceHomeWrapper />} />
-        {/* Add other routes conditionally based on industry config */}
+        {/* Industry-specific additional routes */}
+        {additionalRoutes}
+        {/* Catch-all for undefined routes */}
         <Route path="*" element={<WorkspaceSegmentOverflowPlaceholder />} />
       </Route>
 

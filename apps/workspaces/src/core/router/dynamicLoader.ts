@@ -1,4 +1,4 @@
-import type { ComponentType } from 'react';
+import React, { type ComponentType } from 'react';
 import { getIndustryId } from '../../config';
 
 type LoadableComponent = ComponentType<Record<string, unknown>>;
