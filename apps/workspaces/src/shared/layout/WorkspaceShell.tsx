@@ -6,6 +6,8 @@ import type { Workspace } from "../../entities/playbook/types";
 import { fetchWorkspaces } from "../api/catalog";
 import { TopBar } from "./TopBar";
 import { WorkspaceNav } from "./WorkspaceNav";
+import { useWorkspace } from "./WorkspaceContext";
+import { LoadingState } from "../ui";
 
 function getSectionFromPath(pathname: string): WorkspaceSection {
   const parts = pathname.split('/').filter(Boolean);
@@ -26,6 +28,8 @@ export function WorkspaceShell() {
   const location = useLocation();
   const { workspaceId } = useParams();
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  const [isLoadingWorkspaces, setIsLoadingWorkspaces] = useState(true);
+  const { rightPanel } = useWorkspace();
   
   const currentSection = getSectionFromPath(location.pathname);
 
@@ -35,6 +39,8 @@ export function WorkspaceShell() {
         setWorkspaces(await fetchWorkspaces());
       } catch {
         setWorkspaces([]);
+      } finally {
+        setIsLoadingWorkspaces(false);
       }
     }
 
@@ -50,6 +56,12 @@ export function WorkspaceShell() {
     return null;
   }
 
+  if (isLoadingWorkspaces) {
+    return <LoadingState message="Loading workspaces..." />;
+  }
+
+  const hasRightPanel = !!rightPanel;
+
   return (
     <div className="min-h-screen grid grid-rows-[auto_1fr]">
       <TopBar
@@ -62,16 +74,23 @@ export function WorkspaceShell() {
         selectedWorkspaceId={workspaceId}
         workspaces={workspaces}
       />
-      <div className="grid grid-cols-[220px_1fr] min-h-0">
-        <WorkspaceNav
-          currentSection={currentSection}
-          onNavigate={(nextSection) => {
-            navigateTo(workspaceId, nextSection);
-          }}
-        />
-        <main className="p-9 overflow-auto">
+      <div className={`grid min-h-0 overflow-hidden ${hasRightPanel ? 'grid-cols-[220px_1fr_320px]' : 'grid-cols-[220px_1fr]'}`}>
+        <aside className="border-r overflow-auto">
+          <WorkspaceNav
+            currentSection={currentSection}
+            onNavigate={(nextSection) => {
+              navigateTo(workspaceId, nextSection);
+            }}
+          />
+        </aside>
+        <main className="p-6 overflow-auto">
           <Outlet />
         </main>
+        {rightPanel && (
+          <aside className="border-l flex flex-col h-full overflow-hidden">
+            {rightPanel}
+          </aside>
+        )}
       </div>
     </div>
   );

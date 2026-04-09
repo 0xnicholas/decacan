@@ -42,6 +42,10 @@ export function DeliverablesPage({ workspaceId }: DeliverablesPageProps) {
     void loadDeliverables();
   };
 
+  if (isLoading && deliverables.length === 0 && !error) {
+    return <LoadingState message="Loading deliverables..." />;
+  }
+
   return (
     <section aria-label="Deliverables">
       <PageHeader title="Deliverables" subtitle="Workspace" />

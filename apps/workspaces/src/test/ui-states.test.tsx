@@ -6,10 +6,10 @@ import { LoadingState } from "../shared/ui/LoadingState";
 import { ErrorState } from "../shared/ui/ErrorState";
 import { EmptyState } from "../shared/ui/EmptyState";
 import { PageHeader } from "../shared/ui/PageHeader";
-import { DiscussionPanel } from "../features/workspace-home/DiscussionPanel";
-import { MyQueuePanel } from "../features/workspace-home/MyQueuePanel";
-import { ResumeStrip } from "../features/workspace-home/ResumeStrip";
-import { WorkspaceAssistantDock } from "../features/workspace-home/WorkspaceAssistantDock";
+import { DiscussionPanel } from "../features/workspace-home/base/DiscussionPanel";
+import { MyQueuePanel } from "../features/workspace-home/base/MyQueuePanel";
+import { ResumeStrip } from "../features/workspace-home/base/ResumeStrip";
+import { WorkspaceAssistantDock } from "../features/workspace-home/base/WorkspaceAssistantDock";
 
 describe("LoadingState", () => {
   it("renders a spinner", () => {

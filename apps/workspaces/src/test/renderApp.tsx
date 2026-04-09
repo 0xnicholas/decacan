@@ -3,6 +3,7 @@ import { BrowserRouter } from "react-router-dom";
 import { ThemeProvider } from "@decacan/ui";
 
 import { App } from "../app/App";
+import { IndustryProvider } from "../app/providers/index";
 
 export function renderAppAtRoute(route?: string) {
   const resolvedRoute =
@@ -14,7 +15,9 @@ export function renderAppAtRoute(route?: string) {
   return render(
     <ThemeProvider defaultTheme="light" storageKey="test-theme">
       <BrowserRouter>
-        <App />
+        <IndustryProvider>
+          <App />
+        </IndustryProvider>
       </BrowserRouter>
     </ThemeProvider>,
   );

@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader } from "@decacan/ui";
 
-import type { WorkspaceWorkbenchModel } from "../../entities/workbench/types";
+import type { WorkspaceWorkbenchModel } from "../../../entities/workbench/types";
 
 interface TeamActivityPanelProps {
   items: WorkspaceWorkbenchModel["activity"];

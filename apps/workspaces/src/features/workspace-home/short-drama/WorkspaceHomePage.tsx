@@ -1,8 +1,5 @@
-import React from 'react';
-import { ThreeColumnLayout } from '../../../../shared/layout/ThreeColumnLayout';
-import { WorkspaceMainContent } from '../../../main-content/WorkspaceMainContent';
-import { WorkspaceInfoPanel } from '../../../info/WorkspaceInfoPanel';
-import { AIAssistantPanel } from '../../../assistant/AIAssistantPanel';
+import { WorkspaceMainContent } from '../../main-content/WorkspaceMainContent';
+import { WorkspaceInfoPanel } from '../../info/WorkspaceInfoPanel';
 
 interface WorkspaceHomePageProps {
   workspaceId: string;
@@ -10,15 +7,22 @@ interface WorkspaceHomePageProps {
 
 /**
  * Short Drama industry-specific workspace home page
- * Uses 3-column layout: Main Content | Info Panel | AI Assistant
+ * Vertical layout: Main content on top, Info panel below
  */
 export function WorkspaceHomePage({ workspaceId }: WorkspaceHomePageProps) {
   return (
-    <ThreeColumnLayout
-      main={<WorkspaceMainContent workspaceId={workspaceId} />}
-      info={<WorkspaceInfoPanel workspaceId={workspaceId} />}
-      assistant={<AIAssistantPanel workspaceId={workspaceId} />}
-    />
+    <div className="space-y-6">
+      {/* Main content area */}
+      <section>
+        <WorkspaceMainContent workspaceId={workspaceId} />
+      </section>
+
+      {/* Info panel area */}
+      <section className="pt-6 border-t">
+        <h2 className="text-lg font-semibold mb-4">工作区概览</h2>
+        <WorkspaceInfoPanel workspaceId={workspaceId} />
+      </section>
+    </div>
   );
 }
 

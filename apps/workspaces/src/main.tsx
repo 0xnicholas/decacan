@@ -4,7 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { ThemeProvider } from '@decacan/ui';
 
 import { App } from './app/App';
-import { IndustryProvider } from './app/providers';
+import { IndustryProvider } from './app/providers/index';
 import './css/styles.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

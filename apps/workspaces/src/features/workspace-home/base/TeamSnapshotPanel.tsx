@@ -1,4 +1,4 @@
-import type { TeamMember } from "../../entities/workspace-home/types";
+import type { TeamMember } from "../../../entities/workspace-home/types";
 
 interface TeamSnapshotPanelProps {
   team: TeamMember[];

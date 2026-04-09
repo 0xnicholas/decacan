@@ -1,4 +1,4 @@
-import { useIndustryConfig, useTerminology } from '../../../app/providers/index';
+import { useIndustryConfig, useTerminology } from '../../app/providers/index';
 
 interface ProgressItem {
   label: string;

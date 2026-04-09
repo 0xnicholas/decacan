@@ -1,4 +1,4 @@
-import type { DeliverableItem } from "../../entities/workspace-home/types";
+import type { DeliverableItem } from "../../../entities/workspace-home/types";
 
 interface WorkspaceDeliverablesPanelProps {
   deliverables: DeliverableItem[];

@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader } from "@decacan/ui";
 
-import type { QueueModel } from "../../entities/workbench/types";
-import { EmptyState } from "../../shared/ui";
+import type { QueueModel } from "../../../entities/workbench/types";
+import { EmptyState } from "../../../shared/ui";
 
 interface MyQueuePanelProps {
   queue: QueueModel;

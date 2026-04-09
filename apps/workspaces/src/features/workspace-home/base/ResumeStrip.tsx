@@ -1,7 +1,7 @@
 import { Button, Card, CardContent, CardDescription, CardHeader } from "@decacan/ui";
 
-import type { ResumeModel } from "../../entities/workbench/types";
-import { EmptyState } from "../../shared/ui";
+import type { ResumeModel } from "../../../entities/workbench/types";
+import { EmptyState } from "../../../shared/ui";
 
 interface ResumeStripProps {
   resume: ResumeModel;

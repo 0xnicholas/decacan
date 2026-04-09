@@ -10,6 +10,7 @@ import {
   createTaskPreview,
   type TaskPreview,
 } from "../../shared/api/tasks";
+import { ErrorState, LoadingState } from "../../shared/ui";
 import { PlaybookCards } from "./PlaybookCards";
 import { TaskDraftForm } from "./TaskDraftForm";
 import { TaskPreviewPanel } from "./TaskPreviewPanel";
@@ -21,6 +22,8 @@ interface LaunchPageProps {
 export function LaunchPage({ workspaceId }: LaunchPageProps) {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [playbooks, setPlaybooks] = useState<PlaybookCard[]>([]);
+  const [isLoadingCatalog, setIsLoadingCatalog] = useState(true);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(
     workspaceId ?? null,
   );
@@ -34,24 +37,41 @@ export function LaunchPage({ workspaceId }: LaunchPageProps) {
     let isActive = true;
 
     async function loadCatalog() {
-      const [workspaceResponse, playbookResponse] = await Promise.all([
-        fetchWorkspaces(),
-        fetchPublishedPlaybooks(),
-      ]);
+      setIsLoadingCatalog(true);
+      setCatalogError(null);
 
-      if (!isActive) {
-        return;
+      try {
+        const [workspaceResponse, playbookResponse] = await Promise.all([
+          fetchWorkspaces(),
+          fetchPublishedPlaybooks(),
+        ]);
+
+        if (!isActive) {
+          return;
+        }
+
+        setWorkspaces(workspaceResponse);
+        setPlaybooks(playbookResponse);
+
+        if (workspaceId) {
+          setSelectedWorkspaceId(workspaceId);
+          return;
+        }
+
+        setSelectedWorkspaceId(workspaceResponse[0]?.id ?? null);
+      } catch (error) {
+        if (!isActive) {
+          return;
+        }
+
+        setCatalogError(
+          error instanceof Error ? error.message : "Failed to load launch catalog.",
+        );
+      } finally {
+        if (isActive) {
+          setIsLoadingCatalog(false);
+        }
       }
-
-      setWorkspaces(workspaceResponse);
-      setPlaybooks(playbookResponse);
-
-      if (workspaceId) {
-        setSelectedWorkspaceId(workspaceId);
-        return;
-      }
-
-      setSelectedWorkspaceId(workspaceResponse[0]?.id ?? null);
     }
 
     void loadCatalog();
@@ -60,6 +80,14 @@ export function LaunchPage({ workspaceId }: LaunchPageProps) {
       isActive = false;
     };
   }, [workspaceId]);
+
+  if (isLoadingCatalog) {
+    return <LoadingState message="Loading launch catalog…" />;
+  }
+
+  if (catalogError) {
+    return <ErrorState message={catalogError} />;
+  }
 
   async function handlePreview() {
     if (!selectedWorkspaceId || !selectedPlaybook || !goal.trim()) {

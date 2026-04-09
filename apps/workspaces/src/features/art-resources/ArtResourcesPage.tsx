@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams } from 'react-router-dom';
-import { PageHeader } from '../../../shared/ui/PageHeader';
-import { useIndustryConfig, useTerminology } from '../../../app/providers';
+import { PageHeader } from '../../shared/ui/PageHeader';
+import { useTerminology } from '../../app/providers/index';
 
 /**
  * Art Resources Page (美术资源页面)
@@ -9,7 +9,6 @@ import { useIndustryConfig, useTerminology } from '../../../app/providers';
  */
 export function ArtResourcesPage() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
-  _config = useIndustryConfig();
   const terms = useTerminology();
   
   const categories = [

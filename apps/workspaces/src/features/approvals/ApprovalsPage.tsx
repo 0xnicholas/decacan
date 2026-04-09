@@ -62,6 +62,10 @@ export function ApprovalsPage({ workspaceId }: ApprovalsPageProps) {
     void loadApprovals();
   };
 
+  if (isLoading && approvals.length === 0 && !error) {
+    return <LoadingState message="Loading approvals..." />;
+  }
+
   return (
     <section aria-label="Approvals">
       <PageHeader title="Approvals" subtitle="Workspace" />

@@ -1,5 +1,5 @@
-import { useIndustryConfig, useTerminology } from '../../../app/providers/index';
-import { PageHeader } from '../../../shared/ui/PageHeader';
+import { useIndustryConfig, useTerminology } from '../../app/providers/index';
+import { PageHeader } from '../../shared/ui/PageHeader';
 
 interface WorkspaceMainContentProps {
   workspaceId: string;

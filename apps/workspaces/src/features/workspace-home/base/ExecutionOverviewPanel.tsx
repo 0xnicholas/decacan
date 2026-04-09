@@ -1,4 +1,4 @@
-import type { ActivityItem, TaskHealth } from "../../entities/workspace-home/types";
+import type { ActivityItem, TaskHealth } from "../../../entities/workspace-home/types";
 
 interface ExecutionOverviewPanelProps {
   taskHealth: TaskHealth;

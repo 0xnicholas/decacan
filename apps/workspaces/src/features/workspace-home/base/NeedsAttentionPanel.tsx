@@ -1,4 +1,4 @@
-import type { AttentionItem } from "../../entities/workspace-home/types";
+import type { AttentionItem } from "../../../entities/workspace-home/types";
 
 interface NeedsAttentionPanelProps {
   items: AttentionItem[];

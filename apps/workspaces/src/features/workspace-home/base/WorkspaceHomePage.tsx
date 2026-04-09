@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { defaultAssistantDock } from "../../entities/workbench/defaultTemplate";
-import { normalizeWorkspaceHome } from "../../entities/workbench/normalizeWorkspaceHome";
-import type { WorkspaceWorkbenchModel } from "../../entities/workbench/types";
-import type { WorkspaceHomeData } from "../../entities/workspace-home/types";
-import { createAssistantSession } from "../../shared/api/assistant";
-import { fetchWorkspaceHome } from "../../shared/api/workspace-home";
-import { LoadingState, PageHeader } from "../../shared/ui";
+import { defaultAssistantDock } from "../../../entities/workbench/defaultTemplate";
+import { normalizeWorkspaceHome } from "../../../entities/workbench/normalizeWorkspaceHome";
+import type { WorkspaceWorkbenchModel } from "../../../entities/workbench/types";
+import type { WorkspaceHomeData } from "../../../entities/workspace-home/types";
+import { createAssistantSession } from "../../../shared/api/assistant";
+import { fetchWorkspaceHome } from "../../../shared/api/workspace-home";
+import { LoadingState, PageHeader } from "../../../shared/ui";
 import { WorkbenchLayout } from "./WorkbenchLayout";
 import { WorkspaceAssistantDock } from "./WorkspaceAssistantDock";
 

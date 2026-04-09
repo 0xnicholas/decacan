@@ -1,6 +1,6 @@
-import type { WorkspaceWorkbenchModel } from "../../entities/workbench/types";
-import type { AssistantContextState } from "../../entities/workbench/assistantHandoff";
-import { EmptyState } from "../../shared/ui";
+import type { WorkspaceWorkbenchModel } from "../../../entities/workbench/types";
+import type { AssistantContextState } from "../../../entities/workbench/assistantHandoff";
+import { EmptyState } from "../../../shared/ui";
 import { useAssistantDock } from "./useAssistantDock";
 
 interface WorkspaceAssistantDockProps {

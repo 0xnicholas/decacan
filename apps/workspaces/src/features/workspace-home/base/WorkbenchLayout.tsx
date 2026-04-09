@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import type { WorkspaceWorkbenchModel } from "../../entities/workbench/types";
+import type { WorkspaceWorkbenchModel } from "../../../entities/workbench/types";
 import { CurrentWorkPanel } from "./CurrentWorkPanel";
 import { DiscussionPanel } from "./DiscussionPanel";
 import { MyQueuePanel } from "./MyQueuePanel";

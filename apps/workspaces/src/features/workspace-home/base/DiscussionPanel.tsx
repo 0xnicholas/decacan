@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader } from "@decacan/ui";
 
-import type { WorkspaceWorkbenchModel } from "../../entities/workbench/types";
-import { EmptyState } from "../../shared/ui";
+import type { WorkspaceWorkbenchModel } from "../../../entities/workbench/types";
+import { EmptyState } from "../../../shared/ui";
 
 interface DiscussionPanelProps {
   items: WorkspaceWorkbenchModel["discussion"];
