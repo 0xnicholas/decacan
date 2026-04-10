@@ -1,17 +1,7 @@
-import {
-  LayoutDashboard,
-  LayoutGrid,
-  Book,
-  // Users,  // TODO: Enable when TeamSpec Studio is implemented
-  // Puzzle, // TODO: Enable when Capability Registry is implemented
-  // Shield, // TODO: Enable when Policy Engine is implemented
-  // Building, // TODO: Enable when Workspaces is implemented
-  // ScrollText, // TODO: Enable when Audit Logs is implemented
-  // Settings, // TODO: Enable when Settings is implemented
-} from 'lucide-react';
+import { LayoutGrid } from 'lucide-react';
+import { CONSOLE_NAV, type MenuPermission } from '@/features/console-ia/console-nav';
+import { consoleRouteDefaults } from '@/features/console-ia/route-defaults';
 import { type MenuConfig } from './types';
-
-export type MenuPermission = 'console.home' | 'studio.playbooks';
 
 export function filterMenuByPermission(
   items: MenuConfig,
@@ -35,87 +25,27 @@ export function filterMenuByPermission(
   });
 }
 
-export const MENU_SIDEBAR: MenuConfig = [
-  { heading: 'Overview' },
-  {
-    title: 'Console',
-    icon: LayoutDashboard,
-    path: '/',
-    requiredPermission: 'console.home',
-  },
-  { heading: 'Configuration' },
-  {
-    title: 'Playbook Studio',
-    icon: Book,
-    requiredPermission: 'studio.playbooks',
-    children: [
-      { title: 'All Playbooks', path: '/playbooks' },
-      { title: 'Create New', path: '/playbooks/new' },
-    ],
-  },
-  // TODO: Enable when TeamSpec Studio is implemented
-  // {
-  //   title: 'TeamSpec Studio',
-  //   icon: Users,
-  //   children: [
-  //     { title: 'Built-in Teams', path: '/teamspecs/builtin' },
-  //     { title: 'Custom Teams', path: '/teamspecs/custom' },
-  //     { title: 'Create Team', path: '/teamspecs/new' },
-  //   ],
-  // },
-  // TODO: Enable when Capability Registry is implemented
-  // {
-  //   title: 'Capability Registry',
-  //   icon: Puzzle,
-  //   path: '/capabilities',
-  // },
-  // TODO: Enable when Policy Engine is implemented
-  // {
-  //   title: 'Policy Engine',
-  //   icon: Shield,
-  //   children: [
-  //     { title: 'Tool Policies', path: '/policies/tools' },
-  //     { title: 'Approval Chains', path: '/policies/approvals' },
-  //   ],
-  // },
-  // TODO: Enable when Management features are implemented
-  // { heading: 'Management' },
-  // {
-  //   title: 'Workspaces',
-  //   icon: Building,
-  //   path: '/workspaces',
-  // },
-  // {
-  //   title: 'Audit Logs',
-  //   icon: ScrollText,
-  //   path: '/audit-logs',
-  // },
-  // {
-  //   title: 'Settings',
-  //   icon: Settings,
-  //   path: '/settings',
-  // },
-];
+export const MENU_SIDEBAR: MenuConfig = CONSOLE_NAV.map((domain) => ({
+  title: domain.title,
+  icon: domain.icon,
+  path: domain.path,
+  rootPath: domain.path,
+  requiredPermission: domain.requiredPermission,
+  children: domain.children.map((item) => ({
+    title: item.title,
+    path: item.path,
+    rootPath: item.path,
+    requiredPermission: item.requiredPermission,
+  })),
+}));
 
 export const MENU_SIDEBAR_COMPACT: MenuConfig = [
   {
     title: 'Console',
     icon: LayoutGrid,
-    path: '/',
+    path: consoleRouteDefaults.dashboard,
     requiredPermission: 'console.home',
   },
-  // TODO: Enable when Users feature is implemented
-  // {
-  //   title: 'Users',
-  //   icon: Users,
-  //   path: '/users',
-  // },
-  // TODO: Enable when Settings is implemented
-  // {
-  //   title: 'Settings',
-  //   icon: Settings,
-  //   path: '/settings',
-  // },
 ];
 
 export const MENU_MEGA: MenuConfig = [];

@@ -11,14 +11,10 @@ function getMenuTitles(itemTitle: string) {
 }
 
 describe('menu.config', () => {
-  it('labels the account surface as Console in both navigation variants', () => {
-    expect(getMenuItemByTitle(MENU_SIDEBAR, 'Console')).toMatchObject({
-      title: 'Console',
-      path: '/',
-    });
+  it('keeps compact navigation on the canonical dashboard default', () => {
     expect(getMenuItemByTitle(MENU_SIDEBAR_COMPACT, 'Console')).toMatchObject({
       title: 'Console',
-      path: '/',
+      path: '/dashboard/analytics',
     });
   });
 

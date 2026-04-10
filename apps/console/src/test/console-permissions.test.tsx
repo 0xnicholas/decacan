@@ -119,6 +119,12 @@ function renderConsoleApp(initialPath: string, permissionShape: PermissionShape)
   );
 }
 
+async function findDashboardPageHeading() {
+  const headings = await screen.findAllByRole('heading', { name: 'My Work' });
+
+  return headings.find((heading) => heading.tagName === 'H1') ?? headings[0];
+}
+
 describe('console permissions', () => {
   beforeEach(() => {
     fetchMock.mockReset();
@@ -145,7 +151,7 @@ describe('console permissions', () => {
       studio_playbooks: false,
     });
 
-    expect(await screen.findByRole('heading', { name: 'My Work' })).toBeInTheDocument();
+    expect(await findDashboardPageHeading()).toBeInTheDocument();
     expect(screen.queryByText('Playbook Studio')).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Playbook Studio' })).not.toBeInTheDocument();
   });
@@ -167,7 +173,7 @@ describe('console permissions', () => {
       studio_playbooks: false,
     });
 
-    await screen.findByRole('heading', { name: 'My Work' });
+    await findDashboardPageHeading();
 
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/me/permissions',

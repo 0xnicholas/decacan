@@ -80,7 +80,7 @@ export function Demo4Layout() {
                         className="hover:bg-background hover:[&_svg]:text-primary hover:text-primary ms-2.5"
                         asChild
                       >
-                        <Link to="/settings">
+                        <Link to="/manage/settings">
                           <Download />
                           Export
                         </Link>

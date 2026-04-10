@@ -2,6 +2,7 @@ import { Navigate, type RouteObject } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 
 import { routes } from '../app/routes';
+import { agentContentRoutes } from '../features/console-ia/route-defaults';
 
 function findRouteByPath(routeObjects: RouteObject[], path: string): RouteObject | undefined {
   for (const route of routeObjects) {
@@ -41,5 +42,22 @@ describe('console IA routing', () => {
     ['/manage', '/manage/account'],
   ])('redirects %s to %s', (path, target) => {
     expectRedirect(path, target);
+  });
+
+  it.each([
+    ['/audit-logs', '/manage/audit-logs'],
+    ['/capabilities', '/agents/capabilities'],
+    ['/policies/*', '/agents/policies'],
+  ])('preserves legacy redirect %s to %s', (path, target) => {
+    expectRedirect(path, target);
+  });
+
+  it('defines non-nav agent creation and detail routes under the agents prefix', () => {
+    expect(agentContentRoutes).toEqual({
+      create: '/agents/new',
+      detail: '/agents/:agentId',
+    });
+    expect(findRouteByPath(routes, agentContentRoutes.create)).toBeDefined();
+    expect(findRouteByPath(routes, agentContentRoutes.detail)).toBeDefined();
   });
 });
