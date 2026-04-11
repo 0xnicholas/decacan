@@ -7,8 +7,14 @@ import { AllAgentsPage } from '../features/agents/pages/AllAgentsPage';
 import { CreateAgentPage } from '../features/agents/pages/CreateAgentPage';
 import { QuickstartPage } from '../features/agents/pages/QuickstartPage';
 import { PermissionGuard } from '../features/auth/PermissionGuard';
-import { ComingSoonPage } from '../features/common/ComingSoonPage';
-import { DashboardPage } from '../features/dashboard/dashboard-page';
+import { AnalyticsPage } from '../features/dashboard/pages/AnalyticsPage';
+import { AttentionPage } from '../features/dashboard/pages/AttentionPage';
+import { MyWorkPage } from '../features/dashboard/pages/MyWorkPage';
+import { AccountPage } from '../features/manage/pages/AccountPage';
+import { AuditLogsPage } from '../features/manage/pages/AuditLogsPage';
+import { IntegrationsPage } from '../features/manage/pages/IntegrationsPage';
+import { SettingsPage } from '../features/manage/pages/SettingsPage';
+import { UsersPage } from '../features/manage/pages/UsersPage';
 import { PlaybookCreatePage } from '../features/playbook-studio/pages/PlaybookCreatePage';
 import { PlaybookEditPage } from '../features/playbook-studio/pages/PlaybookEditPage';
 import { PlaybookListPage } from '../features/playbook-studio/pages/PlaybookListPage';
@@ -138,15 +144,15 @@ export const routes: RouteObject[] = [
   },
   {
     path: '/dashboard/analytics',
-    element: <DashboardPage />,
+    element: <AnalyticsPage />,
   },
   {
     path: '/dashboard/my-work',
-    element: <DashboardPage />,
+    element: <MyWorkPage />,
   },
   {
     path: '/dashboard/attention',
-    element: <ComingSoonPage feature="Attention" />,
+    element: <AttentionPage />,
   },
   {
     path: '/manage',
@@ -154,23 +160,23 @@ export const routes: RouteObject[] = [
   },
   {
     path: '/manage/account',
-    element: <ComingSoonPage feature="Account" />,
+    element: <AccountPage />,
   },
   {
     path: '/manage/users',
-    element: <ComingSoonPage feature="Users" />,
+    element: <UsersPage />,
   },
   {
     path: '/manage/audit-logs',
-    element: <ComingSoonPage feature="Audit Logs" />,
+    element: <AuditLogsPage />,
   },
   {
     path: '/manage/integrations',
-    element: <ComingSoonPage feature="Integrations" />,
+    element: <IntegrationsPage />,
   },
   {
     path: '/manage/settings',
-    element: <ComingSoonPage feature="Settings" />,
+    element: <SettingsPage />,
   },
   {
     path: '/playbooks',

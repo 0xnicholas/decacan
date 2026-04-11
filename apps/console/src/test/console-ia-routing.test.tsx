@@ -164,6 +164,62 @@ function installWorkspaceFixtures(options: WorkspaceFixtureOptions = {}) {
       );
     }
 
+    if (url.endsWith('/api/account/home') && method === 'GET') {
+      return new Response(
+        JSON.stringify({
+          default_workspace_id: 'workspace-1',
+          workspaces: [
+            {
+              id: 'workspace-1',
+              title: 'Default Workspace',
+            },
+            {
+              id: 'workspace-2',
+              title: 'Ops Workspace',
+            },
+          ],
+          waiting_on_me: [
+            {
+              id: 'approval-1',
+              workspace_id: 'workspace-1',
+              task_id: 'task-2',
+              title: 'Approval needed for Summary',
+              kind: 'approval',
+              status: 'waiting_approval',
+            },
+          ],
+          recent_tasks: [
+            {
+              id: 'task-1',
+              workspace_id: 'workspace-1',
+              playbook_key: 'summarize',
+              status: 'running',
+              status_summary: 'Summarizing source notes',
+            },
+            {
+              id: 'task-2',
+              workspace_id: 'workspace-2',
+              playbook_key: 'review',
+              status: 'waiting_approval',
+              status_summary: 'Awaiting sign-off',
+            },
+          ],
+          playbook_shortcuts: [
+            {
+              playbook_key: 'summarize',
+              title: 'Summarize',
+              summary: 'Create a concise summary from source material.',
+              mode_label: 'My Work',
+            },
+          ],
+        }),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        },
+      );
+    }
+
     if (url.endsWith('/api/approvals') && method === 'GET') {
       return new Response(JSON.stringify({ error: approvalsAccountStatus === 404 ? 'not_found' : 'server_error' }), {
         status: approvalsAccountStatus,
@@ -355,6 +411,74 @@ describe('console IA routing', () => {
     expect(await findPageHeading('Quickstart')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Create Agent' })).toHaveAttribute('href', '/agents/new');
     expect(screen.queryByText('Coming Soon')).not.toBeInTheDocument();
+  });
+
+  it.each([
+    [
+      '/dashboard/analytics',
+      'Track throughput, review load, and workspace coverage across the account.',
+      'Open My Work',
+      '/dashboard/my-work',
+    ],
+    [
+      '/dashboard/my-work',
+      'Track approvals, recent tasks, and the workspaces you manage from a single console.',
+      'Review Attention Queue',
+      '/dashboard/attention',
+    ],
+    [
+      '/dashboard/attention',
+      'Resolve approvals, blocked work, and account risks before they spread.',
+      'Open Approvals',
+      '/workspaces/approvals',
+    ],
+    [
+      '/manage/account',
+      'Operate the account boundary and hand governance work to the right management surface.',
+      'Manage Users',
+      '/manage/users',
+    ],
+    [
+      '/manage/users',
+      'Review access posture, workspace coverage, and operator ownership.',
+      'Review Audit Logs',
+      '/manage/audit-logs',
+    ],
+    [
+      '/manage/audit-logs',
+      'Review the latest governance events and hand off deeper retention work to settings.',
+      'Review Retention Settings',
+      '/manage/settings',
+    ],
+    [
+      '/manage/integrations',
+      'Track the systems connected to the console and keep credential ownership visible.',
+      'Open Settings',
+      '/manage/settings',
+    ],
+    [
+      '/manage/settings',
+      'Control shell defaults, notifications, and export posture for the console.',
+      'Review Integrations',
+      '/manage/integrations',
+    ],
+  ])('renders %s with a first-class page shell', async (path, description, ctaName, ctaHref) => {
+    renderConsoleRoute(path);
+
+    expect(await screen.findByText(description)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: ctaName })).toHaveAttribute('href', ctaHref);
+    expect(screen.queryByText('Coming Soon')).not.toBeInTheDocument();
+  });
+
+  it('counts impacted workspaces from waiting items and rescue-status recent tasks on attention', async () => {
+    renderConsoleRoute('/dashboard/attention');
+
+    expect(await screen.findByText('Resolve approvals, blocked work, and account risks before they spread.')).toBeInTheDocument();
+
+    const impactedCard = screen.getByText('Workspaces Impacted').closest('[data-slot="card"]');
+
+    expect(impactedCard).not.toBeNull();
+    expect(within(impactedCard as HTMLElement).getByText('2')).toBeInTheDocument();
   });
 
   it('hides playbook links on agents surfaces for users without studio access', async () => {

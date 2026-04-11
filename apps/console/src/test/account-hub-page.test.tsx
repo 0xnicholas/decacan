@@ -1,4 +1,5 @@
 import { render, screen, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, vi } from 'vitest';
 
 import { DashboardPage } from '../features/dashboard/dashboard-page';
@@ -74,7 +75,11 @@ describe('DashboardPage', () => {
   });
 
   it('shows the console summary content with stable navigation and status totals', async () => {
-    render(<DashboardPage />);
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+    );
 
     expect(await screen.findByRole('heading', { name: 'My Work' })).toBeInTheDocument();
     expect(screen.queryByText('Welcome to Decacan Admin')).not.toBeInTheDocument();
@@ -83,6 +88,10 @@ describe('DashboardPage', () => {
         'Track approvals, recent tasks, and the workspaces you manage from a single console.',
       ),
     ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Review Attention Queue' })).toHaveAttribute(
+      'href',
+      '/dashboard/attention',
+    );
     expect(screen.queryByText(/account hub/i)).not.toBeInTheDocument();
     expect(await screen.findByRole('heading', { name: 'Work Queue' })).toBeInTheDocument();
     expect(await screen.findByRole('heading', { name: 'Workspaces' })).toBeInTheDocument();
@@ -104,7 +113,11 @@ describe('DashboardPage', () => {
   it('shows an error card without leaving the loading state visible', async () => {
     fetchMock.mockRejectedValueOnce(new Error('Account API unavailable'));
 
-    render(<DashboardPage />);
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+    );
 
     expect(await screen.findByText('Console Unavailable')).toBeInTheDocument();
     expect(screen.getByText('Account API unavailable')).toBeInTheDocument();
