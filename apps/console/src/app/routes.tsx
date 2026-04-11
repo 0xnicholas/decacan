@@ -6,6 +6,11 @@ import { DashboardPage } from '../features/dashboard/dashboard-page';
 import { PlaybookCreatePage } from '../features/playbook-studio/pages/PlaybookCreatePage';
 import { PlaybookEditPage } from '../features/playbook-studio/pages/PlaybookEditPage';
 import { PlaybookListPage } from '../features/playbook-studio/pages/PlaybookListPage';
+import { AllWorkspacesPage } from '../features/workspaces/pages/AllWorkspacesPage';
+import { ApprovalsPage } from '../features/workspaces/pages/ApprovalsPage';
+import { MembersPage } from '../features/workspaces/pages/MembersPage';
+import { RunsPage } from '../features/workspaces/pages/RunsPage';
+import { WorkbenchPage } from '../features/workspaces/pages/WorkbenchPage';
 import {
   agentContentRoutes,
   consoleRouteDefaults,
@@ -39,23 +44,23 @@ export const routes: RouteObject[] = [
   },
   {
     path: '/workspaces/workbench',
-    element: <ComingSoonPage feature="Workbench" />,
+    element: <WorkbenchPage />,
   },
   {
     path: '/workspaces/all',
-    element: <ComingSoonPage feature="All Workspaces" />,
+    element: <AllWorkspacesPage />,
   },
   {
     path: '/workspaces/approvals',
-    element: <ComingSoonPage feature="Approvals" />,
+    element: <ApprovalsPage />,
   },
   {
     path: '/workspaces/runs',
-    element: <ComingSoonPage feature="Runs" />,
+    element: <RunsPage />,
   },
   {
     path: '/workspaces/members',
-    element: <ComingSoonPage feature="Members" />,
+    element: <MembersPage />,
   },
   {
     path: '/agents',
