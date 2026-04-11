@@ -5,6 +5,7 @@ import { createMemoryRouter, Navigate, RouterProvider, type RouteObject } from '
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { routes } from '../app/routes';
+import { AGENTS_STORAGE_KEY, agentsConsoleApi } from '../features/agents/api/agentsConsoleApi';
 import { AuthProvider, useAuth } from '../features/auth/auth-context';
 import { agentContentRoutes } from '../features/console-ia/route-defaults';
 import { Demo4Layout } from '../layouts/demo4/layout';
@@ -47,7 +48,32 @@ vi.stubGlobal('fetch', fetchMock);
 type WorkspaceFixtureOptions = {
   approvalsAccountStatus?: number;
   membersAccountStatus?: number;
+  studioPlaybooks?: boolean;
 };
+
+function installAgentFixtures() {
+  localStorage.setItem(
+    AGENTS_STORAGE_KEY,
+    JSON.stringify([
+      {
+        id: 'agent-ops-concierge',
+        name: 'Ops Concierge',
+        summary: 'Routes operational asks through the right playbook and team.',
+        objective: 'Speed up operator handoff for common account-level support requests.',
+        status: 'ready',
+        playbookId: 'playbook-ops-triage',
+        playbookName: 'Ops Triage',
+        teamId: 'team-operations',
+        teamName: 'Operations',
+        capabilities: ['triage', 'routing', 'handoff'],
+        policies: ['account-safety', 'operator-review'],
+        owner: 'Console Team',
+        createdAt: '2026-04-10T08:00:00.000Z',
+        updatedAt: '2026-04-10T08:00:00.000Z',
+      },
+    ]),
+  );
+}
 
 function getHeaderValue(headers: HeadersInit | undefined, key: string) {
   if (!headers) {
@@ -69,6 +95,7 @@ function getHeaderValue(headers: HeadersInit | undefined, key: string) {
 function installWorkspaceFixtures(options: WorkspaceFixtureOptions = {}) {
   const approvalsAccountStatus = options.approvalsAccountStatus ?? 404;
   const membersAccountStatus = options.membersAccountStatus ?? 404;
+  const studioPlaybooks = options.studioPlaybooks ?? true;
 
   fetchMock.mockImplementation(async (input, init) => {
     const url = typeof input === 'string' ? input : input.toString();
@@ -78,7 +105,7 @@ function installWorkspaceFixtures(options: WorkspaceFixtureOptions = {}) {
       return new Response(
         JSON.stringify({
           console_home: true,
-          studio_playbooks: true,
+          studio_playbooks: studioPlaybooks,
         }),
         {
           status: 200,
@@ -320,6 +347,135 @@ describe('console IA routing', () => {
     });
     expect(findRouteByPath(routes, agentContentRoutes.create)).toBeDefined();
     expect(findRouteByPath(routes, agentContentRoutes.detail)).toBeDefined();
+  });
+
+  it('renders the agents quickstart page with a primary create-agent CTA', async () => {
+    renderConsoleRoute('/agents/quickstart');
+
+    expect(await findPageHeading('Quickstart')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Create Agent' })).toHaveAttribute('href', '/agents/new');
+    expect(screen.queryByText('Coming Soon')).not.toBeInTheDocument();
+  });
+
+  it('hides playbook links on agents surfaces for users without studio access', async () => {
+    renderConsoleRoute('/agents/quickstart', { studioPlaybooks: false });
+
+    expect(await findPageHeading('Quickstart')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Playbooks' })).not.toBeInTheDocument();
+
+    cleanup();
+    renderConsoleRoute('/agents/new', { studioPlaybooks: false });
+
+    expect(await findPageHeading('Create Agent')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Open Playbooks' })).not.toBeInTheDocument();
+  });
+
+  it('renders the all-agents page with navigation into agent detail', async () => {
+    installAgentFixtures();
+    renderConsoleRoute('/agents/all');
+
+    expect(await findPageHeading('All Agents')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Open Ops Concierge' })).toHaveAttribute(
+      'href',
+      '/agents/agent-ops-concierge',
+    );
+    expect(screen.queryByText('Coming Soon')).not.toBeInTheDocument();
+  });
+
+  it('renders the agent detail shell with right-side tabs and sections', async () => {
+    installAgentFixtures();
+    renderConsoleRoute('/agents/agent-ops-concierge');
+
+    expect(await findPageHeading('Ops Concierge')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Overview' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Configuration' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Activity' })).toBeInTheDocument();
+    expect(screen.getByText('Playbook')).toBeInTheDocument();
+    expect(screen.queryByText('Coming Soon')).not.toBeInTheDocument();
+  });
+
+  it.each([
+    [
+      'name',
+      {
+        name: '   ',
+        summary: 'Routes work.',
+        objective: 'Keep queues moving.',
+        owner: 'Console Team',
+      },
+      'Agent name is required.',
+    ],
+    [
+      'summary',
+      {
+        name: 'Routing Agent',
+        summary: '   ',
+        objective: 'Keep queues moving.',
+        owner: 'Console Team',
+      },
+      'Agent summary is required.',
+    ],
+    [
+      'objective',
+      {
+        name: 'Routing Agent',
+        summary: 'Routes work.',
+        objective: '   ',
+        owner: 'Console Team',
+      },
+      'Agent objective is required.',
+    ],
+    [
+      'owner',
+      {
+        name: 'Routing Agent',
+        summary: 'Routes work.',
+        objective: 'Keep queues moving.',
+        owner: '   ',
+      },
+      'Agent owner is required.',
+    ],
+  ])('rejects agent creation when required %s is empty after trim', async (_field, input, message) => {
+    await expect(
+      agentsConsoleApi.createAgent({
+        ...input,
+        status: 'draft',
+        playbookId: 'playbook-ops-triage',
+        teamId: 'team-operations',
+        capabilityIds: ['triage'],
+        policyIds: ['account-safety'],
+      }),
+    ).rejects.toThrow(message);
+  });
+
+  it('rejects invalid library ids during agent creation', async () => {
+    await expect(
+      agentsConsoleApi.createAgent({
+        name: '  Routing Agent  ',
+        summary: '  Routes work.  ',
+        objective: '  Keep queues moving.  ',
+        status: 'draft',
+        playbookId: 'playbook-missing',
+        teamId: 'team-operations',
+        capabilityIds: ['triage'],
+        policyIds: ['account-safety'],
+        owner: '  Console Team  ',
+      }),
+    ).rejects.toThrow('Selected playbook was not found.');
+
+    await expect(
+      agentsConsoleApi.createAgent({
+        name: '  Routing Agent  ',
+        summary: '  Routes work.  ',
+        objective: '  Keep queues moving.  ',
+        status: 'draft',
+        playbookId: 'playbook-ops-triage',
+        teamId: 'team-missing',
+        capabilityIds: ['triage'],
+        policyIds: ['account-safety'],
+        owner: '  Console Team  ',
+      }),
+    ).rejects.toThrow('Selected team was not found.');
   });
 
   it.each([

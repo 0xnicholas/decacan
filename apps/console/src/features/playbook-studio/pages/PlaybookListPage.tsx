@@ -76,7 +76,7 @@ export function PlaybookListPage() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => navigate(`/playbooks/${row.original.id}/edit`)}
+            onClick={() => navigate(`/agents/playbooks/${row.original.id}/edit`)}
           >
             <Edit className="h-4 w-4" />
           </Button>
@@ -108,7 +108,7 @@ export function PlaybookListPage() {
       <Toolbar>
         <ToolbarHeading title="Playbook Studio" description="Manage and configure playbooks" />
         <ToolbarActions>
-          <Button onClick={() => navigate('/playbooks/new')}>
+          <Button onClick={() => navigate('/agents/playbooks/new')}>
             <Plus className="mr-2 h-4 w-4" />
             Create Playbook
           </Button>
