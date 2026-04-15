@@ -3,6 +3,14 @@
 
 /* Minimal app-specific base styles */
 @layer base {
+  html {
+    @apply bg-background text-foreground;
+  }
+  
+  body {
+    @apply bg-background text-foreground;
+  }
+
   * {
     @apply border-border;
   }

@@ -35,15 +35,11 @@ Scope: North-star architecture, current implementation mapping, and migration pa
 Foundational product and runtime references:
 
 - [`README.md`](../README.md)
-- [`2026-03-27-decacan-product-architecture.md`](./2026-03-27-decacan-product-architecture.md)
-- [`2026-03-27-decacan-runtime-object-model.md`](./2026-03-27-decacan-runtime-object-model.md)
-- [`2026-03-27-decacan-playbook-system-design.md`](./2026-03-27-decacan-playbook-system-design.md)
-- [`2026-03-27-decacan-分层架构讨论纪要.md`](./2026-03-27-decacan-%E5%88%86%E5%B1%82%E6%9E%B6%E6%9E%84%E8%AE%A8%E8%AE%BA%E7%BA%AA%E8%A6%81.md)
+- [`learn.md`](./learn.md) - Project learning guide for new team members
 
 Focused architecture decisions and implementation planning:
 
 - [`superpowers/architecture/2026-03-30-playbook-workflow-architecture-decisions.md`](./superpowers/architecture/2026-03-30-playbook-workflow-architecture-decisions.md)
-- [`2026-03-27-decacan-mvp-implementation-plan.md`](./2026-03-27-decacan-mvp-implementation-plan.md)
 - [`superpowers/plans/`](./superpowers/plans/)
 - [`superpowers/specs/`](./superpowers/specs/)
 
@@ -107,14 +103,11 @@ The architecture is designed to support these long-term goals:
 - keep `Workspace` as the hard execution boundary
 - separate account control-plane concerns from workspace execution concerns
 - make agent-team execution a replaceable subsystem behind stable runtime ports
-- keep model providers, storage, secrets, and filesystem access behind infrastructure boundaries
-- support multi-industry frontend variants without forking the core product
+- keep storage, secrets, and filesystem access behind infrastructure boundaries
 - move from in-memory and in-process adapters to durable and distributed implementations without changing the product contract
+- externalize model providers and agent runtime to a dedicated execution engine project
 
-These goals extend the earlier product-layer framing in
-[`2026-03-27-decacan-product-architecture.md`](./2026-03-27-decacan-product-architecture.md)
-and the runtime object framing in
-[`2026-03-27-decacan-runtime-object-model.md`](./2026-03-27-decacan-runtime-object-model.md).
+These goals extend the product-layer framing established in this document and the runtime object model defined in `decacan-runtime` crate documentation.
 
 ## 4. Architectural Principles
 
@@ -146,7 +139,7 @@ Domain concepts such as `Playbook`, `Task`, `Run`, `Approval`, `Artifact`, `Assi
 
 ### 4.5 Replaceable Execution Backends
 
-The system should support a transitional implementation where agent-team execution runs in process, but the long-term design assumes a durable out-of-process orchestrator behind stable runtime ports.
+Agent-team execution and model invocation have been externalized to a dedicated remote execution engine. Decacan interacts with this engine through `decacan-agent-contract`, a versioned white-box protocol. The previous in-process adapter (`InProcessTeamOrchestrator`) is deprecated. `decacan-infra` now provides `HttpExecutionEngineClient` as the concrete adapter behind `ExecutionEnginePort`.
 
 ### 4.6 Evolutionary Delivery
 
@@ -309,7 +302,7 @@ It should own product semantics independently of HTTP, browser, and infrastructu
 Responsibilities:
 
 - playbook lifecycle and execution semantics
-- workflow definition and orchestration
+- workflow definition and compilation
 - task and run lifecycle management
 - approval and policy models
 - artifact and output registration
@@ -317,6 +310,7 @@ Responsibilities:
 - team-session contracts
 - persistence-facing domain models and ports
 - event generation and state projection
+- **execution orchestration via `ExecutionCoordinator` and `ExecutionEnginePort`**
 
 Current repository mapping includes modules such as:
 
@@ -327,12 +321,12 @@ Current repository mapping includes modules such as:
 - `capability`
 - `contract`
 - `events`
-- `execution`
+- `execution` (now includes `ExecutionCoordinator`)
 - `gateway`
 - `invocation`
 - `playbook`
 - `policy`
-- `ports`
+- `ports` (now includes `ExecutionEnginePort`)
 - `run`
 - `task`
 - `team`
@@ -341,14 +335,14 @@ Current repository mapping includes modules such as:
 - `workflow`
 - `workspace`
 
-The runtime object model described here is aligned with
-[`2026-03-27-decacan-runtime-object-model.md`](./2026-03-27-decacan-runtime-object-model.md).
+The runtime object model described here is aligned with the domain modules in `crates/decacan-runtime/src/`.
 
 Target direction:
 
 - runtime remains the stable home of domain contracts
 - transient implementation shortcuts stay outside domain contracts
-- capability resolution, workflow execution, and team orchestration evolve behind runtime interfaces
+- capability resolution and workflow compilation remain in runtime
+- **actual LLM/agent execution is delegated to the remote engine behind `ExecutionEnginePort`**
 
 ### 7.4 Infrastructure Layer: `decacan-infra`
 
@@ -361,27 +355,29 @@ Responsibilities:
 - logging/tracing support
 - filesystem adapter implementations
 - persistence adapters
-- model router and model-provider integrations
-- team gateway adapters and retries
+- **remote execution engine client (`HttpExecutionEngineClient`)**
+- team gateway adapters and retries (deprecated, superseded by execution engine client)
 - clock and runtime utility adapters
 
 Current repository mapping:
 
 - `clock`
 - `config`
+- `execution_engine`
 - `filesystem`
 - `logging`
-- `models`
+- `models` (deprecated, to be removed)
 - `persistence`
 - `secrets`
 - `storage`
-- `team`
+- `team` (deprecated, to be removed)
 
 Target direction:
 
 - adapters remain replaceable
 - runtime depends on ports, not these implementations
 - environment-specific deployments choose concrete adapters at composition time
+- **all LLM/agent execution adapters are consolidated behind `ExecutionEnginePort`**
 
 ### 7.5 Authentication Layer: `decacan-auth`
 
@@ -412,9 +408,10 @@ If a new capability cannot be assigned cleanly to one row, the architecture boun
 | `apps/workspaces` | Workspace-scoped execution UX, task detail flows, approvals, deliverables, artifacts, workspace member collaboration, industry-specific workspace presentation | Account-wide aggregation, playbook authoring lifecycle, backend domain rules, provider/storage implementation details | Workspace-scoped HTTP APIs, task event streams, shared UI package |
 | `apps/console` | Account-scoped navigation, account home, cross-workspace visibility, playbook studio, reusable asset lifecycle, workspace routing from account context | Workspace task execution shell, low-level runtime orchestration, direct storage/provider concerns | Account APIs, playbook/studio APIs, shared UI package |
 | `crates/decacan-app` | HTTP contracts, Axum routers, DTO translation, middleware, streaming endpoints, app wiring/composition | Core product semantics, durable adapter implementation details, frontend presentation logic | `api/`, `dto/`, `middleware/`, `streams/`, runtime and infra service composition |
-| `crates/decacan-runtime` | Core domain model, playbook/workflow semantics, task/run lifecycle, policy and approval logic, assistant/team-session contracts, domain events and ports | HTTP transport details, browser concerns, concrete provider/storage implementations, identity provider specifics | Runtime ports, domain services, entities, execution and event contracts |
-| `crates/decacan-infra` | Concrete adapters for config, secrets, logging, filesystem, persistence, model routing, team gateway communication, retries and operational utilities | Product workflow semantics, API DTO shape, frontend concerns, top-level auth product flows | Adapter implementations consumed through runtime/app composition |
+| `crates/decacan-runtime` | Core domain model, playbook/workflow semantics, task/run lifecycle, policy and approval logic, assistant/team-session contracts, domain events and ports, execution orchestration | HTTP transport details, browser concerns, concrete provider/storage implementations, identity provider specifics, LLM/agent runtime internals | Runtime ports (`ExecutionEnginePort`), domain services, entities, execution and event contracts |
+| `crates/decacan-infra` | Concrete adapters for config, secrets, logging, filesystem, persistence, remote execution engine client, retries and operational utilities | Product workflow semantics, API DTO shape, frontend concerns, top-level auth product flows, model provider specifics | Adapter implementations consumed through runtime/app composition (`HttpExecutionEngineClient`) |
 | `crates/decacan-auth` | Identity entities, auth/session flows, auth storage, authorization helpers, auth-oriented rate limiting | Playbook/task/workflow semantics, workspace execution UX, generic infrastructure unrelated to identity | Auth service, auth storage, runtime-aligned role exports |
+| `crates/decacan-agent-contract` | Versioned data contracts and event schemas for Decacan-to-engine communication | Business logic, transport implementation, persistence | `ExecutionEvent`, `ExecutionRequest`, `PlaybookSnapshot`, protocol version |
 
 ## 8. Core Domain Model
 
@@ -612,32 +609,34 @@ decacan-runtime
   |- load playbook version / policy profile
   |- create Task
   |- create initial Run
-  `- compile workflow
+  |- compile workflow into PlaybookSnapshot
+  `- call ExecutionEnginePort::start()
       |
       v
-Execution loop
+Remote Execution Engine
   |- resolve step capability
   |- invoke routine / synthesis / team action
-  |- call models / filesystem / adapters through ports
-  |- collect raw outputs
+  |- call models / tools / filesystem (within engine sandbox)
+  |- emit ExecutionEvents via SSE stream
   `- evaluate policy after each step
       |
       +--> approval needed?
       |      |
-      |      +--> yes: create Approval + emit task event + pause Run
+      |      +--> yes: emit ApprovalRequired event + pause execution
       |      `--> no: continue
       |
       +--> execution failed?
       |      |
-      |      +--> yes: mark Run failed + project Task failure state
+      |      +--> yes: emit Failed event
       |      `--> no: continue
       |
       `--> workflow complete
              |
              v
-Product projection
-  |- register Artifact metadata
-  |- write Deliverable-facing output references
+decacan-runtime (via ExecutionCoordinator)
+  |- consume ExecutionEvents from SSE stream
+  |- create Approval when ApprovalRequired received
+  |- register Artifact metadata when ArtifactProduced received
   |- emit task/run/activity events
   |- update Task status summary
   `- persist trace/audit information
@@ -661,7 +660,7 @@ If a feature bypasses `Task` or `Run`, it is usually violating the product model
 
 ### 9.3 Assistant Delegation and Team Session Flow
 
-Delegated assistant execution is a specialized path layered on top of the same runtime principles:
+Delegated assistant execution is a specialized path layered on top of the same runtime principles. It now routes through the remote execution engine via `ExecutionEnginePort`:
 
 ```text
 User starts assistant action in a workspace
@@ -683,27 +682,27 @@ decacan-runtime
   |- evaluate authority rules
   |- bind delegation intent to workspace context
   |- create or resume TeamSession
-  `- issue StartTeamSessionRequest through port
+  `- issue ExecutionRequest through ExecutionEnginePort
       |
       v
-Team orchestrator adapter
-  |- current state: in-process adapter
-  `- target state: durable remote orchestrator / gateway
+HttpExecutionEngineClient (decacan-infra)
+  |- POST to remote execution engine
+  `- subscribe to SSE event stream
       |
       v
-Delegated execution progresses
-  |- session status updates
-  |- evolution proposals
-  |- intermediate outputs
-  |- approval or continuation needs
-  `- final completion / failure
+Remote Execution Engine
+  |- execute agent-team workflow
+  |- emit white-box ExecutionEvents
+  |- request approvals when policy requires
+  `- produce artifacts and final outputs
       |
       v
-decacan-runtime projection
-  |- update TeamSession snapshot
-  |- attach outputs or proposals to workspace-visible objects
-  |- emit assistant/team events
-  `- enforce continuation semantics
+decacan-runtime (via ExecutionCoordinator)
+  |- consume ExecutionEvents
+  |- update Task/Run state
+  |- create Approvals
+  |- register Artifacts
+  `- emit TaskEvents to SSE stream
       |
       v
 decacan-app delivery
@@ -719,7 +718,7 @@ Workspace UI
   `- follow-up review / approval actions
 ```
 
-This flow should stay behind runtime ports so the current in-process adapter can be replaced without changing workspace product contracts.
+The contract between Decacan and the remote engine is defined in `decacan-agent-contract`. It is a white-box protocol: every step, tool invocation, model call, and artifact production is reported as an `ExecutionEvent`, allowing Decacan to maintain full product semantics and auditability while the engine handles the actual LLM and agent runtime.
 
 ### 9.4 Control Plane
 
@@ -736,15 +735,21 @@ This should primarily live in `decacan-runtime`.
 
 ### 9.5 Execution Plane
 
-The execution plane is responsible for:
+The execution plane responsibilities have been split:
 
+**Within Decacan:**
+- deciding when to trigger execution via `ExecutionEnginePort`
+- receiving and interpreting `ExecutionEvent` streams
+- mapping raw execution events into product state (Task, Run, Approval, Artifact)
+- enforcing workspace-scoped filesystem and storage policies
+
+**Within the remote Execution Engine:**
 - carrying out routines or invocations
-- calling model providers
-- performing filesystem operations
-- invoking team orchestration adapters
-- returning raw results and traces
+- calling model providers (OpenAI, Anthropic, etc.)
+- running multi-agent team workflows
+- returning raw results and traces through the agent contract
 
-This should primarily live behind runtime ports and infrastructure adapters.
+Decacan no longer directly calls model APIs; all LLM and agent execution is externalized.
 
 ### 9.6 Capability-Based Evolution
 
@@ -941,13 +946,15 @@ Browser Clients
           +--> decacan-app
                   |
                   +--> decacan-runtime
+                  |          |
+                  |          v
+                  |    Remote Execution Engine
+                  |    (LLM providers, agent runtime)
                   |
                   +--> auth/policy services
                   +--> relational database
                   +--> event store
                   +--> artifact storage
-                  +--> model router
-                  +--> remote team orchestrator
 ```
 
 ## 16. Current State vs Target State
@@ -977,9 +984,10 @@ while this document remains the long-lived architectural reference.
 ### 16.2 Current Gaps
 
 - broad in-memory `AppState` still acts as a temporary composition root and data store
-- in-process team orchestrator is a bridge implementation, not a production architecture
+- ~~in-process team orchestrator is a bridge implementation, not a production architecture~~ (resolved: execution now routes through `ExecutionEnginePort` to a remote engine)
 - event streaming and state projection are not yet fully durable
 - artifact storage and task persistence are not yet fully externalized
+- `decacan-app` wiring still references the deprecated `InProcessTeamOrchestrator` and needs to be updated to `ExecutionCoordinator`
 - some local development assumptions remain embedded in the app layer
 
 ### 16.3 Architectural Interpretation
@@ -1026,14 +1034,14 @@ Expected outcomes:
 
 Goals:
 
-- replace in-process team orchestration with a durable external adapter
-- strengthen provider routing, retries, and signing
+- ~~replace in-process team orchestration with a durable external adapter~~ (completed: `ExecutionEnginePort` + `HttpExecutionEngineClient` + `decacan-agent-contract`)
+- stabilize the white-box event protocol with the remote execution engine
 - make execution telemetry first-class
 
 Expected outcomes:
 
-- more reliable delegated agent execution
-- environment-independent orchestration contract
+- more reliable delegated agent execution through the remote engine
+- environment-independent orchestration contract (`decacan-agent-contract`)
 - safer scaling path
 
 ### Phase 4: Capability and Workflow Generalization

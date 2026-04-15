@@ -28,6 +28,17 @@ Product boundary rule:
 - Instantiate and execute work inside Workspaces
 - Track cross-workspace workload from account-level views without duplicating workspace detail flows
 
+### Workspaces Runtime Model
+
+`apps/workspaces` should be treated as a shared execution platform with customer-specific behavior resolved per workspace.
+
+The intended long-term model is:
+- each workspace resolves to one runtime `Workspace Profile`
+- that profile shapes terminology, home/workbench framing, navigation extensions, specialized views, and assistant posture
+- task execution, deliverables, approvals, and task-detail interaction remain platform-owned and shared
+
+This means customer-specific Workspaces should be delivered by binding or adapting a profile, not by forking the Workspaces application.
+
 ### Non-goals / Out of Scope
 
 - `apps/console` is not a second workspace detail shell; it should not replicate full task-detail execution UX.
@@ -105,14 +116,32 @@ cp .env.example .env
   - account: `/api/account/home`
   - workspace: `/api/workspaces/:workspace_id/...`
 
+### Workspace Profile Direction
+
+Workspaces is moving from build-time industry selection toward runtime workspace-profile resolution.
+
+The intended runtime path is:
+
+`workspace -> workspace_profile_id -> backend/API resolution -> frontend runtime rendering`
+
+Implications:
+- different workspaces in the same deployment should be able to use different profiles
+- build-time industry config is a transitional compatibility layer and local fallback, not the long-term delivery model
+- `default-workspace-profile` should remain the required baseline fallback for any workspace that cannot resolve a customer-specific profile
+
+Current repo state:
+- the Workspaces product design and delivery docs already use the `Workspace Profile` model
+- parts of the frontend still use build-time industry configuration during the migration period
+
 ### Backend Layers
 
 | Layer | Crate | Responsibility |
 |---|---|---|
 | API | `crates/decacan-app` | Axum routers, DTOs, HTTP contracts, app wiring |
-| Domain Runtime | `crates/decacan-runtime` | Playbook lifecycle, task/run workflow, policies, team execution, artifacts |
-| Infra Adapters | `crates/decacan-infra` | Model providers/router, storage adapters, config/secrets/logging utilities |
+| Domain Runtime | `crates/decacan-runtime` | Playbook lifecycle, task/run workflow, policies, approval/artifact semantics, execution orchestration |
+| Infra Adapters | `crates/decacan-infra` | Remote execution engine client, storage adapters, config/secrets/logging utilities |
 | Auth | `crates/decacan-auth` | Auth service, token/session flow, storage adapter |
+| Agent Contract | `crates/decacan-agent-contract` | White-box protocol between Decacan and remote agent/execution engines |
 
 ### Agent Team Integration (Current)
 
@@ -122,17 +151,19 @@ cp .env.example .env
   - `POST /api/assistant-sessions`
   - `POST /api/assistant-sessions/:assistant_session_id/delegations`
   - `GET /api/team-sessions/:team_session_id`
-- Current ATS integration is an **in-process adapter** (`decacan-infra::team::adapter::InProcessTeamOrchestrator`), intended as a phase bridge.
-- Limitation: this adapter is local-memory and non-distributed; production-grade ATS deployment should replace it with a durable/out-of-process adapter behind the same runtime ports.
+- **Agent execution has been moved to a separate remote execution engine project**. Decacan communicates via `decacan-agent-contract` over HTTP/SSE.
+- The previous in-process adapter (`decacan-infra::team::adapter::InProcessTeamOrchestrator`) is deprecated and will be removed.
+- `decacan-infra::execution_engine::HttpExecutionEngineClient` is the current production adapter, implementing `ExecutionEnginePort`.
 
 ## Repository Map
 
 ```text
 crates/
-  decacan-app/
-  decacan-runtime/
-  decacan-infra/
-  decacan-auth/
+  decacan-agent-contract/   # Protocol crate for remote execution engine integration
+  decacan-app/              # API/application layer
+  decacan-runtime/          # Domain runtime and execution orchestration
+  decacan-infra/            # Infrastructure adapters
+  decacan-auth/             # Authentication and identity services
 apps/
   workspaces/
   console/
@@ -153,7 +184,8 @@ docs/
 - Backend: Rust, Axum, Tokio, SQLx, Serde, Tracing
 - Frontend: React 19, React Router 7, Tailwind CSS v4, Vite
 - Package/tooling: Cargo, pnpm workspace
-- Model providers (current infra router): OpenAI + Anthropic
+- Agent/Execution: Externalized to remote execution engine project
+- Inter-crate protocol: `decacan-agent-contract` (HTTP + SSE)
 
 ## Frontend Handoff Config
 
@@ -167,6 +199,13 @@ docs/
 
 - `VITE_WORKSPACES_APP_URL`
 - default: `http://localhost:5173`
+
+### Workspaces Profile Configuration Notes
+
+During the migration to runtime profiles:
+- build-time Workspaces industry config remains available for local development and fallback behavior
+- runtime customer delivery should target `Workspace Profile` rather than adding new hardcoded industry forks
+- the default fallback profile should stay generic and production-usable, not customer-specific
 
 ## Workflow and Contribution
 
@@ -183,6 +222,10 @@ docs/
 ## API Route Quick Reference
 
 Current API router source: `crates/decacan-app/src/api/`.
+
+Note:
+- the route list below reflects implemented routes in the repo today
+- runtime workspace-profile resolution is the target architecture, but the dedicated profile route may still be in the migration path when you read this README
 
 ### Top 20 Most Used
 
@@ -314,14 +357,18 @@ pnpm dev:workspaces
 
 ## Documentation Map
 
-- Architecture/design specs: `docs/superpowers/specs/`
+- Architecture/design specs: `docs/architecture.md`
+- Learning guide: `docs/learn.md`
+- Feature and subsystem specs: `docs/superpowers/specs/`
 - Active implementation plans: `docs/superpowers/plans/`
 - Historical plans archive: `docs/superpowers/plans/archive/`
 
 Recommended starting points:
 
-1. `docs/superpowers/specs/2026-03-29-decacan-backend-spec-index.md`
-2. `docs/superpowers/specs/2026-04-01-decacan-account-hub-and-workspace-boundaries-design.md`
+1. `docs/learn.md` - Project overview for new team members
+2. `docs/architecture.md` - Comprehensive architecture reference
+3. `docs/superpowers/specs/2026-03-29-decacan-backend-spec-index.md`
+4. `docs/superpowers/specs/2026-04-01-decacan-account-hub-and-workspace-boundaries-design.md`
 
 ## Contributing
 

@@ -1,5 +1,6 @@
 pub mod assistant_delegation;
 pub mod clock;
+pub mod execution_engine;
 pub mod filesystem;
 pub mod model;
 pub mod storage;

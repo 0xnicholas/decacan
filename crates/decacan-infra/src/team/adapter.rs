@@ -16,9 +16,11 @@ use std::sync::{Arc, RwLock};
 use std::time::Duration;
 use thiserror::Error;
 
-// ============== InProcessTeamOrchestrator (existing implementation) ==============
-
 #[derive(Debug, Clone)]
+#[deprecated(
+    since = "0.2.0",
+    note = "Use execution_engine::HttpExecutionEngineClient instead. In-process orchestration is being removed in favor of remote execution engines."
+)]
 pub struct InProcessTeamOrchestrator {
     team_sessions: Arc<InMemoryTeamSessionStore>,
     action_dispositions: Arc<RwLock<HashMap<String, TeamActionDisposition>>>,
@@ -223,9 +225,11 @@ impl TeamActionGateway for InProcessTeamOrchestrator {
     }
 }
 
-// ============== TeamAdapter with Mode Switch ==============
-
 #[derive(Debug, Clone)]
+#[deprecated(
+    since = "0.2.0",
+    note = "Use execution_engine::HttpExecutionEngineClient instead. TeamOrchestratorPort is superseded by ExecutionEnginePort."
+)]
 pub enum AdapterMode {
     InProcess,
     Gateway { url: String, timeout: Duration },
@@ -247,6 +251,10 @@ pub enum AdapterError {
     GatewayError(#[from] GatewayClientError),
 }
 
+#[deprecated(
+    since = "0.2.0",
+    note = "Use execution_engine::HttpExecutionEngineClient instead. TeamOrchestratorPort is superseded by ExecutionEnginePort."
+)]
 pub struct TeamAdapter {
     mode: AdapterMode,
     in_process: Arc<InProcessTeamOrchestrator>,

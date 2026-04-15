@@ -14,6 +14,7 @@ This design focuses on:
 - the interaction hierarchy of the home workbench
 - the role of a persistent workspace assistant
 - the configuration boundary between `apps/console` and `apps/workspaces`
+- the relationship between home templates and the broader `Workspace Profile` model
 
 This design does not redefine the broader account/workspace product split that was already established in [2026-04-01-decacan-account-hub-and-workspace-boundaries-design.md](/Users/nicholasl/Documents/build-whatever/decacan/docs/superpowers/specs/2026-04-01-decacan-account-hub-and-workspace-boundaries-design.md).
 
@@ -88,6 +89,20 @@ The ownership rule is:
 
 - `Console` manages workbench templates
 - `workspaces` renders a template-selected home surface
+
+This is still the correct phase-1 implementation boundary.
+
+However, the longer-term product model should not stop at `home template`.
+
+The broader runtime unit for customer-specific Workspaces should be:
+
+`Workspace Profile`
+
+In that model:
+
+- a template is one part of a profile
+- a profile is bound to one workspace at runtime
+- the workspace shell, home, navigation extensions, specialized views, and assistant framing all resolve from that profile
 
 ## Design Principles
 
@@ -361,6 +376,301 @@ Examples:
 - collaboration slots accept activity or discussion modules
 
 This keeps configuration composable and prevents broken layouts.
+
+## Workspace Profile Model
+
+The product should evolve from a narrow `home template` concept toward a broader runtime `Workspace Profile` concept.
+
+The distinction is:
+
+- `Home Template` defines the home canvas
+- `Workspace Profile` defines how a concrete workspace should feel and behave for one customer or domain
+
+This means a profile is not just a frontend theme or a build-time industry switch.
+
+It is a runtime configuration object bound to a workspace.
+
+### Product Role Of A Workspace Profile
+
+A `Workspace Profile` should be the main unit of customer-specific Workspaces delivery.
+
+It should allow a workspace to look and behave as if it were specialized for one business domain, while still running on the shared Workspaces execution platform.
+
+The customer should experience:
+
+- domain-specific language
+- domain-appropriate home emphasis
+- relevant navigation
+- required specialized pages
+- assistant behavior that matches the domain
+
+Internally, the product should still preserve:
+
+- one shared task model
+- one shared deliverable/approval execution model
+- one shared task-detail execution surface
+- one shared assistant session and delegation model
+
+### Why Profile Exists Above Template
+
+The home template alone is too narrow for support-led customer delivery.
+
+Once Workspaces must support customer-specific onboarding across multiple industries, the delivery unit must include more than home:
+
+- terminology
+- navigation extensions
+- specialized pages
+- assistant framing
+- home/workbench behavior
+
+That bundle is the `Workspace Profile`.
+
+### Runtime Resolution Model
+
+Workspaces should eventually resolve customer-specific behavior using this runtime path:
+
+1. each workspace is bound to one `workspace_profile_id`
+2. backend APIs resolve the profile for that workspace
+3. frontend loads the profile at runtime when entering the workspace
+4. shell, home, navigation, and specialized routes render from the resolved profile
+
+This is preferable to a pure build-time industry selection model because:
+
+- different workspaces in the same deployment may use different profiles
+- support can deliver customer-specific workspaces without shipping separate apps
+- similar customers can reuse and adapt an existing profile
+
+### Default Profile Requirement
+
+The runtime profile model must always include one default profile.
+
+Recommended id:
+
+`default-workspace-profile`
+
+This default profile is required for three reasons:
+
+#### 1. System Fallback
+
+If a workspace has no explicit profile binding, or if profile resolution fails, Workspaces must still render a usable workspace shell and home.
+
+The failure mode should be:
+
+`fallback to default profile`
+
+not:
+
+`workspace cannot load`
+
+#### 2. Platform Baseline
+
+The default profile defines the generic Workspaces baseline for non-specialized usage.
+
+It should include:
+
+- standard terminology
+- standard workbench title
+- standard home module set
+- standard assistant framing
+- core navigation only
+- no required specialized extension routes
+
+#### 3. Base For New Profiles
+
+When support or engineering creates a new customer profile, the default profile should be a valid starting point if no closer reusable profile exists.
+
+This makes the default profile the root baseline of the profile system rather than only an error fallback.
+
+### Default Profile Rules
+
+The default profile should follow these rules:
+
+- every workspace must resolve to exactly one profile at runtime
+- if no explicit profile is bound, resolve to the default profile
+- if explicit profile resolution fails, fall back to the default profile
+- the default profile must support all core workspace sections without extension dependencies
+- the default profile must not encode a customer-specific or industry-specific worldview
+
+### What The Default Profile Should Not Be
+
+The default profile should not be:
+
+- a content-industry default
+- a legal-industry default
+- a customer-specific seed disguised as a platform default
+- a profile that depends on optional pages in order to remain usable
+
+It should be:
+
+`the minimum complete, production-usable Workspaces baseline`
+
+### What A Workspace Profile Controls
+
+At minimum, a profile should define the following categories.
+
+#### 1. Domain Language
+
+- workspace label
+- task label
+- deliverable label
+- approval label
+- member label
+- assistant label
+
+#### 2. Home Workbench Definition
+
+- workbench title and framing
+- home modules
+- slot usage
+- primary CTA
+- assistant dock posture
+
+#### 3. Navigation Definition
+
+- core sections shown
+- extension routes
+- route labels
+- visibility rules where needed
+
+#### 4. Domain Object Presentation
+
+- important business field names
+- field groupings
+- status vocabulary
+- list/card/table emphasis
+
+#### 5. Specialized Views
+
+- domain-specific collection pages
+- dashboards
+- schedules/calendars
+- asset galleries
+- analysis pages
+
+#### 6. Assistant Profile
+
+- assistant role framing
+- summary style
+- suggested action patterns
+- domain shortcuts
+- delegation posture
+
+### What A Workspace Profile Does Not Control
+
+Even in the broader profile model, the following should remain platform-owned:
+
+- the core task execution engine
+- the top-level workspace object model
+- approval and deliverable execution primitives
+- the task-detail interaction backbone
+- arbitrary custom layouts or injected application code
+
+This keeps the system productized even when customer workspaces feel deeply specialized.
+
+### Relationship Between Template And Profile
+
+The intended nesting is:
+
+`Workspace Profile -> Home Template -> Slot Modules`
+
+That means:
+
+- the home template remains a bounded configuration artifact
+- the profile becomes the runtime wrapper that gives the workspace its broader domain behavior
+- module compatibility rules still apply inside the template
+
+This preserves the workbench discipline already defined in this spec while allowing the product to scale beyond a few hardcoded industries.
+
+### Delivery Implication
+
+Once the runtime profile model exists, the operational delivery unit for a new customer should become:
+
+`Create Customer Workspace Profile`
+
+That delivery workflow is described separately in [2026-04-10-customer-workspace-profile-delivery-design.md](/Users/nicholasl/Documents/build-whatever/decacan/docs/superpowers/specs/2026-04-10-customer-workspace-profile-delivery-design.md).
+
+This spec remains the source of truth for how Workspaces itself should behave.
+
+### Design Freeze Checklist
+
+Workspaces design should not be considered frozen for multi-customer delivery until the following conditions are explicitly accepted.
+
+#### 1. Profile Is The Primary Runtime Unit
+
+The product model must treat `Workspace Profile` as the top-level customer delivery unit.
+
+This means:
+
+- customer-specific Workspaces are defined by profiles, not by build-time industry selection
+- `home template` remains a bounded sub-configuration inside a profile
+- runtime resolution, fallback behavior, and customer delivery all refer to profile first
+
+#### 2. Profile Boundaries Are Closed
+
+The profile boundary must be explicit and stable.
+
+Accepted profile-controlled areas:
+
+- terminology
+- home/workbench composition
+- navigation extensions
+- domain presentation rules
+- specialized views
+- assistant framing
+
+Accepted platform-owned areas:
+
+- task execution engine
+- deliverable and approval primitives
+- task-detail interaction backbone
+- arbitrary injected application code
+
+If these boundaries are not accepted, Workspaces will drift into project-specific custom application delivery.
+
+#### 3. Industry Is A Migration Layer, Not The End State
+
+The design must explicitly state the relationship between:
+
+- build-time `industry`
+- `home template`
+- runtime `Workspace Profile`
+
+The accepted model is:
+
+- build-time industry support is transitional
+- home template is one bounded part of a profile
+- runtime profile is the long-term customer delivery model
+- `default-workspace-profile` is the required fallback baseline
+
+This prevents the codebase and documentation from carrying multiple competing product models indefinitely.
+
+#### 4. Delivery Workflow Is Part Of Product Design
+
+Support-led customer delivery is not a separate operational workaround.
+
+It is part of the Workspaces product model.
+
+The design should therefore explicitly accept:
+
+- `Create Customer Workspace Profile` as the standard delivery unit
+- profile reuse and adaptation as the default support path
+- escalation to new platform capabilities only when profile composition is insufficient
+
+This links product design to the actual operating model used to deliver customer Workspaces.
+
+#### 5. Freeze Requires Runtime Acceptance Criteria
+
+The design freeze should include explicit runtime acceptance criteria, not only design principles.
+
+At minimum, the following conditions should hold:
+
+- every workspace resolves to exactly one profile at runtime
+- missing or invalid profile resolution falls back to `default-workspace-profile`
+- all core workspace sections remain usable under the default profile
+- specialized routes remain optional enhancement layers rather than core dependencies
+- a new customer workspace can be delivered by reusing or adapting a profile without rewriting the Workspaces application
+
+If these conditions are not yet accepted, Workspaces design should still be considered in-progress for multi-customer delivery.
 
 ## Terminology And Metrics
 

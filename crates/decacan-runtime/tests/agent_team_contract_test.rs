@@ -31,7 +31,7 @@ fn running_session_can_enter_blocked_on_assistant_but_not_completed_session() {
 fn only_one_active_delegation_is_allowed_per_assistant_session() {
     let session =
         decacan_runtime::assistant::session::AssistantSession::new_for_test("assistant-1")
-            .with_active_delegation("task-1", "run-1", "team-session-1");
+            .with_active_delegation("workspace-1", "task-1", "run-1", "team-session-1");
 
     assert!(session.can_start_new_delegation().is_err());
 }
@@ -59,6 +59,7 @@ fn rejected_approval_requires_new_intent_version_before_reopen() {
 fn assistant_delegation_binding_is_persisted_for_recovery() {
     let binding = AssistantDelegationBinding::new_for_test(
         "assistant-1",
+        "workspace-1",
         "task-1",
         "run-1",
         "team-session-1",

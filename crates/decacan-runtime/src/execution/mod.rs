@@ -23,6 +23,8 @@
 //! ).await?;
 //! ```
 
+pub mod coordinator;
+
 use std::collections::HashMap;
 use std::time::Duration;
 

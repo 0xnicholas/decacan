@@ -63,7 +63,7 @@ export function WorkspaceShell() {
   const hasRightPanel = !!rightPanel;
 
   return (
-    <div className="min-h-screen grid grid-rows-[auto_1fr]">
+    <div className="min-h-screen grid grid-rows-[auto_1fr] bg-background text-foreground">
       <TopBar
         onNewTask={() => {
           navigate(`/workspaces/${workspaceId}/new-task`);

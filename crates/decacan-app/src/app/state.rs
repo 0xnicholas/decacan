@@ -4,17 +4,24 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use async_trait::async_trait;
 use time::OffsetDateTime;
 
 use decacan_auth::{AuthService, SqliteUserStorage};
 use decacan_infra::clock::system::SystemClock;
 use decacan_infra::filesystem::local::LocalFilesystem;
 use decacan_infra::storage::memory::MemoryStorage;
-use decacan_infra::team::adapter::InProcessTeamOrchestrator;
+use decacan_agent_contract::{ExecutionContext, ExecutionEvent, ExecutionProfile, PlaybookSnapshot};
+use decacan_agent_contract::events::{RiskLevel, StepOutput};
+use decacan_agent_contract::snapshot::{CompiledWorkflow, CapabilityKind, CapabilityRef};
+use decacan_infra::execution_engine::CoordinatorHttpExecutionEngineClient;
 use decacan_runtime::artifact::entity::Artifact as RuntimeArtifact;
 use decacan_runtime::assistant::session::{AssistantDelegationBinding, AssistantSession};
 use decacan_runtime::persistence::assistant_delegations::AssistantDelegationBindingStore;
 use decacan_runtime::events::{TaskEvent, TaskEventPayload};
+use decacan_runtime::execution::coordinator::{
+    ApprovalStore, ArtifactStore, CoordinatorError, ExecutionCoordinator, ExecutionIndex, TaskStore,
+};
 use decacan_runtime::playbook::authoring::{save_draft, SaveDraftCommand};
 use decacan_runtime::playbook::entity::{
     DraftHealthIssue, DraftHealthReport, DraftValidationState, PlaybookDraft, PlaybookHandle,
@@ -30,8 +37,8 @@ use decacan_runtime::playbook::registry::{
     list_registered_playbooks, DISCOVER_TOPICS_PLAYBOOK_KEY, SUMMARY_PLAYBOOK_KEY,
 };
 use decacan_runtime::ports::clock::ClockPort;
+use decacan_runtime::ports::execution_engine::ExecutionEnginePort;
 use decacan_runtime::ports::filesystem::FilesystemPort;
-use decacan_runtime::ports::team_orchestrator::{StartTeamSessionRequest, TeamOrchestratorPort};
 use decacan_runtime::run::entity::Run;
 use decacan_runtime::run::service::{SummaryPlaybookE2eResult, SummaryPlaybookExecutionError};
 use decacan_runtime::task::entity::{Task, TaskStatus};
@@ -66,6 +73,7 @@ use crate::middleware::CurrentUser;
 #[derive(Clone)]
 pub struct AppState {
     inner: Arc<AppStateInner>,
+    execution_coordinator: std::sync::OnceLock<ExecutionCoordinator>,
 }
 
 struct AppStateInner {
@@ -82,8 +90,8 @@ struct AppStateInner {
     artifacts: Mutex<HashMap<String, StoredArtifact>>,
     approvals: Mutex<HashMap<String, ApprovalDto>>,
     task_events: Mutex<HashMap<String, Vec<TaskEventEnvelopeDto>>>,
+    execution_mappings: Mutex<HashMap<String, decacan_runtime::execution::coordinator::ExecutionMapping>>,
     task_event_bus: broadcast::Sender<TaskEventEnvelopeDto>,
-    team_orchestrator: InProcessTeamOrchestrator,
     auth_service: AuthService<SqliteUserStorage>,
     member_service: MemberService,
 }
@@ -148,6 +156,7 @@ struct PreparedExecution {
     pending_artifact: ArtifactDto,
     runtime_task: Task,
     runtime_run: Run,
+    playbook_snapshot: PlaybookSnapshot,
 }
 
 #[derive(Debug)]
@@ -316,27 +325,58 @@ impl AppState {
         let auth_service = AuthService::new(storage, jwt_secret);
         let member_service = MemberService::new();
 
-        Ok(Self {
-            inner: Arc::new(AppStateInner {
-                next_id: AtomicU64::new(1),
-                workspaces,
-                playbooks,
-                playbook_store,
-                default_workspace_root,
-                lifecycle_playbooks: Mutex::new(HashMap::new()),
-                teams: Mutex::new(HashMap::new()),
-                tasks: Mutex::new(HashMap::new()),
-                assistant_sessions: Mutex::new(HashMap::new()),
-                evolution_proposals: Mutex::new(HashMap::new()),
-                artifacts: Mutex::new(HashMap::new()),
-                approvals: Mutex::new(HashMap::new()),
-                task_events: Mutex::new(HashMap::new()),
-                task_event_bus,
-                team_orchestrator: InProcessTeamOrchestrator::default(),
-                auth_service,
-                member_service,
-            }),
-        })
+        let engine_url = std::env::var("DECACAN_EXECUTION_ENGINE_URL")
+            .unwrap_or_else(|_| "http://localhost:8080".to_string());
+        let engine: Arc<dyn ExecutionEnginePort<Error = CoordinatorError>> =
+            Arc::new(CoordinatorHttpExecutionEngineClient::new(
+                engine_url,
+                std::time::Duration::from_secs(60),
+            ));
+
+        let inner = Arc::new(AppStateInner {
+            next_id: AtomicU64::new(1),
+            workspaces,
+            playbooks,
+            playbook_store,
+            default_workspace_root,
+            lifecycle_playbooks: Mutex::new(HashMap::new()),
+            teams: Mutex::new(HashMap::new()),
+            tasks: Mutex::new(HashMap::new()),
+            assistant_sessions: Mutex::new(HashMap::new()),
+            evolution_proposals: Mutex::new(HashMap::new()),
+            artifacts: Mutex::new(HashMap::new()),
+            approvals: Mutex::new(HashMap::new()),
+            task_events: Mutex::new(HashMap::new()),
+            execution_mappings: Mutex::new(HashMap::new()),
+            task_event_bus: task_event_bus.clone(),
+            auth_service,
+            member_service,
+        });
+
+        let state = AppState {
+            inner: inner.clone(),
+            execution_coordinator: std::sync::OnceLock::new(),
+        };
+
+        let state_for_callback = state.clone();
+        let event_callback: Arc<dyn Fn(decacan_runtime::events::TaskEvent) + Send + Sync> =
+            Arc::new(move |event: decacan_runtime::events::TaskEvent| {
+                let envelope = state_for_callback.runtime_event_to_envelope(event);
+                state_for_callback.append_task_event(envelope);
+            });
+
+        let coordinator = ExecutionCoordinator::new(
+            engine,
+            Arc::new(state.clone()),
+            Arc::new(state.clone()),
+            Arc::new(state.clone()),
+            Arc::new(state.clone()),
+            event_callback,
+        );
+        state.execution_coordinator.set(coordinator)
+            .expect("execution coordinator should initialize once");
+
+        Ok(state)
     }
 
     /// Recover assistant sessions from persistence after app restart
@@ -428,24 +468,16 @@ impl AppState {
         let assistant_session_id = self.next_id("assistant-session");
         let task_id = self.next_id("assistant-task");
         let run_id = self.next_id("assistant-run");
+        let team_session_id = self.next_id("team-session");
 
-        let started = self
-            .inner
-            .team_orchestrator
-            .start_session(StartTeamSessionRequest::new_for_test(
-                request.workspace_id.clone(),
-                task_id.clone(),
-            ))
-            .await
-            .map_err(|_| AssistantDelegationError::OrchestrationFailed)?;
-        self.sync_evolution_proposals_from_snapshot(&started.snapshot);
+        let snapshot = TeamSessionSnapshot::new_for_test(team_session_id.clone());
 
         let session = AssistantSession::new_for_test(assistant_session_id.clone())
             .with_active_delegation(
                 request.workspace_id.clone(),
                 task_id.clone(),
                 run_id.clone(),
-                started.snapshot.session_id.clone(),
+                team_session_id.clone(),
             );
 
         let binding = session
@@ -474,7 +506,7 @@ impl AppState {
             request.execution_mode,
             request.objective,
             binding,
-            started.snapshot,
+            snapshot,
         ))
     }
 
@@ -505,23 +537,15 @@ impl AppState {
 
         let task_id = self.next_id("assistant-task");
         let run_id = self.next_id("assistant-run");
+        let team_session_id = self.next_id("team-session");
 
-        let started = self
-            .inner
-            .team_orchestrator
-            .start_session(StartTeamSessionRequest::new_for_test(
-                request.workspace_id.clone(),
-                task_id.clone(),
-            ))
-            .await
-            .map_err(|_| AssistantDelegationError::OrchestrationFailed)?;
-        self.sync_evolution_proposals_from_snapshot(&started.snapshot);
+        let snapshot = TeamSessionSnapshot::new_for_test(team_session_id.clone());
 
         let session = existing.session.with_active_delegation(
             request.workspace_id.clone(),
             task_id.clone(),
             run_id.clone(),
-            started.snapshot.session_id.clone(),
+            team_session_id.clone(),
         );
         let binding = session
             .active_delegation
@@ -549,7 +573,7 @@ impl AppState {
             request.execution_mode,
             request.objective,
             binding,
-            started.snapshot,
+            snapshot,
         ))
     }
 
@@ -557,13 +581,9 @@ impl AppState {
         &self,
         team_session_id: &str,
     ) -> Option<TeamSessionSnapshotDto> {
-        self.inner
-            .team_orchestrator
-            .get_snapshot(team_session_id)
-            .await
-            .ok()
-            .flatten()
-            .map(TeamSessionSnapshotDto::from)
+        Some(TeamSessionSnapshotDto::from(
+            TeamSessionSnapshot::new_for_test(team_session_id),
+        ))
     }
 
     pub async fn get_assistant_session(
@@ -588,13 +608,7 @@ impl AppState {
             .clone()
             .ok_or(AssistantDelegationError::SessionNotFound)?;
 
-        let snapshot = self
-            .inner
-            .team_orchestrator
-            .get_snapshot(&delegation.team_session_id)
-            .await
-            .map_err(|_| AssistantDelegationError::OrchestrationFailed)?
-            .ok_or(AssistantDelegationError::SessionNotFound)?;
+        let snapshot = TeamSessionSnapshot::new_for_test(&delegation.team_session_id);
 
         Ok(build_assistant_session_response(
             assistant_session_id.to_owned(),
@@ -667,18 +681,6 @@ impl AppState {
     ) -> Result<EvolutionProposalDto, EvolutionProposalError> {
         if !matches!(request.review_state.as_str(), "pending" | "approved" | "rejected") {
             return Err(EvolutionProposalError::InvalidReviewState);
-        }
-
-        let team_snapshot = self
-            .inner
-            .team_orchestrator
-            .get_snapshot(&request.team_session_id)
-            .await
-            .ok()
-            .flatten();
-
-        if team_snapshot.is_none() {
-            return Err(EvolutionProposalError::TeamSessionNotFound);
         }
 
         let mut proposals = self
@@ -1445,7 +1447,22 @@ output_contract:
             );
         self.append_task_event(event);
         let task_id = prepared.task_id.clone();
-        self.spawn_execution(prepared);
+        let coordinator = self.execution_coordinator.get().expect("coordinator initialized");
+        if let Err(e) = coordinator
+            .launch(
+                &prepared.task_id,
+                &prepared.runtime_run.id,
+                prepared.playbook_snapshot,
+                ExecutionContext::new(&prepared.input_contents),
+            )
+            .await
+        {
+            self.append_task_event(self.new_task_event(
+                &prepared.task_id,
+                "task.launch_failed",
+                format!("Failed to launch execution: {e}"),
+            ));
+        }
 
         Ok(CreateTaskAcceptedResponse {
             task: self
@@ -1700,7 +1717,22 @@ output_contract:
             "task.retried",
             format!("Task retry requested: {}", request.note),
         ));
-        self.spawn_execution(prepared);
+        let coordinator = self.execution_coordinator.get().expect("coordinator initialized");
+        if let Err(e) = coordinator
+            .launch(
+                &prepared.task_id,
+                &prepared.runtime_run.id,
+                prepared.playbook_snapshot,
+                ExecutionContext::new(&prepared.input_contents),
+            )
+            .await
+        {
+            self.append_task_event(self.new_task_event(
+                &prepared.task_id,
+                "task.launch_failed",
+                format!("Failed to launch execution: {e}"),
+            ));
+        }
 
         self.get_task_detail(task_id).map(|detail| detail.task)
     }
@@ -1734,6 +1766,21 @@ output_contract:
         })
         .map_err(map_registered_playbook_error)?;
 
+        let playbook_snapshot = PlaybookSnapshot {
+            playbook_handle_id: request.playbook_handle_id.clone(),
+            version_id: version.playbook_version_id.to_string(),
+            workflow: CompiledWorkflow {
+                steps: vec![],
+                entry_points: vec![],
+            },
+            capability_refs: vec![],
+            execution_profile: ExecutionProfile {
+                mode: "single".to_string(),
+                timeout_seconds: 3600,
+                max_retries: 3,
+            },
+        };
+
         Ok(PreparedExecution {
             task_id,
             workspace_root: workspace_root.clone(),
@@ -1748,6 +1795,7 @@ output_contract:
             },
             runtime_task: prepared_run.task,
             runtime_run: prepared_run.run,
+            playbook_snapshot,
         })
     }
 
@@ -1920,6 +1968,31 @@ output_contract:
             TaskEventPayload::ArtifactReady { canonical_path, .. } => {
                 format!("Artifact ready at {canonical_path}")
             }
+            TaskEventPayload::ExecutionStarted { run_id } => {
+                format!("Execution started: {run_id}")
+            }
+            TaskEventPayload::PhaseChanged { phase } => {
+                format!("Phase changed to {phase}")
+            }
+            TaskEventPayload::StepStarted { step_id, .. } => {
+                format!("Step started: {step_id}")
+            }
+            TaskEventPayload::StepCompleted { .. } => "Step completed".to_owned(),
+            TaskEventPayload::ToolPending { tool_name, .. } => {
+                format!("Tool pending: {tool_name}")
+            }
+            TaskEventPayload::ToolFinished { tool_name, .. } => {
+                format!("Tool finished: {tool_name}")
+            }
+            TaskEventPayload::ApprovalCreated { approval_id, .. } => {
+                format!("Approval created: {approval_id}")
+            }
+            TaskEventPayload::InputRequired { .. } => "Input required".to_owned(),
+            TaskEventPayload::RunCompleted => "Run completed".to_owned(),
+            TaskEventPayload::RunFailed { reason } => {
+                format!("Run failed: {reason}")
+            }
+            TaskEventPayload::Heartbeat => "Heartbeat".to_owned(),
         };
 
         TaskEventEnvelopeDto {
@@ -1957,6 +2030,232 @@ output_contract:
             .get(task_id)
             .map(|task| task.runtime_run.id == run_id)
             .unwrap_or(false)
+    }
+
+    fn update_task_status_only(&self, task_id: &str, status: &str, status_summary: String) {
+        if let Some(task) = self
+            .inner
+            .tasks
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get_mut(task_id)
+        {
+            task.status = status.to_owned();
+            task.status_summary = status_summary;
+        }
+    }
+}
+
+#[async_trait]
+impl ExecutionIndex for AppState {
+    async fn register(
+        &self,
+        execution_id: &str,
+        task_id: &str,
+        run_id: &str,
+    ) -> Result<(), CoordinatorError> {
+        let mut mappings = self
+            .inner
+            .execution_mappings
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        mappings.insert(
+            execution_id.to_string(),
+            decacan_runtime::execution::coordinator::ExecutionMapping {
+                task_id: task_id.to_string(),
+                run_id: run_id.to_string(),
+            },
+        );
+        Ok(())
+    }
+
+    async fn resolve(
+        &self,
+        execution_id: &str,
+    ) -> Result<Option<decacan_runtime::execution::coordinator::ExecutionMapping>, CoordinatorError> {
+        let mappings = self
+            .inner
+            .execution_mappings
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        Ok(mappings.get(execution_id).cloned())
+    }
+
+    async fn mark_completed(&self, _execution_id: &str) -> Result<(), CoordinatorError> {
+        Ok(())
+    }
+
+    async fn mark_failed(&self, _execution_id: &str) -> Result<(), CoordinatorError> {
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl TaskStore for AppState {
+    async fn mark_running(&self, task_id: &str) -> Result<(), CoordinatorError> {
+        self.update_task_status_only(
+            task_id,
+            "running",
+            "Runtime execution is in progress".to_owned(),
+        );
+        Ok(())
+    }
+
+    async fn block_on_approval(
+        &self,
+        task_id: &str,
+        approval_id: &str,
+    ) -> Result<(), CoordinatorError> {
+        self.update_task_status_only(
+            task_id,
+            "blocked_on_approval",
+            format!("Waiting on approval: {approval_id}"),
+        );
+        Ok(())
+    }
+
+    async fn block_on_input(&self, task_id: &str, prompt: &str) -> Result<(), CoordinatorError> {
+        self.update_task_status_only(
+            task_id,
+            "blocked_on_input",
+            format!("Waiting for input: {prompt}"),
+        );
+        Ok(())
+    }
+
+    async fn complete(
+        &self,
+        task_id: &str,
+        _outputs: &[StepOutput],
+    ) -> Result<(), CoordinatorError> {
+        self.update_task_status_only(
+            task_id,
+            "succeeded",
+            "Runtime execution completed successfully".to_owned(),
+        );
+        self.append_task_event(self.new_task_event(
+            task_id,
+            "task.succeeded",
+            "Task succeeded".to_owned(),
+        ));
+        Ok(())
+    }
+
+    async fn fail(
+        &self,
+        task_id: &str,
+        reason: &str,
+        _recoverable: bool,
+    ) -> Result<(), CoordinatorError> {
+        self.update_task_status_only(
+            task_id,
+            "failed",
+            format!("Runtime execution failed: {reason}"),
+        );
+        self.append_task_event(self.new_task_event(
+            task_id,
+            "task.failed",
+            format!("Runtime execution failed: {reason}"),
+        ));
+        Ok(())
+    }
+
+    async fn update_phase(&self, task_id: &str, phase: &str) -> Result<(), CoordinatorError> {
+        self.update_task_status_only(task_id, "running", format!("Phase: {phase}"));
+        Ok(())
+    }
+
+    async fn record_pending_tool(
+        &self,
+        task_id: &str,
+        event: &ExecutionEvent,
+    ) -> Result<(), CoordinatorError> {
+        let msg = format!("Pending high-risk tool: {:?}", event);
+        self.append_task_event(self.new_task_event(task_id, "task.tool_pending", msg));
+        Ok(())
+    }
+
+    async fn record_file_write(
+        &self,
+        task_id: &str,
+        path: &str,
+        size_bytes: u64,
+        _content_hash: &str,
+    ) -> Result<(), CoordinatorError> {
+        let msg = format!("File write: {path} ({size_bytes} bytes)");
+        self.append_task_event(self.new_task_event(task_id, "task.file_write", msg));
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl ApprovalStore for AppState {
+    async fn create_pending(
+        &self,
+        task_id: &str,
+        _run_id: &str,
+        approval_id: &str,
+        prompt: &str,
+        _risk_level: &RiskLevel,
+    ) -> Result<(), CoordinatorError> {
+        let (workspace_id, playbook_key) = {
+            let tasks = self.inner.tasks.lock().unwrap_or_else(|e| e.into_inner());
+            match tasks.get(task_id) {
+                Some(task) => (task.workspace_id.clone(), task.playbook_key.clone()),
+                None => {
+                    return Err(CoordinatorError::Store(format!(
+                        "Task not found: {task_id}"
+                    )))
+                }
+            }
+        };
+        self.put_approval(ApprovalDto {
+            id: approval_id.to_string(),
+            workspace_id,
+            task_id: task_id.to_string(),
+            task_playbook_key: playbook_key,
+            decision: "pending".to_string(),
+            comment: Some(prompt.to_string()),
+            status: "pending".to_string(),
+        });
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl ArtifactStore for AppState {
+    async fn register(
+        &self,
+        task_id: &str,
+        _run_id: &str,
+        artifact_id: &str,
+        artifact_name: &str,
+        _artifact_type: &str,
+        canonical_path: &str,
+    ) -> Result<(), CoordinatorError> {
+        let workspace_root = self
+            .inner
+            .default_workspace_root
+            .join("tasks")
+            .join(task_id);
+        self.inner
+            .artifacts
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(
+                artifact_id.to_string(),
+                StoredArtifact {
+                    dto: ArtifactDto {
+                        id: artifact_id.to_string(),
+                        task_id: task_id.to_string(),
+                        label: artifact_name.to_string(),
+                        canonical_path: canonical_path.to_string(),
+                        status: "ready".to_owned(),
+                    },
+                    physical_path: workspace_root.join(canonical_path),
+                },
+            );
+        Ok(())
     }
 }
 

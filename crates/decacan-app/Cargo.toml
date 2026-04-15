@@ -4,7 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+async-trait = "0.1"
 axum = { version = "0.7", features = ["json", "http1", "tokio"] }
+decacan-agent-contract = { path = "../decacan-agent-contract" }
 decacan-auth = { path = "../decacan-auth" }
 decacan-infra = { path = "../decacan-infra" }
 decacan-runtime = { path = "../decacan-runtime" }
