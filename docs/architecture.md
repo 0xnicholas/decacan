@@ -65,7 +65,7 @@ Decacan is organized around two product surfaces and one backend platform:
 
 - `apps/workspaces`: the execution surface for daily work inside a single workspace
 - `apps/console`: the account-level control surface for cross-workspace visibility and reusable asset lifecycle
-- backend platform: the Rust application/runtime/infra stack that serves both surfaces
+- backend platform: the TypeScript orchestration core in `packages/orchestrator` that serves both surfaces
 
 The core product rule is:
 
@@ -80,18 +80,18 @@ Frontend Surfaces
   apps/console           apps/workspaces
           \              /
            \            /
-            Decacan API Platform
-                    |
-             Application Layer
-             decacan-app
-                    |
-              Domain Runtime
-            decacan-runtime
-                    |
-          Infrastructure Adapters
-      decacan-infra + decacan-auth
-                    |
-      Storage / Models / Filesystem / Team Gateway
+             Decacan API Platform
+                     |
+              Application Layer
+         packages/orchestrator/src/api
+                     |
+               Domain Runtime
+         packages/orchestrator/src/runtime
+                     |
+           Infrastructure Adapters
+      packages/orchestrator/src/infra
+                     |
+       Storage / Database / Filesystem / Remote Engine
 ```
 
 ## 3. North-Star Goals
@@ -107,7 +107,7 @@ The architecture is designed to support these long-term goals:
 - move from in-memory and in-process adapters to durable and distributed implementations without changing the product contract
 - externalize model providers and agent runtime to a dedicated execution engine project
 
-These goals extend the product-layer framing established in this document and the runtime object model defined in `decacan-runtime` crate documentation.
+These goals extend the product-layer framing established in this document and the runtime object model defined in `packages/orchestrator/src/runtime`.
 
 ## 4. Architectural Principles
 
@@ -116,10 +116,10 @@ These goals extend the product-layer framing established in this document and th
 Each layer should have one clear responsibility:
 
 - frontend apps own user interaction and view composition
-- `decacan-app` owns HTTP contracts, route composition, DTOs, and request-scoped orchestration
-- `decacan-runtime` owns product semantics, workflow execution, task lifecycle, policies, and domain services
-- `decacan-infra` owns adapter implementations for external systems
-- `decacan-auth` owns authentication and identity-oriented services
+- `packages/orchestrator/src/api` owns HTTP contracts, route composition, DTOs, and request-scoped orchestration
+- `packages/orchestrator/src/runtime` owns product semantics, workflow execution, task lifecycle, policies, and domain services
+- `packages/orchestrator/src/infra` owns adapter implementations for external systems
+- authentication and identity-oriented services live in the orchestrator (auth routes and middleware) or in a dedicated future package
 
 No layer should reach around another layer to bypass contracts.
 
@@ -139,7 +139,7 @@ Domain concepts such as `Playbook`, `Task`, `Run`, `Approval`, `Artifact`, `Assi
 
 ### 4.5 Replaceable Execution Backends
 
-Agent-team execution and model invocation have been externalized to a dedicated remote execution engine. Decacan interacts with this engine through `decacan-agent-contract`, a versioned white-box protocol. The previous in-process adapter (`InProcessTeamOrchestrator`) is deprecated. `decacan-infra` now provides `HttpExecutionEngineClient` as the concrete adapter behind `ExecutionEnginePort`.
+Agent-team execution and model invocation have been externalized to a dedicated remote execution engine. Decacan interacts with this engine through `packages/orchestrator/src/contract`, a versioned white-box protocol. The previous in-process adapter (`InProcessTeamOrchestrator`) is deprecated. `packages/orchestrator/src/infra` now provides `HttpExecutionEngineClient` as the concrete adapter behind `ExecutionEnginePort`.
 
 ### 4.6 Evolutionary Delivery
 
@@ -265,14 +265,14 @@ The north-star direction is:
 - separate app shells with explicit product boundaries
 - industry-specific customization in Workspaces without copying the entire application
 
-### 7.2 Application Layer: `decacan-app`
+### 7.2 Application Layer: `packages/orchestrator/src/api`
 
-`decacan-app` is the HTTP and composition layer.
+`src/api` is the HTTP and composition layer of the orchestrator.
 It should remain thin in domain logic and strong in contract definition.
 
 Responsibilities:
 
-- Axum router composition
+- Hono router composition
 - HTTP request handling
 - DTO serialization and translation
 - middleware integration
@@ -282,11 +282,8 @@ Responsibilities:
 
 Current repository mapping:
 
-- `crates/decacan-app/src/api/`
-- `crates/decacan-app/src/app/`
-- `crates/decacan-app/src/dto/`
-- `crates/decacan-app/src/middleware/`
-- `crates/decacan-app/src/streams/`
+- `packages/orchestrator/src/api/server.ts`
+- `packages/orchestrator/src/api/routes/`
 
 Target direction:
 
@@ -294,9 +291,9 @@ Target direction:
 - preserve stateless HTTP edges where possible
 - keep API modules aligned to account/workspace/playbook/team/task boundaries
 
-### 7.3 Domain Runtime Layer: `decacan-runtime`
+### 7.3 Domain Runtime Layer: `packages/orchestrator/src/runtime`
 
-`decacan-runtime` is the product core.
+`src/runtime` is the product core of the orchestrator.
 It should own product semantics independently of HTTP, browser, and infrastructure details.
 
 Responsibilities:
@@ -335,7 +332,7 @@ Current repository mapping includes modules such as:
 - `workflow`
 - `workspace`
 
-The runtime object model described here is aligned with the domain modules in `crates/decacan-runtime/src/`.
+The runtime object model described here is aligned with the domain modules in `packages/orchestrator/src/runtime/`.
 
 Target direction:
 
@@ -344,9 +341,9 @@ Target direction:
 - capability resolution and workflow compilation remain in runtime
 - **actual LLM/agent execution is delegated to the remote engine behind `ExecutionEnginePort`**
 
-### 7.4 Infrastructure Layer: `decacan-infra`
+### 7.4 Infrastructure Layer: `packages/orchestrator/src/infra`
 
-`decacan-infra` should hold concrete adapters and operational utilities.
+`src/infra` should hold concrete adapters and operational utilities for the orchestrator.
 
 Responsibilities:
 
@@ -361,16 +358,12 @@ Responsibilities:
 
 Current repository mapping:
 
-- `clock`
-- `config`
-- `execution_engine`
+- `execution_engine` (includes `HttpExecutionEngineClient` and `MockExecutionEngine`)
 - `filesystem`
+- `config`
 - `logging`
-- `models` (deprecated, to be removed)
-- `persistence`
 - `secrets`
 - `storage`
-- `team` (deprecated, to be removed)
 
 Target direction:
 
@@ -379,9 +372,9 @@ Target direction:
 - environment-specific deployments choose concrete adapters at composition time
 - **all LLM/agent execution adapters are consolidated behind `ExecutionEnginePort`**
 
-### 7.5 Authentication Layer: `decacan-auth`
+### 7.5 Authentication Layer
 
-`decacan-auth` owns identity, authentication flows, and authorization-related support.
+Authentication and identity services are currently part of `packages/orchestrator/src/api` (routes and middleware) and `src/runtime` (authority models). Over time they may be extracted into a dedicated package.
 
 Responsibilities:
 
@@ -407,11 +400,10 @@ If a new capability cannot be assigned cleanly to one row, the architecture boun
 |---|---|---|---|
 | `apps/workspaces` | Workspace-scoped execution UX, task detail flows, approvals, deliverables, artifacts, workspace member collaboration, industry-specific workspace presentation | Account-wide aggregation, playbook authoring lifecycle, backend domain rules, provider/storage implementation details | Workspace-scoped HTTP APIs, task event streams, shared UI package |
 | `apps/console` | Account-scoped navigation, account home, cross-workspace visibility, playbook studio, reusable asset lifecycle, workspace routing from account context | Workspace task execution shell, low-level runtime orchestration, direct storage/provider concerns | Account APIs, playbook/studio APIs, shared UI package |
-| `crates/decacan-app` | HTTP contracts, Axum routers, DTO translation, middleware, streaming endpoints, app wiring/composition | Core product semantics, durable adapter implementation details, frontend presentation logic | `api/`, `dto/`, `middleware/`, `streams/`, runtime and infra service composition |
-| `crates/decacan-runtime` | Core domain model, playbook/workflow semantics, task/run lifecycle, policy and approval logic, assistant/team-session contracts, domain events and ports, execution orchestration | HTTP transport details, browser concerns, concrete provider/storage implementations, identity provider specifics, LLM/agent runtime internals | Runtime ports (`ExecutionEnginePort`), domain services, entities, execution and event contracts |
-| `crates/decacan-infra` | Concrete adapters for config, secrets, logging, filesystem, persistence, remote execution engine client, retries and operational utilities | Product workflow semantics, API DTO shape, frontend concerns, top-level auth product flows, model provider specifics | Adapter implementations consumed through runtime/app composition (`HttpExecutionEngineClient`) |
-| `crates/decacan-auth` | Identity entities, auth/session flows, auth storage, authorization helpers, auth-oriented rate limiting | Playbook/task/workflow semantics, workspace execution UX, generic infrastructure unrelated to identity | Auth service, auth storage, runtime-aligned role exports |
-| `crates/decacan-agent-contract` | Versioned data contracts and event schemas for Decacan-to-engine communication | Business logic, transport implementation, persistence | `ExecutionEvent`, `ExecutionRequest`, `PlaybookSnapshot`, protocol version |
+| `packages/orchestrator/src/api` | HTTP contracts, Hono routers, DTO translation, middleware, streaming endpoints, app wiring/composition | Core product semantics, durable adapter implementation details, frontend presentation logic | `api/`, runtime and infra service composition |
+| `packages/orchestrator/src/runtime` | Core domain model, playbook/workflow semantics, task/run lifecycle, policy and approval logic, assistant/team-session contracts, domain events and ports, execution orchestration | HTTP transport details, browser concerns, concrete provider/storage implementations, identity provider specifics, LLM/agent runtime internals | Runtime ports (`ExecutionEnginePort`), domain services, entities, execution and event contracts |
+| `packages/orchestrator/src/infra` | Concrete adapters for config, secrets, logging, filesystem, persistence, remote execution engine client, retries and operational utilities | Product workflow semantics, API DTO shape, frontend concerns, top-level auth product flows, model provider specifics | Adapter implementations consumed through runtime/app composition (`HttpExecutionEngineClient`) |
+| `packages/orchestrator/src/contract` | Versioned data contracts and event schemas for Decacan-to-engine communication | Business logic, transport implementation, persistence | `ExecutionEvent`, `ExecutionRequest`, `PlaybookSnapshot`, protocol version |
 
 ## 8. Core Domain Model
 
@@ -528,7 +520,7 @@ User in apps/workspaces or apps/console
 HTTP request / event subscription
   |
   v
-decacan-app
+orchestrator API (`src/api`)
   |
   | 2. API contract handling
   |    - route match
@@ -536,31 +528,7 @@ decacan-app
   |    - DTO parsing / validation
   |    - request-scoped orchestration
   v
-decacan-runtime
-  |
-  | 3. Domain execution
-  |    - load account/workspace/task/playbook context
-  |    - evaluate authority and policy
-  |    - create or resume Task / Run / TeamSession
-  |    - compile workflow / select capability
-  v
-Execution ports
-  |
-  | 4. Concrete execution
-  |    - model call
-  |    - filesystem operation
-  |    - persistence write
-  |    - team orchestration request
-  v
-decacan-infra / decacan-auth / external systems
-  |
-  | 5. Raw results return
-  |    - provider result
-  |    - file write result
-  |    - auth result
-  |    - remote orchestration status
-  v
-decacan-runtime
+orchestrator runtime (`src/runtime`)
   |
   | 6. Product projection
   |    - update task/run/session state
@@ -568,7 +536,7 @@ decacan-runtime
   |    - emit domain events
   |    - decide completion / blocked / approval-needed
   v
-decacan-app
+orchestrator API (`src/api`)
   |
   | 7. Delivery to clients
   |    - HTTP response DTO
@@ -583,9 +551,9 @@ Product-visible outputs
 
 This flow is the practical handshake between the product layers:
 
-- `decacan-app` translates transport into product requests and product state into delivery contracts
-- `decacan-runtime` decides meaning, policy, workflow, and lifecycle state
-- `decacan-infra` and `decacan-auth` perform concrete external work behind stable interfaces
+- `src/api` translates transport into product requests and product state into delivery contracts
+- `src/runtime` decides meaning, policy, workflow, and lifecycle state
+- `src/infra` performs concrete external work behind stable interfaces
 
 ### 9.2 Task Launch and Execution Flow
 
@@ -598,13 +566,13 @@ User chooses workspace + playbook + inputs
 POST /api/tasks
   |
   v
-decacan-app
+orchestrator API (`src/api`)
   |- validate request DTO
   |- authenticate user
   `- hand off command
       |
       v
-decacan-runtime
+orchestrator runtime (`src/runtime`)
   |- load workspace context
   |- load playbook version / policy profile
   |- create Task
@@ -633,7 +601,7 @@ Remote Execution Engine
       `--> workflow complete
              |
              v
-decacan-runtime (via ExecutionCoordinator)
+orchestrator runtime (via ExecutionCoordinator)
   |- consume ExecutionEvents from SSE stream
   |- create Approval when ApprovalRequired received
   |- register Artifact metadata when ArtifactProduced received
@@ -642,7 +610,7 @@ decacan-runtime (via ExecutionCoordinator)
   `- persist trace/audit information
       |
       v
-decacan-app response + read models
+orchestrator API response + read models
   |- 202/200 response DTO
   |- task detail fetch
   `- event stream subscription
@@ -671,13 +639,13 @@ or
 POST /api/assistant-sessions/:assistant_session_id/delegations
   |
   v
-decacan-app
+orchestrator API
   |- authenticate + authorize
   |- validate workspace and request
   `- forward delegation command
       |
       v
-decacan-runtime
+orchestrator runtime
   |- load AssistantSession
   |- evaluate authority rules
   |- bind delegation intent to workspace context
@@ -685,7 +653,7 @@ decacan-runtime
   `- issue ExecutionRequest through ExecutionEnginePort
       |
       v
-HttpExecutionEngineClient (decacan-infra)
+HttpExecutionEngineClient (orchestrator infra)
   |- POST to remote execution engine
   `- subscribe to SSE event stream
       |
@@ -697,7 +665,7 @@ Remote Execution Engine
   `- produce artifacts and final outputs
       |
       v
-decacan-runtime (via ExecutionCoordinator)
+orchestrator runtime (via ExecutionCoordinator)
   |- consume ExecutionEvents
   |- update Task/Run state
   |- create Approvals
@@ -705,7 +673,7 @@ decacan-runtime (via ExecutionCoordinator)
   `- emit TaskEvents to SSE stream
       |
       v
-decacan-app delivery
+orchestrator API delivery
   |- team-session snapshot endpoint
   |- assistant session response DTOs
   `- workspace-facing event/state refresh
@@ -718,7 +686,7 @@ Workspace UI
   `- follow-up review / approval actions
 ```
 
-The contract between Decacan and the remote engine is defined in `decacan-agent-contract`. It is a white-box protocol: every step, tool invocation, model call, and artifact production is reported as an `ExecutionEvent`, allowing Decacan to maintain full product semantics and auditability while the engine handles the actual LLM and agent runtime.
+The contract between Decacan and the remote engine is defined in `packages/orchestrator/src/contract`. It is a white-box protocol: every step, tool invocation, model call, and artifact production is reported as an `ExecutionEvent`, allowing Decacan to maintain full product semantics and auditability while the engine handles the actual LLM and agent runtime.
 
 ### 9.4 Control Plane
 
@@ -731,7 +699,7 @@ The control plane is responsible for:
 - mapping raw execution results into user-visible events
 - preserving auditability
 
-This should primarily live in `decacan-runtime`.
+This should primarily live in `packages/orchestrator/src/runtime`.
 
 ### 9.5 Execution Plane
 
@@ -793,7 +761,7 @@ North-star principles:
 
 ### 11.1 Current State
 
-The current repository still contains significant in-memory and local-process state in `decacan-app::app::state`.
+The current repository still contains significant in-memory and local-process state in the orchestrator server setup.
 This is acceptable as a transitional implementation for fast iteration, but it is not the target state.
 
 Examples of transitional state currently held in application memory include:
@@ -918,7 +886,7 @@ Target architecture for Console:
 
 Today the repository is optimized for local development:
 
-- Rust backend launched via `cargo run -p decacan-app`
+- TypeScript orchestrator backend launched via `pnpm dev:orchestrator`
 - two Vite frontend apps for Workspaces and Console
 - local environment-driven configuration
 - in-process and in-memory adapters in several flows
@@ -943,9 +911,9 @@ Browser Clients
           v
        API Gateway / App Service
           |
-          +--> decacan-app
+          +--> orchestrator API (src/api)
                   |
-                  +--> decacan-runtime
+                  +--> orchestrator runtime (src/runtime)
                   |          |
                   |          v
                   |    Remote Execution Engine
@@ -962,9 +930,9 @@ Browser Clients
 The current repository already establishes the correct macro-boundaries:
 
 - separate frontend surfaces
-- explicit backend crates
+- explicit backend layers in `packages/orchestrator`
 - runtime as domain core
-- infra and auth separated from runtime
+- infra adapters separated from runtime
 - account/workspace route distinction
 - early assistant and team-session contracts
 
@@ -976,7 +944,7 @@ while this document remains the long-lived architectural reference.
 ### 16.1 Current Strengths
 
 - strong product boundary definition in `README.md`
-- clear Rust workspace layering
+- clear TypeScript orchestrator layering in `packages/orchestrator`
 - runtime domain surface already richer than a basic CRUD backend
 - multi-industry direction started in `apps/workspaces`
 - playbook lifecycle and team-session APIs already exist
@@ -987,7 +955,7 @@ while this document remains the long-lived architectural reference.
 - ~~in-process team orchestrator is a bridge implementation, not a production architecture~~ (resolved: execution now routes through `ExecutionEnginePort` to a remote engine)
 - event streaming and state projection are not yet fully durable
 - artifact storage and task persistence are not yet fully externalized
-- `decacan-app` wiring still references the deprecated `InProcessTeamOrchestrator` and needs to be updated to `ExecutionCoordinator`
+- orchestrator API wiring still references the deprecated `InProcessTeamOrchestrator` and needs to be updated to `ExecutionCoordinator`
 - some local development assumptions remain embedded in the app layer
 
 ### 16.3 Architectural Interpretation
@@ -1012,7 +980,7 @@ Goals:
 
 Expected outcomes:
 
-- clearer ownership between `decacan-app` and `decacan-runtime`
+- clearer ownership between `src/api` and `src/runtime`
 - more stable DTO and API modules
 - documented domain language
 
@@ -1034,14 +1002,14 @@ Expected outcomes:
 
 Goals:
 
-- ~~replace in-process team orchestration with a durable external adapter~~ (completed: `ExecutionEnginePort` + `HttpExecutionEngineClient` + `decacan-agent-contract`)
+- ~~replace in-process team orchestration with a durable external adapter~~ (completed: `ExecutionEnginePort` + `HttpExecutionEngineClient` + `packages/orchestrator/src/contract`)
 - stabilize the white-box event protocol with the remote execution engine
 - make execution telemetry first-class
 
 Expected outcomes:
 
 - more reliable delegated agent execution through the remote engine
-- environment-independent orchestration contract (`decacan-agent-contract`)
+- environment-independent orchestration contract (`packages/orchestrator/src/contract`)
 - safer scaling path
 
 ### Phase 4: Capability and Workflow Generalization
@@ -1101,7 +1069,7 @@ Use this checklist during design review, implementation planning, and PR review 
 
 ### 20.1 Scope and Ownership
 
-- [ ] Is the change clearly assigned to one primary owning unit (`apps/workspaces`, `apps/console`, `decacan-app`, `decacan-runtime`, `decacan-infra`, or `decacan-auth`)?
+- [ ] Is the change clearly assigned to one primary owning unit (`apps/workspaces`, `apps/console`, `packages/orchestrator/src/api`, `packages/orchestrator/src/runtime`, `packages/orchestrator/src/infra`, or auth routes)?
 - [ ] Does the change respect the account-vs-workspace product boundary?
 - [ ] Does the change avoid creating overlapping ownership between Console and Workspaces?
 - [ ] Does the change avoid moving domain logic into the application or frontend layer without a clear reason?
@@ -1111,7 +1079,7 @@ Use this checklist during design review, implementation planning, and PR review 
 - [ ] Does the change map cleanly to an existing domain concept such as `Playbook`, `Task`, `Run`, `Approval`, `Artifact`, `AssistantSession`, or `TeamSession`?
 - [ ] If a new domain concept is introduced, is its relationship to existing runtime concepts explicit?
 - [ ] Does the change preserve `Task` and `Run` as the primary execution model instead of bypassing them with ad hoc flows?
-- [ ] Are workflow, policy, and authority decisions kept in `decacan-runtime` rather than spread across unrelated layers?
+- [ ] Are workflow, policy, and authority decisions kept in `packages/orchestrator/src/runtime` rather than spread across unrelated layers?
 
 ### 20.3 API and Contract Design
 
@@ -1142,7 +1110,7 @@ Use this checklist during design review, implementation planning, and PR review 
 ### 20.7 Adapter and Infrastructure Boundaries
 
 - [ ] Does the change depend on runtime ports rather than directly coupling domain logic to a concrete adapter?
-- [ ] If a new external dependency is introduced, is it isolated in `decacan-infra` or `decacan-auth` as appropriate?
+- [ ] If a new external dependency is introduced, is it isolated in `packages/orchestrator/src/infra` as appropriate?
 - [ ] Can the concrete adapter be replaced later without changing product contracts?
 
 ### 20.8 Frontend Boundary Fit
@@ -1168,11 +1136,14 @@ apps/
   console/                  -> Account control surface
   workspaces/               -> Workspace execution surface
 
-crates/
-  decacan-app/              -> API/application layer
-  decacan-runtime/          -> Domain runtime and execution semantics
-  decacan-infra/            -> Infrastructure adapters
-  decacan-auth/             -> Authentication and identity services
+packages/
+  orchestrator/             -> Orchestration core
+    src/api/                -> API/application layer
+    src/runtime/            -> Domain runtime and execution semantics
+    src/infra/              -> Infrastructure adapters
+    src/contract/           -> Execution contract schemas
+    src/db/                 -> Database schema and migrations
+  ui/                       -> Shared UI component library
 
 docs/
   architecture.md           -> This north-star architecture document

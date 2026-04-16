@@ -1,7 +1,11 @@
 # Decacan
 
-Decacan is a multi-agent work orchestration product for teams that need to turn repeatable playbooks into reliable execution.
+Decacan is a work orchestration product for teams that need to turn repeatable playbooks into reliable execution.
 It helps teams launch work from reusable playbooks, coordinate approvals and deliverables, and track progress from workspace execution to account-level oversight.
+
+**Architecture update (2026-04):** The backend has been migrated from Rust to TypeScript/Node.js.
+The orchestration core now lives in `packages/orchestrator` (Hono + Drizzle ORM) and communicates with remote execution engines over HTTP/SSE.
+The frontend applications remain in `apps/workspaces` and `apps/console`.
 
 ## Who Should Read This README
 
@@ -72,12 +76,11 @@ This means customer-specific Workspaces should be delivered by binding or adapti
 
 ```bash
 pnpm install
-cargo check --workspace
 ```
 
 ```bash
-# backend API
-cargo run -p decacan-app
+# orchestrator backend API
+pnpm dev:orchestrator
 
 # workspaces app (builds @decacan/ui first)
 pnpm dev:workspaces
@@ -87,17 +90,15 @@ pnpm dev:console
 ```
 
 Default local URLs:
-- backend API: `http://127.0.0.1:3000`
+- orchestrator API: `http://127.0.0.1:3000`
 - `apps/workspaces`: `http://127.0.0.1:5173`
 - `apps/console`: `http://localhost:3001`
 
 ### Environment Essentials
 
-- `DECACAN_APP_PORT` (backend port, default `3000`)
-- `DECACAN_PROFILE`
-- `DECACAN_POSTGRES_URL`
-- `DECACAN_OPENAI_API_KEY`
-- `DECACAN_ANTHROPIC_API_KEY`
+- `PORT` (orchestrator port, default `3000`)
+- `DATABASE_URL` (Postgres connection string, optional — falls back to in-memory store)
+- `EXECUTION_ENGINE_URL` (remote engine URL, optional — falls back to mock engine)
 - `JWT_SECRET` (required for non-test/production auth boot paths)
 
 Copy template:
@@ -135,40 +136,36 @@ Current repo state:
 
 ### Backend Layers
 
-| Layer | Crate | Responsibility |
+| Layer | Package | Responsibility |
 |---|---|---|
-| API | `crates/decacan-app` | Axum routers, DTOs, HTTP contracts, app wiring |
-| Domain Runtime | `crates/decacan-runtime` | Playbook lifecycle, task/run workflow, policies, approval/artifact semantics, execution orchestration |
-| Infra Adapters | `crates/decacan-infra` | Remote execution engine client, storage adapters, config/secrets/logging utilities |
-| Auth | `crates/decacan-auth` | Auth service, token/session flow, storage adapter |
-| Agent Contract | `crates/decacan-agent-contract` | White-box protocol between Decacan and remote agent/execution engines |
+| API | `packages/orchestrator/src/api` | Hono routers, DTOs, HTTP contracts, app wiring |
+| Domain Runtime | `packages/orchestrator/src/runtime` | Playbook lifecycle, task/run workflow, policies, approval/artifact semantics, execution orchestration |
+| Infra Adapters | `packages/orchestrator/src/infra` | Remote execution engine client (fetch + SSE), storage adapters |
+| Execution Contract | `packages/orchestrator/src/contract` | White-box protocol between Decacan and remote execution engines |
+| Database | `packages/orchestrator/src/db` | Drizzle ORM schema, migrations, and Postgres client |
 
-### Agent Team Integration (Current)
+### Execution Model
 
-- Workspaces personal assistant can start delegation via `POST /api/assistant-sessions`.
-- Decacan runtime contracts own assistant authority rules, team-session status, and continuation semantics.
-- Decacan app orchestrates assistant delegation and exposes:
-  - `POST /api/assistant-sessions`
-  - `POST /api/assistant-sessions/:assistant_session_id/delegations`
-  - `GET /api/team-sessions/:team_session_id`
-- **Agent execution has been moved to a separate remote execution engine project**. Decacan communicates via `decacan-agent-contract` over HTTP/SSE.
-- The previous in-process adapter (`decacan-infra::team::adapter::InProcessTeamOrchestrator`) is deprecated and will be removed.
-- `decacan-infra::execution_engine::HttpExecutionEngineClient` is the current production adapter, implementing `ExecutionEnginePort`.
+- The orchestrator exposes REST APIs for workspaces and console to create tasks, launch executions, and track artifacts/approvals.
+- **Actual playbook step execution is externalized to a remote execution engine service.**
+- The orchestrator communicates with remote engines via the `ExecutionContract` protocol over HTTP + SSE.
+- `HttpExecutionEngineClient` is the production adapter implementing `ExecutionEnginePort`.
+- If no `EXECUTION_ENGINE_URL` is configured, a mock engine is used for local development.
 
 ## Repository Map
 
 ```text
-crates/
-  decacan-agent-contract/   # Protocol crate for remote execution engine integration
-  decacan-app/              # API/application layer
-  decacan-runtime/          # Domain runtime and execution orchestration
-  decacan-infra/            # Infrastructure adapters
-  decacan-auth/             # Authentication and identity services
-apps/
-  workspaces/
-  console/
 packages/
-  ui/
+  orchestrator/             # TypeScript orchestration core (Hono + Drizzle)
+    src/contract            # ExecutionEvent / ExecutionRequest / PlaybookSnapshot schemas
+    src/runtime             # Task/Run state machines, ExecutionCoordinator
+    src/infra               # HTTP engine client, mock engine
+    src/api                 # Hono routers
+    src/db                  # Drizzle ORM schema and migrations
+  ui/                       # Shared UI component library
+apps/
+  workspaces/               # Workspace-scoped execution frontend
+  console/                  # Account-level console frontend
 config/
   default.yaml
   dev.yaml
@@ -181,11 +178,11 @@ docs/
 
 ## Tech Stack
 
-- Backend: Rust, Axum, Tokio, SQLx, Serde, Tracing
+- Backend: TypeScript, Node.js, Hono, Drizzle ORM, Zod
 - Frontend: React 19, React Router 7, Tailwind CSS v4, Vite
-- Package/tooling: Cargo, pnpm workspace
+- Package/tooling: pnpm workspace
 - Agent/Execution: Externalized to remote execution engine project
-- Inter-crate protocol: `decacan-agent-contract` (HTTP + SSE)
+- Inter-service protocol: `packages/orchestrator/src/contract` (HTTP + SSE)
 
 ## Frontend Handoff Config
 
@@ -212,16 +209,15 @@ During the migration to runtime profiles:
 1. Branch from `main` for one scoped concern
 2. Keep account/workspace API boundaries explicit in contracts and route naming
 3. Run verification before review:
-   - `cargo test --workspace`
-   - `cargo clippy --workspace -- -D warnings`
-   - `cargo fmt --check`
+   - `pnpm --filter @decacan/orchestrator test`
+   - `pnpm --filter @decacan/orchestrator typecheck`
    - `pnpm --filter decacan-workspaces test`
    - `pnpm --filter decacan-console test`
 4. Update docs whenever product boundaries, architecture, or API contracts change
 
 ## API Route Quick Reference
 
-Current API router source: `crates/decacan-app/src/api/`.
+Current API router source: `packages/orchestrator/src/api/`.
 
 Note:
 - the route list below reflects implemented routes in the repo today
@@ -321,12 +317,11 @@ Auth (non-`/api` prefix):
 
 ## Testing and Verification
 
-### Rust
+### Orchestrator (TypeScript backend)
 
 ```bash
-cargo test --workspace
-cargo clippy --workspace -- -D warnings
-cargo fmt --check
+pnpm --filter @decacan/orchestrator test
+pnpm --filter @decacan/orchestrator typecheck
 ```
 
 ### Frontend

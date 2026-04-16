@@ -1,5 +1,8 @@
 # Decacan Playbook Store And Versioning Spec
 
+> **架构更新（2026-04-16）**：项目已全面迁移至 TypeScript/Node.js，后端核心位于 `packages/orchestrator`。本文档中的 Rust/crates 相关实现细节为历史记录，当前技术栈为 Hono + Drizzle ORM + Zod。
+
+
 Date: 2026-03-28
 Stage: Backend design
 Status: Approved for planning
@@ -292,7 +295,7 @@ Skill / Extension
 
 ## 谁使用 Playbook
 
-直接使用 Playbook 的不是 agent，而是 `decacan-runtime`。
+直接使用 Playbook 的不是 agent，而是 orchestrator runtime。
 
 链路应当是：
 

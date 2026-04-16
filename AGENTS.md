@@ -7,7 +7,7 @@ This document defines roles, responsibilities, and workflow standards for AI age
 | Agent | Role | Responsibilities |
 | --- | --- | --- |
 | **Primary Controller** | Orchestrator | Plan decomposition, subagent coordination, code review, integration decisions, workspace synchronization |
-| **Backend Subagents** | Implementation | Execute backend tasks (crates/*), write tests, report progress with checkpoints |
+| **Backend Subagents** | Implementation | Execute backend tasks (`packages/orchestrator/src/*`), write tests, report progress with checkpoints |
 | **Frontend Agent** | UI Development | React/frontend implementation, API integration, UI/UX polish |
 | **Verification Agent** | Quality Assurance | Test execution, lint/typecheck verification, final validation before completion |
 
@@ -49,13 +49,13 @@ Every subagent must report:
 Example report:
 ```
 Status: COMPLETED
-Files: 3 modified (src/models.rs +45/-12, tests/models_test.rs +89)
+Files: 3 modified (src/runtime/coordinator.ts +45/-12, tests/api.test.ts +89)
 Tests: 8 passed, 0 failed
 Checkpoints:
-  ✅ ModelRouter implements ModelPort trait
-  ✅ OpenAI provider configured
+  ✅ ExecutionCoordinator implements ExecutionEnginePort
+  ✅ HTTP engine client configured
   ✅ Fallback chain working
-Next: Integration with decacan-app routes
+Next: Integration with orchestrator API routes
 ```
 
 ### Failure Handling
@@ -76,11 +76,12 @@ Next: Integration with decacan-app routes
 
 ### Style Requirements
 
-**Rust (Backend)**:
-- Follow existing patterns in each crate
-- Use `thiserror` for error types
-- Async functions use `async-trait` for traits
-- All public APIs must have doc comments
+**TypeScript Backend (`packages/orchestrator`)**:
+- Follow existing patterns in the orchestrator package
+- Use Zod for schema validation and runtime type safety
+- Use Drizzle ORM for database access and migrations
+- Prefer explicit types; avoid `any`
+- All public APIs should have JSDoc/TSDoc comments
 
 **TypeScript/React (Frontend)**:
 - Follow shadcn/ui component patterns
@@ -149,23 +150,22 @@ docs(api): update playbook lifecycle endpoints
 
 **Test Organization**:
 ```
-crates/<crate>/
+packages/orchestrator/
 ├── src/
-│   └── lib.rs
-└── tests/
-    ├── <feature>_test.rs       # Feature tests
-    └── <feature>_integration_test.rs  # Integration tests
+│   └── index.ts
+├── tests/
+│   ├── <feature>.test.ts          # Feature tests
+│   └── <feature>_integration.test.ts  # Integration tests
 ```
 
 ### Integration Testing
 
-**Cross-Crate Changes**:
-- Must verify in downstream crates
-- Example: runtime changes → run app tests
+**Cross-Package Changes**:
+- Must verify in downstream consumers
+- Example: runtime changes → run orchestrator app tests
 
 **Database Tests**:
-- Use `#[sqlx::test]` for DB integration
-- Each test gets fresh database state
+- Use a fresh test database or in-memory store per test run
 - Clean up test data
 
 ### Verification Checklist
@@ -173,10 +173,10 @@ crates/<crate>/
 Before marking any task complete:
 
 - [ ] All new code has tests
-- [ ] `cargo test --workspace` passes
-- [ ] `cargo clippy --workspace` shows no warnings
-- [ ] `cargo fmt --check` passes
-- [ ] No compiler warnings
+- [ ] `pnpm --filter @decacan/orchestrator test` passes
+- [ ] `pnpm --filter @decacan/orchestrator typecheck` shows no errors
+- [ ] `pnpm --filter @decacan/orchestrator lint` passes (if applicable)
+- [ ] No TypeScript compiler warnings
 - [ ] API smoke tests pass (if API changed)
 - [ ] Documentation updated (if needed)
 
@@ -184,16 +184,15 @@ Before marking any task complete:
 
 ```bash
 # Backend verification
-cargo test --workspace
-cargo clippy --workspace -- -D warnings
-cargo fmt --check
+pnpm --filter @decacan/orchestrator test
+pnpm --filter @decacan/orchestrator typecheck
 
 # Frontend verification  
 cd apps/<app> && pnpm lint
 cd apps/<app> && pnpm typecheck
 
 # API smoke tests
-cargo test -p decacan-app --test http_smoke -- --nocapture
+pnpm --filter @decacan/orchestrator test -- --run
 ```
 
 ## Documentation Standards
@@ -225,8 +224,8 @@ cargo test -p decacan-app --test http_smoke -- --nocapture
 - Acceptance criteria
 
 **Code Documentation**:
-- Doc comments for public APIs (`///`)
-- Module-level documentation (`//!`)
+- JSDoc/TSDoc comments for public APIs (`/** ... */`)
+- Module-level documentation at the top of files
 - Complex algorithm explanations
 
 **README Updates**:
@@ -335,20 +334,18 @@ When passing work between agents:
 **Key Commands**:
 ```bash
 # Full test suite
-cargo test --workspace
+pnpm test
 
 # Backend only
-cargo test -p decacan-runtime
-cargo test -p decacan-app
-cargo test -p decacan-infra
+pnpm --filter @decacan/orchestrator test
+pnpm --filter @decacan/orchestrator typecheck
 
 # Frontend
 cd apps/workspaces && pnpm dev
 cd apps/console && pnpm dev
 
 # Database
-sqlx migrate run
-sqlx migrate add <name>
+pnpm --filter @decacan/orchestrator db:migrate
 ```
 
 **Key Documentation**:
@@ -359,4 +356,4 @@ sqlx migrate add <name>
 
 ---
 
-Last updated: 2026-04-01
+Last updated: 2026-04-16

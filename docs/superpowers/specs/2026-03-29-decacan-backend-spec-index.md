@@ -4,6 +4,8 @@ Date: 2026-03-29
 Stage: Backend architecture
 Status: Working index
 
+> **架构更新（2026-04-16）**：后端已全面迁移至 TypeScript/Node.js，核心代码位于 `packages/orchestrator`。以下 spec 中的概念和分层仍然有效，但实现语言已从 Rust 切换为 TypeScript（Hono + Drizzle ORM + Zod）。
+
 ## 目的
 
 本文件用于统一 `decacan` 当前已经形成的后端设计 spec，给出：
@@ -229,3 +231,5 @@ MVP Backend Module Map
 当前 `decacan` 的后端设计已经形成一组彼此衔接的 spec：
 
 `它们共同描述了一个以 Playbook 生命周期为上游、以 Registry 为中层、以 Runtime 为执行主线、并在 MVP 内纳入 minimal team execution 的后端系统。`
+
+> **实现备注**：上述 spec 目前已在 `packages/orchestrator`（TypeScript/Node.js）中逐步实现。

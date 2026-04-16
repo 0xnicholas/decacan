@@ -1,5 +1,8 @@
 # Decacan Console Boundary Hardening Implementation Plan
 
+> **架构更新（2026-04-16）**：项目已全面迁移至 TypeScript/Node.js，后端核心位于 `packages/orchestrator`。本文档中的 Rust/crates 相关实现细节为历史记录，当前技术栈为 Hono + Drizzle ORM + Zod。
+
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Hard-code the product boundary between `Console` and `workspaces` by making account APIs user-scoped, using an explicit default workspace contract, removing infrastructure leaks from account DTOs, moving playbook authoring fully out of workspace launch, and only then layering permissions onto `Console`.

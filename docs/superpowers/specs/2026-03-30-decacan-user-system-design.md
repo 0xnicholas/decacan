@@ -1,5 +1,8 @@
 # Decacan 用户系统设计文档
 
+> **架构更新（2026-04-16）**：项目已全面迁移至 TypeScript/Node.js，后端核心位于 `packages/orchestrator`。本文档中的 Rust/crates 相关实现细节为历史记录，当前技术栈为 Hono + Drizzle ORM + Zod。
+
+
 Date: 2026-03-30
 Status: Draft
 Related: 2026-03-30-decacan-playbook-workflow-refactor.md

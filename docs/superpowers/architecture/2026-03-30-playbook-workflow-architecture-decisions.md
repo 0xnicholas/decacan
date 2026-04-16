@@ -1,5 +1,8 @@
 # Decacan Playbook/Workflow 重构 - 最终架构设计决策书
 
+> **架构更新（2026-04-16）**：项目已全面迁移至 TypeScript/Node.js，后端核心位于 `packages/orchestrator`。本文档中的 Rust/crates 相关实现细节为历史记录，当前技术栈为 Hono + Drizzle ORM + Zod。
+
+
 Date: 2026-03-30
 Status: Architecture Finalized - Ready for Implementation
 Related Plans: 
@@ -665,32 +668,32 @@ output_contract:
 ### Phase 1 新建文件
 
 ```
-crates/decacan-runtime/src/
+packages/orchestrator/src/runtime/
 ├── playbook/
 │   ├── spec/
-│   │   ├── mod.rs
-│   │   ├── entities.rs          # PlaybookSpec, WorkflowDefinition, etc.
-│   │   └── parser.rs            # YAML 解析
+│   │   ├── index.ts
+│   │   ├── entities.ts          # PlaybookSpec, WorkflowDefinition, etc.
+│   │   └── parser.ts            # YAML 解析
 │   └── capability/              # 新增模块
-│       ├── mod.rs
-│       ├── resolver.rs          # CapabilityResolver trait, SimpleResolver
-│       └── context.rs           # ResolutionContext
+│       ├── index.ts
+│       ├── resolver.ts          # CapabilityResolver trait, SimpleResolver
+│       └── context.ts           # ResolutionContext
 ├── routine/
-│   ├── trait.rs                 # Routine trait（含 provides_capability）
-│   ├── registry.rs              # RoutineRegistry（自动构建 capability 映射）
+│   ├── types.ts                 # Routine 类型定义（含 provides_capability）
+│   ├── registry.ts              # RoutineRegistry（自动构建 capability 映射）
 │   └── builtin/
-│       ├── mod.rs
-│       └── *.rs                 # 各 Routine 实现
+│       ├── index.ts
+│       └── *.ts                 # 各 Routine 实现
 └── workflow/
-    ├── engine.rs                # WorkflowEngine（使用 CapabilityResolver）
-    └── compiler.rs              # 新编译器
+    ├── engine.ts                # WorkflowEngine（使用 CapabilityResolver）
+    └── compiler.ts              # 新编译器
 
-crates/decacan-runtime/tests/
-├── playbook_spec_parsing.rs
-├── capability_resolver.rs
-└── workflow_execution.rs
+packages/orchestrator/tests/
+├── playbook_spec_parsing.test.ts
+├── capability_resolver.test.ts
+└── workflow_execution.test.ts
 
-crates/decacan-runtime/fixtures/
+packages/orchestrator/tests/fixtures/
 ├── summary_playbook.yaml        # Phase 1 示例（需后续改为 capability 语法）
 └── discovery_playbook.yaml
 ```
@@ -698,7 +701,7 @@ crates/decacan-runtime/fixtures/
 ### Phase 1 修改文件
 
 ```
-crates/decacan-runtime/src/
+packages/orchestrator/src/runtime/
 ├── playbook/
 │   ├── mod.rs                   # 添加 spec, capability 模块
 │   ├── lifecycle.rs             # PlaybookDraft/Version.spec 改为 PlaybookSpec

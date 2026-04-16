@@ -1,5 +1,8 @@
 # Decacan App Task Workspace Polish Design
 
+> **架构更新（2026-04-16）**：项目已全面迁移至 TypeScript/Node.js，后端核心位于 `packages/orchestrator`。本文档中的 Rust/crates 相关实现细节为历史记录，当前技术栈为 Hono + Drizzle ORM + Zod。
+
+
 ## Goal
 
 Polish the existing `decacan-app` task detail experience into a clearer two-column workstation. This round prioritizes a summary-first sidebar and a modest layer of live task feedback without turning the page into a chat or debugging console.

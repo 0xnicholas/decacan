@@ -1,8 +1,9 @@
 {
   "name": "decacan",
   "private": true,
-  "workspaces": ["apps/*"],
+  "workspaces": ["apps/*", "packages/*"],
   "scripts": {
+    "dev:orchestrator": "pnpm --filter @decacan/orchestrator dev",
     "dev:workspaces": "pnpm --filter @decacan/ui build && pnpm --filter decacan-workspaces dev",
     "dev:workspaces:drama": "pnpm --filter @decacan/ui build && pnpm --filter decacan-workspaces dev:drama",
     "dev:workspaces:video": "pnpm --filter @decacan/ui build && pnpm --filter decacan-workspaces dev:video",
@@ -10,7 +11,7 @@
     "dev:console": "pnpm --filter decacan-console dev",
     "dev:admin": "pnpm --filter decacan-console dev",
     "build": "pnpm --filter '*' build",
-    "build:workspaces:drama": "pnpm --filter decacan-workspaces build:drama",
-    "build:workspaces:video": "pnpm --filter decacan-workspaces build:video"
+    "test": "pnpm --filter @decacan/orchestrator test",
+    "typecheck": "pnpm --filter @decacan/orchestrator typecheck"
   }
 }

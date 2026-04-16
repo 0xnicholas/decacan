@@ -75,7 +75,7 @@ If any item is `No`, explain it in `Notes`.
 |---|---|---|
 | Maps cleanly to an existing domain concept, or defines a new one explicitly |  |  |
 | Preserves `Task` and `Run` as the primary execution model where applicable |  |  |
-| Keeps workflow, policy, and authority logic in `decacan-runtime` |  |  |
+| Keeps workflow, policy, and authority logic in `packages/orchestrator/src/runtime` |  |  |
 | Avoids ad hoc flows outside runtime contracts |  |  |
 
 ### 7.3 API and Contract Design
@@ -117,7 +117,7 @@ If any item is `No`, explain it in `Notes`.
 | Item | Answer | Notes |
 |---|---|---|
 | Runtime depends on ports rather than concrete adapters |  |  |
-| New external dependencies are isolated in the right crate |  |  |
+| New external dependencies are isolated in the right package/layer |  |  |
 | Concrete adapter can be replaced without changing product contracts |  |  |
 
 ### 7.8 Frontend Boundary Fit

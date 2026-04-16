@@ -84,12 +84,11 @@ apps/workspaces        工作空间执行界面（面向成员）
 apps/console           账户控制台（面向管理者）
         \              /
          \            /
-       crates/decacan-app        HTTP 接口层
-               |
-       crates/decacan-runtime    领域运行时（核心）
-               |
-       crates/decacan-infra      基础设施适配器
-       crates/decacan-auth       认证服务
+    packages/orchestrator
+        src/api            HTTP 接口层
+        src/runtime        领域运行时（核心）
+        src/infra          基础设施适配器
+        src/db             数据库层（Drizzle ORM）
 ```
 
 ### 3.1 产品边界
@@ -110,10 +109,10 @@ apps/console           账户控制台（面向管理者）
 | 层级 | 职责 | 不做什么 |
 |---|---|---|
 | **apps/** | 用户界面、视图组合 | 不直接处理业务规则 |
-| **decacan-app** | HTTP 路由、DTO、中间件 | 不写业务逻辑 |
-| **decacan-runtime** | 领域规则、工作流编排、任务生命周期 | 不直接操作文件/网络 |
-| **decacan-infra** | 具体适配器实现 | 不定义产品语义 |
-| **decacan-auth** | 身份认证、授权辅助 | 不参与任务执行 |
+| **orchestrator/src/api** | HTTP 路由、DTO、中间件 | 不写业务逻辑 |
+| **orchestrator/src/runtime** | 领域规则、工作流编排、任务生命周期 | 不直接操作文件/网络 |
+| **orchestrator/src/infra** | 具体适配器实现 | 不定义产品语义 |
+| **orchestrator/src/db** | 数据持久化、ORM schema | 不定义业务规则 |
 
 ### 3.3 关键注册表
 
@@ -174,33 +173,23 @@ Workspaces 支持通过三层架构实现多行业定制：
 
 ## 6. 代码组织
 
-### 后端 (Rust)
+### 后端 (TypeScript / Node.js)
 
 ```
-crates/
-├── decacan-app/
-│   └── src/api/          # HTTP 路由和 DTO
-│   └── src/dto/          # 数据传输对象
-│   └── src/middleware/   # 中间件
+packages/
+├── orchestrator/
+│   └── src/
+│       ├── api/          # HTTP 路由和 DTO（Hono）
+│       ├── runtime/      # 领域逻辑（Playbook、Task、Run、Approval、Workflow）
+│       ├── infra/        # 适配器（远程执行引擎客户端、Mock 引擎）
+│       ├── contract/     # 执行协议 schema（Zod）
+│       └── db/           # Drizzle ORM schema、迁移、客户端
+│   └── tests/
+│       ├── e2e.test.ts
+│       ├── api.test.ts
+│       └── api-extended.test.ts
 │
-├── decacan-runtime/
-│   └── src/playbook/     # Playbook 生命周期
-│   └── src/task/         # Task 管理
-│   └── src/run/          # Run 执行
-│   └── src/workflow/     # 工作流定义
-│   └── src/approval/     # 审批逻辑
-│   └── src/artifact/     # 产物管理
-│   └── src/ports/        # 领域端口（接口）
-│   └── src/team_session/ # 团队会话
-│
-├── decacan-infra/
-│   └── src/models/       # 模型路由
-│   └── src/persistence/  # 持久化适配器
-│   └── src/filesystem/   # 文件系统适配器
-│   └── src/team/         # 团队编排适配器
-│
-└── decacan-auth/
-    └── src/              # 认证和授权
+└── ui/                   # 共享 UI 组件库
 ```
 
 ### 前端 (React + TypeScript)
@@ -244,10 +233,11 @@ Scopes: runtime, app, infra, auth, workspaces, console, models, etc.
 
 ### 代码规范
 
-**Rust:**
-- 使用 `thiserror` 定义错误类型
-- 异步 trait 使用 `async-trait`
-- 公共 API 必须有文档注释
+**TypeScript / Node.js 后端 (`packages/orchestrator`)：**
+- 使用 Zod 进行 schema 验证和运行时类型安全
+- 使用 Drizzle ORM 进行数据库访问和迁移
+- 优先使用显式类型，避免 `any`
+- 公共 API 应有 JSDoc/TSDoc 注释
 
 **TypeScript/React:**
 - 遵循 shadcn/ui 组件模式
@@ -258,9 +248,8 @@ Scopes: runtime, app, infra, auth, workspaces, console, models, etc.
 
 ```bash
 # 后端测试
-cargo test --workspace
-cargo clippy --workspace -- -D warnings
-cargo fmt --check
+pnpm --filter @decacan/orchestrator test
+pnpm --filter @decacan/orchestrator typecheck
 
 # 前端测试
 pnpm --filter decacan-workspaces test
@@ -268,7 +257,7 @@ pnpm --filter decacan-console test
 
 # 本地开发
 # 1. 启动后端 API
-cargo run -p decacan-app
+pnpm dev:orchestrator
 
 # 2. 启动 Workspaces 应用
 pnpm dev:workspaces
@@ -371,4 +360,4 @@ A:
 
 ---
 
-*最后更新: 2026-04-10*
+*最后更新: 2026-04-16*

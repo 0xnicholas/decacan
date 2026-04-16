@@ -1,5 +1,4 @@
 .worktrees/
-/target
 .DS_Store
 .superpowers/
 .opencode/

@@ -1,5 +1,8 @@
 # Decacan Playbook/Workflow 架构重构实施计划
 
+> **历史备注（2026-04-16）**：本文档为归档计划。项目已全面迁移至 TypeScript/Node.js，后端核心位于 `packages/orchestrator`。文中的 Rust/crates 实现细节反映的是迁移前的技术选型。
+
+
 Date: 2026-03-30
 Status: Approved for Implementation
 Related Spec: 2026-03-30-decacan-knowledge-learning-design.md

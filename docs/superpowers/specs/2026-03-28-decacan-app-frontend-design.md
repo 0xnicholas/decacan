@@ -1,5 +1,8 @@
 # Decacan App Frontend Design
 
+> **架构更新（2026-04-16）**：项目已全面迁移至 TypeScript/Node.js，后端核心位于 `packages/orchestrator`。本文档中的 Rust/crates 相关实现细节为历史记录，当前技术栈为 Hono + Drizzle ORM + Zod。
+
+
 Status note (2026-04-01):
 
 This document still reflects the early workspace execution surface, but it predates the formal split between the workspace-first product and the account-level hub. For current top-level surface ownership, read [2026-04-01-decacan-account-hub-and-workspace-boundaries-design.md](/Users/nicholasl/Documents/build-whatever/decacan/docs/superpowers/specs/2026-04-01-decacan-account-hub-and-workspace-boundaries-design.md) first.

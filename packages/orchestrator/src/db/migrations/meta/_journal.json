@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1776322763240,
+      "tag": "0000_cultured_overlord",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1776329903004,
+      "tag": "0001_oval_the_call",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1776338987336,
+      "tag": "0002_bent_darkhawk",
+      "breakpoints": true
+    }
+  ]
+}
