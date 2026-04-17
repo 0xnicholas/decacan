@@ -2,6 +2,7 @@ import type { ExecutionEvent, ExecutionRequest, ExecutionInput } from '../contra
 import type { ExecutionHandle, ExecutionStatus } from '../runtime/ports.js';
 import type { RetryConfig } from './retry.js';
 import { withRetry, isIdempotentRequest } from './retry.js';
+import { RequestSigner, type SigningConfig } from './signing.js';
 
 export interface TeamGatewayConfig {
   baseUrl: string;
@@ -10,10 +11,12 @@ export interface TeamGatewayConfig {
   timeoutMs?: number;
   retryConfig?: RetryConfig;
   idempotencyKeyHeader?: string;
+  signing?: SigningConfig;
 }
 
 export class TeamGatewayClient {
   private config: Required<TeamGatewayConfig>;
+  private signer: RequestSigner | null = null;
 
   constructor(config: TeamGatewayConfig) {
     this.config = {
@@ -29,6 +32,10 @@ export class TeamGatewayClient {
       },
       idempotencyKeyHeader: config.idempotencyKeyHeader ?? 'X-Idempotency-Key',
     };
+
+    if (config.signing) {
+      this.signer = new RequestSigner(config.signing);
+    }
   }
 
   private async request<T>(
@@ -45,6 +52,13 @@ export class TeamGatewayClient {
 
     if (idempotencyKey && !isIdempotentRequest(method)) {
       headers[this.config.idempotencyKeyHeader] = idempotencyKey;
+    }
+
+    if (body && this.signer) {
+      const sig = this.signer.signRequest(method, path, JSON.stringify(body));
+      headers['X-Signature'] = sig.signature;
+      headers['X-Timestamp'] = sig.timestamp.toString();
+      headers['X-Nonce'] = sig.nonce;
     }
 
     const controller = new AbortController();

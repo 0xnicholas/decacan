@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { withRetry, isIdempotentRequest, type RetryConfig, type RetryableError } from '../src/infra/retry.js';
 import { TeamGatewayClient, type TeamGatewayConfig } from '../src/infra/team-gateway-client.js';
+import { createSignature, RequestSigner } from '../src/infra/signing.js';
 import type { ExecutionRequest, ExecutionHandle } from '../src/contract/index.js';
 
 describe('isIdempotentRequest', () => {
@@ -359,5 +360,90 @@ describe('TeamGatewayClient', () => {
       expect(global.fetch).toHaveBeenCalledTimes(2);
       expect(result).toEqual(mockExecutionHandle);
     });
+  });
+
+  describe('signing', () => {
+    it('adds signature headers when signing is configured', async () => {
+      const mockResponse = createMockResponse(mockExecutionHandle);
+      global.fetch = vi.fn().mockResolvedValue(mockResponse) as any;
+
+      const client = createClient({
+        signing: {
+          secretKey: 'test-secret-key-32-chars-min!!',
+          algorithm: 'sha256',
+          timestampToleranceMs: 300000,
+        },
+      });
+
+      await client.start(mockExecutionRequest);
+
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+      const fetchCall = (global.fetch as any).mock.calls[0];
+      expect(fetchCall[1].headers['X-Signature']).toBeDefined();
+      expect(fetchCall[1].headers['X-Timestamp']).toBeDefined();
+      expect(fetchCall[1].headers['X-Nonce']).toBeDefined();
+    });
+
+    it('does not add signature headers when signing is not configured', async () => {
+      const mockResponse = createMockResponse(mockExecutionHandle);
+      global.fetch = vi.fn().mockResolvedValue(mockResponse) as any;
+
+      const client = createClient();
+
+      await client.start(mockExecutionRequest);
+
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+      const fetchCall = (global.fetch as any).mock.calls[0];
+      expect(fetchCall[1].headers['X-Signature']).toBeUndefined();
+      expect(fetchCall[1].headers['X-Timestamp']).toBeUndefined();
+      expect(fetchCall[1].headers['X-Nonce']).toBeUndefined();
+    });
+  });
+});
+
+describe('RequestSigner', () => {
+  const config = {
+    secretKey: 'test-secret-key-32-chars-min!!',
+    algorithm: 'sha256' as const,
+    timestampToleranceMs: 300000,
+  };
+
+  describe('sign', () => {
+    it('should create valid signature', () => {
+      const signer = new RequestSigner(config);
+      const result = signer.sign('test-payload');
+      expect(result.signature).toBeDefined();
+      expect(result.timestamp).toBeGreaterThan(0);
+      expect(result.nonce).toHaveLength(32);
+    });
+  });
+
+  describe('verify', () => {
+    it('should verify valid signature', () => {
+      const signer = new RequestSigner(config);
+      const signed = signer.sign('test-payload');
+      expect(signer.verify('test-payload', signed.signature, signed.timestamp, signed.nonce)).toBe(true);
+    });
+
+    it('should reject invalid signature', () => {
+      const signer = new RequestSigner(config);
+      const signed = signer.sign('test-payload');
+      expect(signer.verify('test-payload', 'invalid', signed.timestamp, signed.nonce)).toBe(false);
+    });
+
+    it('should reject stale timestamp', async () => {
+      const signer = new RequestSigner(config);
+      const signed = signer.sign('test-payload');
+      const staleTimestamp = Date.now() - 600000;
+      expect(signer.verify('test-payload', signed.signature, staleTimestamp, signed.nonce)).toBe(false);
+    });
+  });
+});
+
+describe('createSignature', () => {
+  it('should create deterministic signature', () => {
+    const sig1 = createSignature('payload', 1234567890, 'nonce123', 'secret', 'sha256');
+    const sig2 = createSignature('payload', 1234567890, 'nonce123', 'secret', 'sha256');
+    expect(sig1).toBe(sig2);
   });
 });
