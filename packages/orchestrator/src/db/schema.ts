@@ -7,6 +7,7 @@ import {
   jsonb,
   integer,
   boolean,
+  index,
 } from 'drizzle-orm/pg-core';
 
 export const workspaces = pgTable('workspaces', {
@@ -176,4 +177,8 @@ export const decisionRecords = pgTable('decision_records', {
   decidedBy: varchar('decided_by', { length: 255 }).notNull(),
   metadata: jsonb('metadata').default({}),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
+}, (table) => ({
+  taskIdIdx: index('decision_records_task_id_idx').on(table.taskId),
+  teamSessionIdIdx: index('decision_records_team_session_id_idx').on(table.teamSessionId),
+  executionIdIdx: index('decision_records_execution_id_idx').on(table.executionId),
+}));

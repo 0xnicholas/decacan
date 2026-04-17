@@ -52,13 +52,20 @@ export class TeamRecovery {
   }
 
   private async rebindSession(session: TeamSession): Promise<void> {
-    const snapshot = session.snapshot as Record<string, unknown>;
+    const snapshot = { ...session.snapshot } as Record<string, unknown>;
+    let modified = false;
+
     if (snapshot.continuationToken) {
       const tokenAge = Date.now() - ((snapshot.lastTokenUpdate as number) || 0);
       if (tokenAge > 24 * 60 * 60 * 1000) {
         delete snapshot.continuationToken;
-        await teamSessionStore.updatePhase(session.id, session.phase, 'session rebind - stale token cleared');
+        modified = true;
       }
+    }
+
+    if (modified) {
+      await teamSessionStore.updateSnapshot(session.id, snapshot);
+      await teamSessionStore.updatePhase(session.id, session.phase, 'session rebind - stale token cleared');
     }
   }
 
