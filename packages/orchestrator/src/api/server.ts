@@ -10,6 +10,7 @@ import { DbExecutionStore } from '../db/store.js';
 import { db } from '../db/client.js';
 import { decisionRecordStore } from '../db/decision-records.js';
 import { authorityEvaluator, policyMatrix } from '../runtime/authority/index.js';
+import { getTeamHealthStatus } from './admin/team-health.js';
 import * as schema from '../db/schema.js';
 import type { PlaybookSnapshot } from '../contract/index.js';
 import { EventBus } from '../infra/event-bus.js';
@@ -990,6 +991,12 @@ export function createServer(engineOverride?: ExecutionEnginePort): Hono {
     const profileId = c.req.param('profileId');
     const actions = policyMatrix.getAllActions(profileId);
     return c.json({ actions });
+  });
+
+  app.get('/admin/team-health', async (c) => {
+    const health = await getTeamHealthStatus();
+    const status = health.status === "healthy" ? 200 : health.status === "degraded" ? 200 : 503;
+    return c.json(health, status);
   });
 
   return app;
