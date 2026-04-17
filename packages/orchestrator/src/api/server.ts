@@ -8,6 +8,8 @@ import { MockExecutionEngine } from '../infra/mock-engine.js';
 import { HttpExecutionEngineClient } from '../infra/http-engine.js';
 import { DbExecutionStore } from '../db/store.js';
 import { db } from '../db/client.js';
+import { decisionRecordStore } from '../db/decision-records.js';
+import { authorityEvaluator, policyMatrix } from '../runtime/authority/index.js';
 import * as schema from '../db/schema.js';
 import type { PlaybookSnapshot } from '../contract/index.js';
 import { EventBus } from '../infra/event-bus.js';
@@ -953,6 +955,41 @@ export function createServer(engineOverride?: ExecutionEnginePort): Hono {
         rules: [],
       },
     });
+  });
+
+  app.get('/decisions/audit/:taskId', async (c) => {
+    const taskId = c.req.param('taskId');
+    const records = await decisionRecordStore.getRecordsByTask(taskId);
+    return c.json({ decisions: records });
+  });
+
+  app.get('/decisions/team-session/:teamSessionId', async (c) => {
+    const teamSessionId = c.req.param('teamSessionId');
+    const records = await decisionRecordStore.getRecordsByTeamSession(teamSessionId);
+    return c.json({ decisions: records });
+  });
+
+  app.get('/decisions/execution/:executionId', async (c) => {
+    const executionId = c.req.param('executionId');
+    const records = await decisionRecordStore.getRecordsByExecution(executionId);
+    return c.json({ decisions: records });
+  });
+
+  app.post('/decisions/evaluate', async (c) => {
+    const body = await c.req.json() as {
+      actorId: string;
+      action: string;
+      profileId: string;
+      resourceOwnerId?: string;
+    };
+    const result = authorityEvaluator.evaluate(body);
+    return c.json({ evaluation: result });
+  });
+
+  app.get('/policy/actions/:profileId', async (c) => {
+    const profileId = c.req.param('profileId');
+    const actions = policyMatrix.getAllActions(profileId);
+    return c.json({ actions });
   });
 
   return app;
