@@ -10,6 +10,16 @@ import { fetchWorkspaceHome } from "../../../shared/api/workspace-home";
 import { LoadingState, PageHeader } from "../../../shared/ui";
 import { WorkbenchLayout } from "./WorkbenchLayout";
 import { WorkspaceAssistantDock } from "./WorkspaceAssistantDock";
+import { useWorkspaceProfileId } from "../../../app/providers/WorkspaceProfileContext";
+
+const profileTitles: Record<string, string> = {
+  'short-drama-v1': '短剧工作区',
+};
+
+function getProfileTitle(profileId: string | null): string {
+  if (!profileId) return 'Workspace Home';
+  return profileTitles[profileId] ?? 'Workspace Home';
+}
 
 interface WorkspaceHomePageProps {
   workspaceId: string;
@@ -41,6 +51,8 @@ export function WorkspaceHomePage({ workspaceId }: WorkspaceHomePageProps) {
   const [delegationStatus, setDelegationStatus] = useState<string | null>(null);
   const requestSequence = useRef(0);
   const assistant = workbench?.assistant ?? defaultAssistantDock;
+  const profileId = useWorkspaceProfileId();
+  const profileTitle = getProfileTitle(profileId);
 
   useEffect(() => {
     const requestId = requestSequence.current + 1;
@@ -90,7 +102,7 @@ export function WorkspaceHomePage({ workspaceId }: WorkspaceHomePageProps) {
 
   return (
     <div>
-      <PageHeader title="Workspace Home" subtitle={workbench.template.title} />
+      <PageHeader title={profileTitle} subtitle={workbench.template.title} />
       <WorkbenchLayout
         model={workbench}
         onOpenPrimary={handleOpenPrimary}

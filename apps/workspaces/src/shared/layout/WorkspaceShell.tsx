@@ -8,6 +8,7 @@ import { TopBar } from "./TopBar";
 import { WorkspaceNav } from "./WorkspaceNav";
 import { useWorkspace } from "./WorkspaceContext";
 import { LoadingState } from "../ui";
+import { WorkspaceProfileProvider } from "../../app/providers/WorkspaceProfileContext";
 
 function getSectionFromPath(pathname: string): WorkspaceSection {
   const parts = pathname.split('/').filter(Boolean);
@@ -63,35 +64,37 @@ export function WorkspaceShell() {
   const hasRightPanel = !!rightPanel;
 
   return (
-    <div className="min-h-screen grid grid-rows-[auto_1fr] bg-background text-foreground">
-      <TopBar
-        onNewTask={() => {
-          navigate(`/workspaces/${workspaceId}/new-task`);
-        }}
-        onWorkspaceChange={(nextWorkspaceId) => {
-          navigateTo(nextWorkspaceId, currentSection);
-        }}
-        selectedWorkspaceId={workspaceId}
-        workspaces={workspaces}
-      />
-      <div className={`grid min-h-0 overflow-hidden ${hasRightPanel ? 'grid-cols-[220px_1fr_320px]' : 'grid-cols-[220px_1fr]'}`}>
-        <aside className="border-r overflow-auto">
-          <WorkspaceNav
-            currentSection={currentSection}
-            onNavigate={(nextSection) => {
-              navigateTo(workspaceId, nextSection);
-            }}
-          />
-        </aside>
-        <main className="p-6 overflow-auto">
-          <Outlet />
-        </main>
-        {rightPanel && (
-          <aside className="border-l flex flex-col h-full overflow-hidden">
-            {rightPanel}
+    <WorkspaceProfileProvider workspaceId={workspaceId ?? ''}>
+      <div className="min-h-screen grid grid-rows-[auto_1fr] bg-background text-foreground">
+        <TopBar
+          onNewTask={() => {
+            navigate(`/workspaces/${workspaceId}/new-task`);
+          }}
+          onWorkspaceChange={(nextWorkspaceId) => {
+            navigateTo(nextWorkspaceId, currentSection);
+          }}
+          selectedWorkspaceId={workspaceId}
+          workspaces={workspaces}
+        />
+        <div className={`grid min-h-0 overflow-hidden ${hasRightPanel ? 'grid-cols-[220px_1fr_320px]' : 'grid-cols-[220px_1fr]'}`}>
+          <aside className="border-r overflow-auto">
+            <WorkspaceNav
+              currentSection={currentSection}
+              onNavigate={(nextSection) => {
+                navigateTo(workspaceId, nextSection);
+              }}
+            />
           </aside>
-        )}
+          <main className="p-6 overflow-auto">
+            <Outlet />
+          </main>
+          {rightPanel && (
+            <aside className="border-l flex flex-col h-full overflow-hidden">
+              {rightPanel}
+            </aside>
+          )}
+        </div>
       </div>
-    </div>
+    </WorkspaceProfileProvider>
   );
 }
