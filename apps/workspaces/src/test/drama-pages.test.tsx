@@ -3,9 +3,9 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 
 import { IndustryProvider } from '../app/providers/index';
-import { ArtResourcesPage } from '../features/art-resources/ArtResourcesPage';
-import { ScriptPage } from '../features/script/ScriptPage';
-import { StoryboardPage } from '../features/storyboard/StoryboardPage';
+import { ArtResourcesPage } from '../features/art-resources/short-drama/ArtResourcesPage';
+import { ScriptPage } from '../features/script/short-drama/ScriptPage';
+import { StoryboardPage } from '../features/storyboard/short-drama/StoryboardPage';
 
 function renderDramaRoute(initialPath: string, element: React.ReactElement) {
   return render(
