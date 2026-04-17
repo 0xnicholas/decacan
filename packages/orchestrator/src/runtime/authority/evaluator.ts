@@ -7,6 +7,7 @@ export interface DelegationGrant {
   grantedAt: Date;
   expiresAt?: Date;
   revokedAt?: Date;
+  workspaceId?: string;
 }
 
 export interface AuthorizationRequest {
@@ -14,6 +15,8 @@ export interface AuthorizationRequest {
   action: string;
   profileId: string;
   resourceOwnerId?: string;
+  workspaceId?: string;
+  targetWorkspaceId?: string;
 }
 
 export interface AuthorizationResult {
@@ -22,11 +25,26 @@ export interface AuthorizationResult {
   reason: string;
   requiresApproval: boolean;
   approverRole?: 'human' | 'assistant' | 'any';
+  isolationViolation?: boolean;
 }
 
 export class AuthorityEvaluator {
   evaluate(request: AuthorizationRequest, grants: DelegationGrant[] = []): AuthorizationResult {
-    const { actorId, action, profileId, resourceOwnerId } = request;
+    const { actorId, action, profileId, resourceOwnerId, workspaceId, targetWorkspaceId } = request;
+
+    if (workspaceId && targetWorkspaceId && workspaceId !== targetWorkspaceId) {
+      const isolationResult = this.checkWorkspaceIsolation(action, grants, workspaceId, targetWorkspaceId);
+      if (isolationResult) {
+        return {
+          authorized: false,
+          actionClass: ActionClass.FORBIDDEN,
+          reason: `Cross-workspace operation forbidden: ${action}`,
+          requiresApproval: true,
+          approverRole: 'human',
+          isolationViolation: true,
+        };
+      }
+    }
 
     const actionClass = policyMatrix.classifyAction(profileId, action);
     const rule = policyMatrix.getRule(profileId, action);
@@ -60,7 +78,7 @@ export class AuthorityEvaluator {
         };
 
       case ActionClass.ASSISTANT_DELEGABLE:
-        if (this.hasCapability(actorId, action, grants)) {
+        if (this.hasCapability(actorId, action, grants, workspaceId)) {
           return {
             authorized: true,
             actionClass,
@@ -90,9 +108,45 @@ export class AuthorityEvaluator {
     }
   }
 
-  private hasCapability(actorId: string, action: string, grants: DelegationGrant[]): boolean {
+  private checkWorkspaceIsolation(
+    action: string,
+    grants: DelegationGrant[],
+    _workspaceId: string,
+    targetWorkspaceId: string
+  ): boolean {
+    const crossWorkspaceActions = [
+      'workspace:admin',
+      'workspace:delete',
+      'workspace:transfer',
+      'workspace:access',
+    ];
+
+    if (crossWorkspaceActions.includes(action)) {
+      return true;
+    }
+
+    for (const grant of grants) {
+      if (grant.workspaceId && grant.workspaceId === targetWorkspaceId) {
+        if (grant.capabilities.includes('*') || grant.capabilities.includes('workspace:admin')) {
+          return false;
+        }
+      }
+    }
+
+    return true;
+  }
+
+  private hasCapability(
+    actorId: string,
+    action: string,
+    grants: DelegationGrant[],
+    _workspaceId?: string
+  ): boolean {
     for (const grant of grants) {
       if (grant.delegateId === actorId && !this.isRevoked(grant)) {
+        if (_workspaceId && grant.workspaceId && grant.workspaceId !== _workspaceId) {
+          continue;
+        }
         if (grant.capabilities.includes(action) || grant.capabilities.includes('*')) {
           return true;
         }
