@@ -233,6 +233,8 @@ describe('TeamGatewayClient', () => {
       await client.submit('exec-123', { key: 'input1', value: 'test' });
 
       expect(global.fetch).toHaveBeenCalledTimes(1);
+      const fetchCall = (global.fetch as any).mock.calls[0];
+      expect(fetchCall[1].headers['X-Idempotency-Key']).toBeDefined();
     });
 
     it('does not add idempotency key for GET requests', async () => {
@@ -267,6 +269,78 @@ describe('TeamGatewayClient', () => {
       const result = await client.getStatus('nonexistent');
 
       expect(result).toBeNull();
+    });
+  });
+
+  describe('subscribeEvents', () => {
+    it('subscribes to event stream and calls onEvent', async () => {
+      const events = [
+        { type: 'execution.started', data: { execution_id: 'exec-123' } },
+        { type: 'execution.completed', data: { execution_id: 'exec-123' } },
+      ];
+
+      let readCount = 0;
+      const mockReader = {
+        read: vi.fn().mockImplementation(() => {
+          if (readCount < events.length) {
+            const event = events[readCount];
+            readCount++;
+            const encoded = new TextEncoder().encode(`data: ${JSON.stringify(event)}\n`);
+            return Promise.resolve({ done: false, value: encoded });
+          }
+          const doneEncoded = new TextEncoder().encode('data: [DONE]\n');
+          return Promise.resolve({ done: true, value: doneEncoded });
+        }),
+        cancel: vi.fn(),
+      };
+      const mockResponse = {
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        body: {
+          getReader: vi.fn().mockReturnValue(mockReader),
+        },
+      };
+      global.fetch = vi.fn().mockResolvedValue(mockResponse) as any;
+
+      const client = createClient();
+      const onEvent = vi.fn();
+      const unsubscribe = await client.subscribeEvents('exec-123', onEvent);
+
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://localhost:4001/api/executions/exec-123/events',
+        expect.objectContaining({
+          method: 'GET',
+          headers: expect.objectContaining({
+            'Accept': 'text/event-stream',
+            'Authorization': 'Bearer test-api-key',
+            'X-Team-ID': 'test-team',
+          }),
+        })
+      );
+      expect(onEvent).toHaveBeenCalledTimes(2);
+      expect(onEvent).toHaveBeenCalledWith(events[0]);
+      expect(onEvent).toHaveBeenCalledWith(events[1]);
+
+      unsubscribe();
+    });
+
+    it('throws error when response is not ok', async () => {
+      const mockResponse = {
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+        body: null,
+      };
+      global.fetch = vi.fn().mockResolvedValue(mockResponse) as any;
+
+      const client = createClient();
+      const onEvent = vi.fn();
+
+      await expect(client.subscribeEvents('exec-123', onEvent)).rejects.toThrow('Failed to subscribe: HTTP 500');
     });
   });
 
