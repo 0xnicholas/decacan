@@ -15,6 +15,9 @@ export interface ExecutionStore {
   recordArtifact(task_id: string, artifact_id: string, name: string, path: string): Promise<void>;
   recordFileWrite(task_id: string, relative_path: string, size_bytes: number, content_hash: string): Promise<void>;
   recordApproval(approval_id: string, task_id: string, execution_id: string, step_id: string, prompt: string): Promise<void>;
+  updateApprovalDecision(approval_id: string, decision: string, comment?: string): Promise<void>;
+  getApprovalById(approval_id: string): Promise<{ id: string; task_id: string; execution_id: string; step_id: string; prompt: string; decision?: string; comment?: string } | null>;
+  getAllApprovals(): Promise<{ id: string; task_id: string; execution_id: string; step_id: string; prompt: string; decision?: string; comment?: string }[]>;
   recordTaskEvent(task_id: string, event_type: string, message: string | null, payload: unknown, sequence: number): Promise<void>;
 }
 

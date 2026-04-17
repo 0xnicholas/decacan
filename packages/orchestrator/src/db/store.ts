@@ -45,6 +45,42 @@ export class DbExecutionStore implements ExecutionStore {
     return row?.executionId ?? null;
   }
 
+  async updateApprovalDecision(approval_id: string, decision: string, comment?: string): Promise<void> {
+    await db
+      .update(approvals)
+      .set({ decision, comment, resolvedAt: new Date() })
+      .where(eq(approvals.id, approval_id));
+  }
+
+  async getApprovalById(approval_id: string): Promise<{ id: string; task_id: string; execution_id: string; step_id: string; prompt: string; decision?: string; comment?: string } | null> {
+    const row = await db.query.approvals.findFirst({
+      where: eq(approvals.id, approval_id),
+    });
+    if (!row) return null;
+    return {
+      id: row.id,
+      task_id: row.taskId,
+      execution_id: row.executionId,
+      step_id: row.stepId,
+      prompt: row.prompt,
+      decision: row.decision ?? undefined,
+      comment: row.comment ?? undefined,
+    };
+  }
+
+  async getAllApprovals(): Promise<{ id: string; task_id: string; execution_id: string; step_id: string; prompt: string; decision?: string; comment?: string }[]> {
+    const rows = await db.select().from(approvals);
+    return rows.map((row) => ({
+      id: row.id,
+      task_id: row.taskId,
+      execution_id: row.executionId,
+      step_id: row.stepId,
+      prompt: row.prompt,
+      decision: row.decision ?? undefined,
+      comment: row.comment ?? undefined,
+    }));
+  }
+
   async updateTaskStatus(
     task_id: string,
     status: string,

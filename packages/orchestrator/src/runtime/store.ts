@@ -24,6 +24,8 @@ export interface StoredApproval {
   execution_id: string;
   step_id: string;
   prompt: string;
+  decision?: string;
+  comment?: string;
 }
 
 export class InMemoryExecutionStore implements ExecutionStore {
@@ -106,6 +108,22 @@ export class InMemoryExecutionStore implements ExecutionStore {
   async getExecutionIdByApproval(approval_id: string): Promise<string | null> {
     const approval = this.approvals.find((a) => a.id === approval_id);
     return approval?.execution_id ?? null;
+  }
+
+  async updateApprovalDecision(approval_id: string, decision: string, comment?: string): Promise<void> {
+    const approval = this.approvals.find((a) => a.id === approval_id);
+    if (approval) {
+      approval.decision = decision;
+      approval.comment = comment;
+    }
+  }
+
+  async getApprovalById(approval_id: string): Promise<StoredApproval | null> {
+    return this.approvals.find((a) => a.id === approval_id) ?? null;
+  }
+
+  async getAllApprovals(): Promise<StoredApproval[]> {
+    return this.approvals;
   }
 
   async recordTaskEvent(
