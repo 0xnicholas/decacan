@@ -5,11 +5,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **注意:** 本计划中的代码示例需要从 Rust 转换为 TypeScript 实现。核心逻辑和架构保持不变，仅变更语言实现。
+
 **Goal:** Build runtime workspace-profile support so customer-specific workspace behavior is bound per workspace instead of selected by build-time industry env, while also adding the delivery artifacts needed for support-led onboarding.
 
 **Architecture:** Introduce a shared `WorkspaceProfile` contract in the backend and frontend, bind each workspace to a profile id, expose profile-aware API payloads from `decacan-app`, and replace the frontend's build-time industry selection with workspace-scoped profile loading plus a fallback path for local/default use. Keep the first implementation intentionally narrow: profile terminology, home/workbench settings, nav extensions, specialized page bindings, and assistant framing are runtime-configurable; task execution internals remain shared.
 
-**Tech Stack:** Rust, Axum, Serde, React 19, React Router 7, TypeScript, Vitest, Testing Library
+**Tech Stack:** TypeScript (Hono, Drizzle ORM, Zod), React 19, React Router 7, TypeScript, Vitest, Testing Library
 
 ---
 

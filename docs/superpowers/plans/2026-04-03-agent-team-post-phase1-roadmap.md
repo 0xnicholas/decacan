@@ -1,75 +1,73 @@
-# Decacan Agent Team Post-Phase1 Roadmap Implementation Plan
-
-> **架构更新（2026-04-16）**：项目已全面迁移至 TypeScript/Node.js，后端核心位于 `packages/orchestrator`。本文档中的 Rust/crates 相关实现细节为历史记录，当前技术栈为 Hono + Drizzle ORM + Zod。
-
+# Agent Team Post-Phase1 Roadmap Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Evolve the current Phase 1 Agent Team integration into a production-grade external ATS system with durable state, governance, observability, security, and scale guarantees.
+**Goal:** Evolve the current orchestration runtime into a production-grade Agent Team System (ATS) with durable state, governance, observability, security, and scale guarantees.
 
-**Architecture:** Keep runtime as the source-of-truth contract owner and move ATS execution to an external core behind a gateway adapter. Phase order is dependency-driven: externalize gateway behind a feature flag first, then add durable persistence/recovery, then harden governance and UI deltas, then operational/security/scale controls. Each phase must remain deployable and backward-compatible with the current assistant delegation flow.
+**Architecture:** Keep the orchestrator as the source-of-truth contract owner and move ATS execution to an external core behind a gateway adapter. Phase order is dependency-driven: externalize gateway behind a feature flag first, then add durable persistence/recovery, then harden governance and UI deltas, then operational/security/scale controls. Each phase must remain deployable and backward-compatible with the current execution flow.
 
-**Tech Stack:** Rust (Axum, Tokio, Serde), PostgreSQL + SQLx, TypeScript + React 19 + React Router 7 + Vitest, optional gRPC/HTTP gateway, OpenTelemetry-compatible telemetry
+**Tech Stack:** TypeScript/Node.js (Hono + Drizzle ORM + Zod), PostgreSQL, React 19 + React Router 7 + Vitest, OpenTelemetry-compatible telemetry
 
 ---
 
 ## Baseline
 
-- Phase 1 is complete on `main` at commit `1e2f5bf1`.
-- Implemented capabilities include:
-  - runtime contracts for assistant/team session/delegation/governance
-  - in-process ATS adapter
-  - app APIs for assistant sessions/team sessions/evolution proposal review
-  - workspace assistant + task detail collaboration UI
+- Phase 1 is represented by the current `packages/orchestrator` implementation.
+- Current capabilities include:
+  - ExecutionCoordinator with ExecutionStore interface
+  - InMemoryExecutionStore and DbExecutionStore implementations
+  - HTTP execution engine client (HttpExecutionEngineClient)
+  - Basic approval workflow support
+  - Task/Run/Artifact/Approval event recording
 
 ---
 
 ## File Structure Map (Post-Phase1 Additions)
 
-### Gateway + ATS externalization
+### Gateway + ATS Externalization
 
-- Create: `crates/decacan-infra/src/team/gateway_client.rs`
-  External ATS client (HTTP/gRPC).
-- Create: `crates/decacan-infra/src/team/retry.rs`
+- Create: `packages/orchestrator/src/infra/team-gateway-client.ts`
+  External ATS client (HTTP).
+- Create: `packages/orchestrator/src/infra/retry.ts`
   Retry/backoff/idempotency helper.
-- Create: `crates/decacan-infra/src/team/auth.rs`
+- Create: `packages/orchestrator/src/infra/signing.ts`
   Outbound signing and inbound verification helpers.
-- Modify: `crates/decacan-infra/src/team/adapter.rs`
+- Modify: `packages/orchestrator/src/infra/http-engine.ts`
   Switch from in-process execution to gateway-backed orchestration mode (feature-flagged).
-- Modify: `crates/decacan-infra/src/team/mod.rs`
-  Register gateway/auth/retry modules.
-- Modify: `crates/decacan-infra/src/lib.rs`
-  Export new infra module surfaces.
+- Modify: `packages/orchestrator/src/runtime/coordinator.ts`
+  Add team session/agent delegation awareness.
 
-### Durable persistence + recovery
+### Durable Persistence + Recovery
 
-- Create: `crates/decacan-infra/src/persistence/postgres/assistant_sessions.rs`
-- Create: `crates/decacan-infra/src/persistence/postgres/assistant_delegations.rs`
-- Create: `crates/decacan-infra/src/persistence/postgres/team_sessions.rs`
-- Create: `crates/decacan-infra/src/persistence/postgres/approval_continuations.rs`
-- Create: `crates/decacan-infra/src/persistence/postgres/evolution_proposals.rs`
-- Create: `crates/decacan-infra/src/persistence/postgres/decision_records.rs`
-- Create: `crates/decacan-infra/src/persistence/postgres/authority_grants.rs`
-- Create: `crates/decacan-infra/src/persistence/postgres/mod.rs`
-- Modify: `crates/decacan-infra/src/persistence/mod.rs`
-  Register `postgres` module and storage selector wiring.
-- Modify: `crates/decacan-app/src/app/state.rs`
-  Recovery and bootstrapping paths from durable storage.
-- Create: `crates/decacan-app/src/app/recovery.rs`
+- Create: `packages/orchestrator/src/db/team-sessions.ts`
+  Team session persistence store.
+- Create: `packages/orchestrator/src/db/assistant-sessions.ts`
+  Assistant session persistence store.
+- Create: `packages/orchestrator/src/db/delegations.ts`
+  Delegation chain persistence.
+- Create: `packages/orchestrator/src/db/approval-continuations.ts`
+  Approval continuation state persistence.
+- Create: `packages/orchestrator/src/db/evolution-proposals.ts`
+  Evolution proposal persistence.
+- Create: `packages/orchestrator/src/db/decision-records.ts`
+  Decision audit trail persistence.
+- Create: `packages/orchestrator/src/db/authority-grants.ts`
+  Authority grant persistence.
+- Modify: `packages/orchestrator/src/db/store.ts`
+  Implement new store methods.
+- Create: `packages/orchestrator/src/runtime/recovery.ts`
   Cold-start rehydration logic.
-- Modify: `crates/decacan-app/src/app/mod.rs`
-  Register `recovery` module.
 
-### Governance hardening
+### Governance Hardening
 
-- Create: `crates/decacan-runtime/src/authority/policy_matrix.rs`
+- Create: `packages/orchestrator/src/runtime/authority/policy-matrix.ts`
   Action-classification and mandatory-human mapping.
-- Modify: `crates/decacan-runtime/src/authority/evaluator.rs`
+- Modify: `packages/orchestrator/src/runtime/authority/evaluator.ts`
   Evaluate by matrix + delegated grant + policy profile.
-- Create: `crates/decacan-app/src/api/assistant_decisions.rs`
+- Create: `packages/orchestrator/src/api/team-decisions.ts`
   Explicit decision and audit endpoints.
 
-### Workspaces collaboration UX
+### Workspaces Collaboration UX
 
 - Modify: `apps/workspaces/src/features/task-detail/TeamSessionPanel.tsx`
   Timeline, blocked reasons, continuation actions.
@@ -80,156 +78,141 @@
 - Modify: `apps/workspaces/src/features/workspace-home/WorkspaceHomePage.tsx`
   Recover, resume, and reattach assistant sessions.
 
-### Observability + security + scale
+### Observability + Security + Scale
 
-- Create: `crates/decacan-app/src/telemetry/agent_team.rs`
+- Create: `packages/orchestrator/src/telemetry/agent-team.ts`
   Metrics/traces/events.
-- Create: `crates/decacan-infra/src/security/request_signing.rs`
+- Create: `packages/orchestrator/src/security/request-signing.ts`
   HMAC/JWT signing for gateway calls.
-- Create: `crates/decacan-infra/src/security/key_manager.rs`
+- Create: `packages/orchestrator/src/security/key-manager.ts`
   Key loading, rotation, and revocation checks.
-- Create: `crates/decacan-app/src/api/admin/agent_team_health.rs`
+- Create: `packages/orchestrator/src/api/admin/team-health.ts`
   Ops endpoints and dashboards.
-- Create: `crates/decacan-app/src/api/admin/mod.rs`
-  Register and guard admin-only routes.
-- Modify: `crates/decacan-app/src/api/mod.rs`
+- Modify: `packages/orchestrator/src/api/server.ts`
   Mount admin router with authorization middleware.
-- Create: `crates/decacan-app/src/scheduling/agent_team_queue.rs`
+- Create: `packages/orchestrator/src/scheduling/team-queue.ts`
   Backpressure, priority, and concurrency controls.
-- Modify: `crates/decacan-app/src/lib.rs`
-  Register `telemetry`, `scheduling`, and `config` module exports.
 
 ---
 
 ## Phase 2: ATS Externalization via Gateway
 
-### Task 2.1: Gateway protocol and adapter mode switch
+### Task 2.1: Gateway Protocol and Adapter Mode Switch
 
 **Files:**
-- Create: `crates/decacan-infra/src/team/gateway_client.rs`
-- Create: `crates/decacan-infra/src/team/retry.rs`
-- Modify: `crates/decacan-infra/src/team/adapter.rs`
-- Test: `crates/decacan-infra/tests/team_gateway_adapter_test.rs`
+- Create: `packages/orchestrator/src/infra/team-gateway-client.ts`
+- Create: `packages/orchestrator/src/infra/retry.ts`
+- Modify: `packages/orchestrator/src/infra/http-engine.ts`
+- Test: `packages/orchestrator/tests/team-gateway.test.ts`
 
 - [ ] Define gateway request/response DTOs for `start/apply/advance/get_snapshot/continue_after_approval`.
 - [ ] Add idempotency-key propagation and bounded retries.
 - [ ] Add adapter mode switch (`in_process` | `gateway`) with safe default.
 - [ ] Write failing gateway adapter tests (transport errors, timeout, idempotent retry).
 - [ ] Implement minimal gateway client to pass tests.
-- [ ] Register team submodules in `crates/decacan-infra/src/team/mod.rs` and exports in `crates/decacan-infra/src/lib.rs`.
-- [ ] Commit: `feat(infra): add gateway-backed team adapter`
+- [ ] Register team submodules in exports.
+- [ ] Commit: `feat(orchestrator): add gateway-backed team adapter`
 
-### Task 2.2: Gateway auth and trust boundary
+### Task 2.2: Gateway Auth and Trust Boundary
 
 **Files:**
-- Create: `crates/decacan-infra/src/team/auth.rs`
-- Modify: `crates/decacan-infra/src/team/gateway_client.rs`
-- Test: `crates/decacan-infra/tests/team_gateway_auth_test.rs`
+- Create: `packages/orchestrator/src/infra/signing.ts`
+- Modify: `packages/orchestrator/src/infra/team-gateway-client.ts`
+- Test: `packages/orchestrator/tests/team-gateway-auth.test.ts`
 
 - [ ] Add outbound request signing (`timestamp`, `nonce`, `signature`).
 - [ ] Add replay window checks and signature verification helper.
 - [ ] Add failing tests for stale timestamp and invalid signature.
 - [ ] Implement auth guard logic to satisfy tests.
-- [ ] Commit: `feat(infra): add agent-team gateway signing`
+- [ ] Commit: `feat(orchestrator): add agent-team gateway signing`
 
-**Phase 2 exit criteria**
-- `cargo test -p decacan-infra --test team_gateway_adapter_test` passes.
-- `cargo test -p decacan-app --test assistant_api_integration_test` passes in both adapter modes.
-- `curl` parity check confirms unchanged response schema for:
-  - `POST /api/assistant-sessions`
-  - `GET /api/team-sessions/:id`
+**Phase 2 Exit Criteria**
+- `pnpm --filter @decacan/orchestrator test -- --testNamePattern="team gateway"` passes.
+- API parity check confirms unchanged response schema.
 - Timeout/5xx/retry exhaustion map to documented status codes in API contract.
 
 ---
 
-## Phase 3: Durable Persistence And Recovery
+## Phase 3: Durable Persistence and Recovery
 
-### Task 3.1: Postgres stores for assistant/team state
+### Task 3.1: Database Stores for Team/Assistant State
 
 **Files:**
-- Create: `crates/decacan-infra/src/persistence/postgres/assistant_sessions.rs`
-- Create: `crates/decacan-infra/src/persistence/postgres/assistant_delegations.rs`
-- Create: `crates/decacan-infra/src/persistence/postgres/team_sessions.rs`
-- Create: `crates/decacan-infra/src/persistence/postgres/approval_continuations.rs`
-- Create: `crates/decacan-infra/src/persistence/postgres/evolution_proposals.rs`
-- Create: `crates/decacan-infra/src/persistence/postgres/decision_records.rs`
-- Create: `crates/decacan-infra/src/persistence/postgres/authority_grants.rs`
-- Create: `crates/decacan-infra/src/persistence/postgres/mod.rs`
-- Modify: `crates/decacan-infra/src/persistence/mod.rs`
-- Create: `crates/decacan-infra/tests/postgres_agent_team_persistence_test.rs`
+- Create: `packages/orchestrator/src/db/team-sessions.ts`
+- Create: `packages/orchestrator/src/db/assistant-sessions.ts`
+- Create: `packages/orchestrator/src/db/delegations.ts`
+- Create: `packages/orchestrator/src/db/approval-continuations.ts`
+- Create: `packages/orchestrator/src/db/evolution-proposals.ts`
+- Create: `packages/orchestrator/src/db/decision-records.ts`
+- Create: `packages/orchestrator/src/db/authority-grants.ts`
+- Modify: `packages/orchestrator/src/db/schema.ts`
+- Modify: `packages/orchestrator/src/db/store.ts`
+- Test: `packages/orchestrator/tests/team-persistence.test.ts`
 
-- [ ] Design tables and SQLx models for session/delegation/snapshot/continuation/proposals/decision-records/authority-grants.
+- [ ] Design Drizzle tables for session/delegation/snapshot/continuation/proposals/decision-records/authority-grants.
 - [ ] Write failing persistence roundtrip tests.
-- [ ] Implement store traits for Postgres.
-- [ ] Register `postgres` module in `crates/decacan-infra/src/persistence/mod.rs` and select it in app wiring.
-- [ ] Verify migration + rollback scripts.
-- [ ] Commit: `feat(infra): add postgres agent-team persistence`
+- [ ] Implement store methods for PostgreSQL.
+- [ ] Run migrations.
+- [ ] Commit: `feat(orchestrator): add team persistence stores`
 
-### Task 3.2: Recovery on app restart
+### Task 3.2: Recovery on App Restart
 
 **Files:**
-- Create: `crates/decacan-app/src/app/recovery.rs`
-- Modify: `crates/decacan-app/src/app/state.rs`
-- Test: `crates/decacan-app/tests/assistant_recovery_integration_test.rs`
+- Create: `packages/orchestrator/src/runtime/recovery.ts`
+- Modify: `packages/orchestrator/src/server.ts`
+- Test: `packages/orchestrator/tests/team-recovery.test.ts`
 
 - [ ] Write failing test for cold-start recovery of active delegation.
 - [ ] Rehydrate sessions and bind to latest team snapshot on startup.
 - [ ] Ensure stale continuation tokens are invalidated.
-- [ ] Register `recovery` module in `crates/decacan-app/src/app/mod.rs`.
-- [ ] Commit: `feat(app): restore assistant delegation on restart`
+- [ ] Commit: `feat(orchestrator): restore team state on restart`
 
-**Phase 3 exit criteria**
-- `cargo test -p decacan-infra --test postgres_agent_team_persistence_test` passes.
-- `cargo test -p decacan-app --test assistant_recovery_integration_test` passes.
+**Phase 3 Exit Criteria**
+- `pnpm --filter @decacan/orchestrator test -- --testNamePattern="persistence|recovery"` passes.
 - Restart simulation test proves active delegation, decision records, and authority grants survive process restart.
 
 ---
 
-## Phase 4: Governance And Authority Hardening
+## Phase 4: Governance and Authority Hardening
 
 **Policy ownership split (must remain stable across phases):**
 - Phase 4 owns risk and mandatory-human policy classes.
 - Phase 7 adds tenant/isolation constraints only.
 - Any isolation rule must compose with (not replace) mandatory-human rules.
 
-### Task 4.1: Policy matrix and risk classes
+### Task 4.1: Policy Matrix and Risk Classes
 
 **Files:**
-- Create: `crates/decacan-runtime/src/authority/policy_matrix.rs`
-- Modify: `crates/decacan-runtime/src/authority/evaluator.rs`
-- Test: `crates/decacan-runtime/tests/authority_policy_matrix_test.rs`
+- Create: `packages/orchestrator/src/runtime/authority/policy-matrix.ts`
+- Modify: `packages/orchestrator/src/runtime/authority/evaluator.ts`
+- Test: `packages/orchestrator/tests/policy-matrix.test.ts`
 
 - [ ] Define action classes (`human_mandatory`, `assistant_delegable`, `forbidden`).
 - [ ] Add failing tests for each class and escalation path.
 - [ ] Implement evaluator using grant + policy matrix.
-- [ ] Commit: `feat(runtime): add authority policy matrix`
+- [ ] Commit: `feat(orchestrator): add authority policy matrix`
 
-### Task 4.2: Decision/audit APIs
+### Task 4.2: Decision/Audit APIs
 
 **Files:**
-- Create: `crates/decacan-app/src/api/assistant_decisions.rs`
-- Modify: `crates/decacan-app/src/api/mod.rs`
-- Test: `crates/decacan-app/tests/assistant_decision_api_test.rs`
+- Create: `packages/orchestrator/src/api/team-decisions.ts`
+- Modify: `packages/orchestrator/src/api/server.ts`
+- Test: `packages/orchestrator/tests/team-decisions-api.test.ts`
 
 - [ ] Add read/write decision endpoints with immutable audit records.
 - [ ] Add failing tests for append-only enforcement.
 - [ ] Implement API and mapping.
-- [ ] Commit: `feat(app): add assistant decision audit endpoints`
+- [ ] Commit: `feat(orchestrator): add team decision audit endpoints`
 
-**Phase 4 exit criteria**
-- `cargo test -p decacan-runtime --test authority_policy_matrix_test` passes.
-- `cargo test -p decacan-app --test assistant_decision_api_test` passes.
+**Phase 4 Exit Criteria**
+- `pnpm --filter @decacan/orchestrator test -- --testNamePattern="policy|decision"` passes.
 - Audit export for a sample session contains complete decision chain with policy reason.
 
 ---
 
 ## Phase 5: Workspaces Collaboration Experience (Agent Team First-Class)
 
-**Delta over Phase 1 (already shipped):**
-- Keep existing delegation status recovery and proposal review UI.
-- Add decision audit timeline, blocker diagnostics, and explicit resume controls.
-
-### Task 5.1: Persistent active delegation surfaces
+### Task 5.1: Persistent Active Delegation Surfaces
 
 **Files:**
 - Create: `apps/workspaces/src/features/workspace-home/ActiveDelegationCard.tsx`
@@ -242,7 +225,7 @@
 - [ ] Implement UI + state wiring.
 - [ ] Commit: `feat(workspaces): show persistent active delegation card`
 
-### Task 5.2: Decision timeline and actionable blockers in task page
+### Task 5.2: Decision Timeline and Actionable Blockers in Task Page
 
 **Files:**
 - Create: `apps/workspaces/src/features/task-detail/DecisionAuditPanel.tsx`
@@ -251,138 +234,132 @@
 - Test: `apps/workspaces/src/test/task-page.test.tsx`
 
 - [ ] Add decision timeline panel and blocked-on-human CTA.
-- [ ] Add failing tests for “blocked -> decision -> resumed” flow.
+- [ ] Add failing tests for "blocked -> decision -> resumed" flow.
 - [ ] Implement action handlers and refresh semantics.
 - [ ] Commit: `feat(workspaces): add team decision timeline and blocker actions`
 
-**Phase 5 exit criteria**
-- `pnpm --dir apps/workspaces test -- --run src/test/workspace-home-page.test.tsx src/test/task-page.test.tsx` passes.
+**Phase 5 Exit Criteria**
+- `pnpm --filter decacan-workspaces test -- src/test/workspace-home-page.test.tsx src/test/task-page.test.tsx` passes.
 - User journey test confirms: view blocker -> inspect decision history -> submit decision -> session resumes.
 
 ---
 
-## Phase 6: Observability And Ops Readiness
+## Phase 6: Observability and Ops Readiness
 
-### Task 6.1: Metrics/traces for delegation lifecycle
+### Task 6.1: Metrics/Traces for Delegation Lifecycle
 
 **Files:**
-- Create: `crates/decacan-app/src/telemetry/agent_team.rs`
-- Modify: `crates/decacan-app/src/app/state.rs`
-- Test: `crates/decacan-app/tests/agent_team_telemetry_test.rs`
+- Create: `packages/orchestrator/src/telemetry/agent-team.ts`
+- Modify: `packages/orchestrator/src/runtime/coordinator.ts`
+- Test: `packages/orchestrator/tests/telemetry.test.ts`
 
 - [ ] Emit counters/latencies for session start, approval block, continuation, failure.
 - [ ] Emit trace span correlation IDs across app->infra->gateway.
 - [ ] Add failing telemetry assertions in integration tests.
-- [ ] Register telemetry module in `crates/decacan-app/src/lib.rs`.
-- [ ] Commit: `feat(app): add agent-team telemetry spans and metrics`
+- [ ] Commit: `feat(orchestrator): add agent-team telemetry`
 
-### Task 6.2: Health and diagnostic endpoints
+### Task 6.2: Health and Diagnostic Endpoints
 
 **Files:**
-- Create: `crates/decacan-app/src/api/admin/agent_team_health.rs`
-- Create: `crates/decacan-app/src/api/admin/mod.rs`
-- Modify: `crates/decacan-app/src/api/mod.rs`
-- Test: `crates/decacan-app/tests/agent_team_health_api_test.rs`
+- Create: `packages/orchestrator/src/api/admin/team-health.ts`
+- Modify: `packages/orchestrator/src/api/server.ts`
+- Test: `packages/orchestrator/tests/team-health-api.test.ts`
 
 - [ ] Add endpoint for gateway reachability, queue depth, degraded mode.
 - [ ] Restrict endpoint to admin authorization context.
 - [ ] Add failing tests for degraded mapping.
-- [ ] Register `api::admin` module and mount route tree in `crates/decacan-app/src/api/mod.rs`.
 - [ ] Implement endpoint.
-- [ ] Commit: `feat(app): add agent-team health endpoint`
+- [ ] Commit: `feat(orchestrator): add team health endpoint`
 
-**Phase 6 exit criteria**
-- `cargo test -p decacan-app --test agent_team_health_api_test` passes.
+**Phase 6 Exit Criteria**
+- `pnpm --filter @decacan/orchestrator test -- --testNamePattern="health"` passes.
 - Dashboard payload includes gateway health, queue depth, error-rate, and last recovery timestamp.
 
 ---
 
-## Phase 7: Security And Isolation
+## Phase 7: Security and Isolation
 
-### Task 7.1: Signed gateway requests + replay protection
+### Task 7.1: Signed Gateway Requests + Replay Protection
 
 **Files:**
-- Create: `crates/decacan-infra/src/security/request_signing.rs`
-- Create: `crates/decacan-infra/src/security/key_manager.rs`
-- Modify: `crates/decacan-infra/src/team/gateway_client.rs`
-- Test: `crates/decacan-infra/tests/gateway_signing_test.rs`
+- Create: `packages/orchestrator/src/security/request-signing.ts`
+- Create: `packages/orchestrator/src/security/key-manager.ts`
+- Modify: `packages/orchestrator/src/infra/team-gateway-client.ts`
+- Test: `packages/orchestrator/tests/gateway-signing.test.ts`
 
 - [ ] Implement HMAC/JWT signing primitives.
 - [ ] Add stale nonce/timestamp replay tests.
 - [ ] Add key rotation and revocation checks in key manager.
 - [ ] Enforce strict verification in gateway mode.
-- [ ] Commit: `feat(infra): harden agent-team gateway signing`
+- [ ] Commit: `feat(orchestrator): harden team gateway signing`
 
-### Task 7.2: Action isolation policy
+### Task 7.2: Action Isolation Policy
 
 **Files:**
-- Modify: `crates/decacan-runtime/src/authority/policy_matrix.rs`
-- Modify: `crates/decacan-app/src/app/state.rs`
-- Test: `crates/decacan-runtime/tests/authority_isolation_test.rs`
+- Modify: `packages/orchestrator/src/runtime/authority/policy-matrix.ts`
+- Modify: `packages/orchestrator/src/api/team-decisions.ts`
+- Test: `packages/orchestrator/tests/authority-isolation.test.ts`
 
 - [ ] Enforce workspace-scoped isolation and forbidden cross-workspace operations.
 - [ ] Add failing tests for tenant-boundary escape attempts.
 - [ ] Verify isolation checks run after mandatory-human/risk class checks.
 - [ ] Implement enforcement.
-- [ ] Commit: `feat(runtime): enforce tenant-isolated agent actions`
+- [ ] Commit: `feat(orchestrator): enforce tenant-isolated agent actions`
 
-**Phase 7 exit criteria**
-- `cargo test -p decacan-infra --test gateway_signing_test` passes.
-- `cargo test -p decacan-runtime --test authority_isolation_test` passes.
+**Phase 7 Exit Criteria**
+- `pnpm --filter @decacan/orchestrator test -- --testNamePattern="signing|isolation"` passes.
 - Rotation drill demonstrates key rollover without request downtime.
 
 ---
 
-## Phase 8: Performance And Scalability
+## Phase 8: Performance and Scalability
 
-### Task 8.1: Queue and backpressure control
+### Task 8.1: Queue and Backpressure Control
 
 **Files:**
-- Create: `crates/decacan-app/src/scheduling/agent_team_queue.rs`
-- Modify: `crates/decacan-app/src/app/state.rs`
-- Test: `crates/decacan-app/tests/agent_team_queue_test.rs`
+- Create: `packages/orchestrator/src/scheduling/team-queue.ts`
+- Modify: `packages/orchestrator/src/runtime/coordinator.ts`
+- Test: `packages/orchestrator/tests/team-queue.test.ts`
 
 - [ ] Add bounded queue with priority classes.
 - [ ] Add failing tests for saturation and fairness.
-- [ ] Implement queue metrics and reject policy (`429`/defer).
-- [ ] Register scheduling module in `crates/decacan-app/src/lib.rs`.
-- [ ] Commit: `feat(app): add agent-team scheduling queue`
+- [ ] Implement queue metrics and reject policy (429/defer).
+- [ ] Commit: `feat(orchestrator): add team scheduling queue`
 
-### Task 8.2: Scale verification
+### Task 8.2: Scale Verification
 
 **Files:**
-- Create: `crates/decacan-app/tests/agent_team_load_test.rs`
+- Create: `packages/orchestrator/tests/team-load.test.ts`
 - Create: `docs/superpowers/specs/2026-04-xx-agent-team-slo-and-capacity.md`
 
 - [ ] Define SLO targets (p95 latency, error rate, recovery time).
 - [ ] Run synthetic load tests with baseline configs.
 - [ ] Record capacity model and safe concurrency envelope.
-- [ ] Commit: `test(app): add agent-team load and SLO verification`
+- [ ] Commit: `test(orchestrator): add team load and SLO verification`
 
-**Phase 8 exit criteria**
+**Phase 8 Exit Criteria**
 - System has measured concurrency envelope and protective backpressure behavior.
 
 ---
 
-## Phase 9: Rollout, Migration, And Release
+## Phase 9: Rollout, Migration, and Release
 
-### Task 9.1: Feature-flag rollout and migration
+### Task 9.1: Feature-Flag Rollout and Migration
 
 **Files:**
-- Create: `crates/decacan-app/src/config/agent_team_rollout.rs`
-- Create: `crates/decacan-infra/migrations/2026xxxx_agent_team_state.sql`
-- Create: `crates/decacan-infra/migrations/2026xxxx_agent_team_backfill.sql`
-- Test: `crates/decacan-app/tests/agent_team_rollout_test.rs`
+- Create: `packages/orchestrator/src/config/team-rollout.ts`
+- Create: `packages/orchestrator/src/db/migrations/2026xxxx_team_state.sql`
+- Create: `packages/orchestrator/src/db/migrations/2026xxxx_team_backfill.sql`
+- Test: `packages/orchestrator/tests/team-rollout.test.ts`
 
 - [ ] Add rollout flags by workspace/account cohort.
-- [ ] Implement dual-write window (memory+db or legacy+new tables) with verification logging.
+- [ ] Implement dual-write window with verification logging.
 - [ ] Add migration scripts with backward-compatible defaults.
-- [ ] Add backfill job and consistency check command.
+- [ ] Add backfill job and consistency check.
 - [ ] Add failing tests for flag gating behavior.
-- [ ] Register rollout config module in `crates/decacan-app/src/lib.rs`.
-- [ ] Commit: `feat(app): add agent-team rollout and migration controls`
+- [ ] Commit: `feat(orchestrator): add team rollout and migration controls`
 
-### Task 9.2: Release checklist and rollback playbook
+### Task 9.2: Release Checklist and Rollback Playbook
 
 **Files:**
 - Create: `docs/runbooks/agent-team-rollout.md`
@@ -393,7 +370,7 @@
 - [ ] Run game-day simulation and capture outcomes.
 - [ ] Commit: `docs(runbooks): add agent-team rollout and rollback guides`
 
-**Phase 9 exit criteria**
+**Phase 9 Exit Criteria**
 - Canary rollout to first cohort completes with no SLO breach for 24h.
 - Rollback drill finishes within target RTO and preserves data consistency checks.
 
@@ -401,15 +378,12 @@
 
 ## Verification Matrix (Each Phase)
 
-- [ ] Rust: `cargo test --workspace`
-- [ ] Rust targeted: `cargo test -p decacan-runtime --test agent_team_contract_test`
-- [ ] Rust targeted: `cargo test -p decacan-infra --test team_adapter_test`
-- [ ] Rust targeted: `cargo test -p decacan-app --test assistant_api_integration_test --test evolution_proposals_api_test`
-- [ ] Rust: `cargo clippy --workspace -- -D warnings`
-- [ ] Rust: `cargo fmt --check`
-- [ ] Workspaces: `pnpm --dir apps/workspaces test`
-- [ ] Workspaces typecheck+build: `pnpm --dir apps/workspaces build` (includes `tsc`)
-- [ ] API smoke where changed: `cargo test -p decacan-app --test http_smoke -- --nocapture`
+- [ ] Orchestrator: `pnpm --filter @decacan/orchestrator test`
+- [ ] Orchestrator targeted: `pnpm --filter @decacan/orchestrator test -- --testNamePattern="team"`
+- [ ] Orchestrator typecheck: `pnpm --filter @decacan/orchestrator typecheck`
+- [ ] Workspaces: `pnpm --filter decacan-workspaces test`
+- [ ] Workspaces typecheck+build: `pnpm --filter decacan-workspaces build`
+- [ ] API smoke where changed: `pnpm --filter @decacan/orchestrator test -- --testNamePattern="api"`
 
 ---
 
@@ -421,9 +395,14 @@
 
 ---
 
-## Risks And Guardrails
+## Risks and Guardrails
 
 - [ ] Do not remove in-process adapter until gateway mode is proven stable.
 - [ ] Do not weaken mandatory-human classes for performance shortcuts.
 - [ ] Do not ship without cold-start recovery tests passing.
 - [ ] Do not expose proposal review mutation beyond review-state update.
+
+---
+
+*Created: 2026-04-03*
+*Updated: 2026-04-17 - Converted to TypeScript/Node.js stack*

@@ -5,26 +5,28 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use @superpowers:subagent-driven-development (recommended) or @superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **注意:** 本计划中的代码示例需要从 Rust 转换为 TypeScript 实现。核心逻辑和架构保持不变，仅变更语言实现。
+
 **Goal:** 实现 PostgreSQL 存储适配器，支持连接池、自动迁移（开发模式），实现 `StoragePort` trait
 
-**架构：** 使用 `sqlx` crate（async PostgreSQL），实现 `StoragePort` 接口，开发模式自动运行 migrations，生产模式需要显式迁移。
+**架构：** 使用 Drizzle ORM 作为 PostgreSQL ORM，实现存储接口。开发模式自动运行 migrations，生产模式需要显式迁移。
 
-**Tech Stack:** Rust, sqlx, tokio, PostgreSQL
+**Tech Stack:** TypeScript, Drizzle ORM, PostgreSQL, node-postgres (pg)
 
 ---
 
 ## 文件结构映射
 
 ### 修改文件
-- `crates/decacan-infra/Cargo.toml` - 添加 sqlx 依赖
-- `crates/decacan-infra/src/storage/mod.rs` - 导出 postgres 模块
-- `crates/decacan-infra/src/config/mod.rs` - 添加 PostgresConfig
+- `packages/orchestrator/package.json` - 添加 pg 和 drizzle-orm 依赖
+- `packages/orchestrator/src/db/client.ts` - 导出 postgres 模块
+- `packages/orchestrator/src/config/index.ts` - 添加 PostgresConfig
 
 ### 新建文件
-- `crates/decacan-infra/src/storage/postgres.rs` - PostgreSQL 实现
-- `crates/decacan-infra/src/config/postgres.rs` - PostgreSQL 配置
-- `crates/decacan-infra/migrations/001_init.sql` - 初始迁移
-- `crates/decacan-infra/tests/postgres_test.rs` - PostgreSQL 测试
+- `packages/orchestrator/src/db/postgres-store.ts` - PostgreSQL 实现
+- `packages/orchestrator/src/config/postgres.ts` - PostgreSQL 配置
+- `packages/orchestrator/drizzle/migrations/001_init.sql` - 初始迁移
+- `packages/orchestrator/tests/postgres.test.ts` - PostgreSQL 测试
 
 ---
 

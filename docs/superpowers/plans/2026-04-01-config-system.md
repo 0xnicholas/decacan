@@ -5,25 +5,26 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use @superpowers:subagent-driven-development (recommended) or @superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **注意:** 本计划中的代码示例需要从 Rust 转换为 TypeScript 实现。核心逻辑和架构保持不变，仅变更语言实现。
+
 **Goal:** 构建分层配置系统，支持 profiles、多来源配置（环境变量、YAML 文件），并与现有 InfraConfig 集成
 
-**架构：** 使用 `config` crate 构建分层配置系统，支持 dev/staging/production profiles。配置来源按优先级加载：环境变量 > YAML 文件 > 默认值。
+**架构：** 构建分层配置系统，支持 dev/staging/production profiles。配置来源按优先级加载：环境变量 > YAML 文件 > 默认值。使用 Zod 进行运行时类型验证。
 
-**Tech Stack:** Rust, config crate, serde, serde_yaml
+**Tech Stack:** TypeScript, Zod for validation, YAML parsing (js-yaml), dotenv, environment variables
 
 ---
 
 ## 文件结构映射
 
 ### 修改文件
-- `crates/decacan-infra/Cargo.toml` - 添加依赖
-- `crates/decacan-infra/src/lib.rs` - 导出新模块
-- `crates/decacan-infra/src/config/mod.rs` - 扩展现有 InfraConfig
+- `packages/orchestrator/package.json` - 添加依赖
+- `packages/orchestrator/src/config/index.ts` - 配置入口
 
 ### 新建文件
-- `crates/decacan-infra/src/config/loader.rs` - 配置加载逻辑
-- `crates/decacan-infra/src/config/sources.rs` - 配置来源定义
-- `crates/decacan-infra/tests/config_test.rs` - 配置系统测试
+- `packages/orchestrator/src/config/loader.ts` - 配置加载逻辑
+- `packages/orchestrator/src/config/sources.ts` - 配置来源定义
+- `packages/orchestrator/tests/config.test.ts` - 配置系统测试
 - `config/default.yaml` - 默认配置
 - `config/dev.yaml` - 开发环境配置示例
 
@@ -32,20 +33,18 @@
 ## Task 1: 添加依赖
 
 **Files:**
-- Modify: `crates/decacan-infra/Cargo.toml`
+- Modify: `packages/orchestrator/package.json`
 
 - [ ] **Step 1: 添加配置相关依赖**
 
-```toml
-[dependencies]
-decacan-runtime = { path = "../decacan-runtime" }
-time = { version = "0.3", features = ["formatting", "parsing"] }
-
-# 新增依赖
-config = "0.14"
-serde = { version = "1", features = ["derive"] }
-serde_yaml = "0.9"
-once_cell = "1"
+```json
+{
+  "dependencies": {
+    "js-yaml": "^4.1.0",
+    "dotenv": "^16.4.0",
+    "zod": "^3.22.0"
+  }
+}
 ```
 
 - [ ] **Step 2: 运行 cargo check 验证依赖**

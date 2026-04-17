@@ -5,28 +5,30 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use @superpowers:subagent-driven-development (recommended) or @superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **注意:** 本计划中的代码示例需要从 Rust 转换为 TypeScript 实现。核心逻辑和架构保持不变，仅变更语言实现。
+
 **Goal:** 构建统一的多模型路由层，支持 OpenAI 和 Anthropic，带 fallback 机制和统一请求/响应格式
 
-**架构：** 定义 `ModelRouter` 作为统一入口，实现 `ModelPort` trait，支持按配置路由到不同提供商（OpenAI/Anthropic），支持 fallback 链。
+**架构：** 定义 `ModelRouter` 作为统一入口，实现 Provider 接口，支持按配置路由到不同提供商（OpenAI/Anthropic），支持 fallback 链。
 
-**Tech Stack:** Rust, reqwest, serde, serde_json, async-trait
+**Tech Stack:** TypeScript, fetch API, Zod, AI SDK (or openai SDK directly)
 
 ---
 
 ## 文件结构映射
 
 ### 修改文件
-- `crates/decacan-infra/Cargo.toml` - 添加 HTTP 客户端依赖
-- `crates/decacan-infra/src/models/mod.rs` - 替换占位符实现
+- `packages/orchestrator/package.json` - 添加 AI SDK 依赖
+- `packages/orchestrator/src/models/index.ts` - 模型模块入口
 
 ### 新建文件
-- `crates/decacan-infra/src/models/config.rs` - 模型路由配置
-- `crates/decacan-infra/src/models/router.rs` - 模型路由器
-- `crates/decacan-infra/src/models/provider.rs` - 提供商 trait
-- `crates/decacan-infra/src/models/openai.rs` - OpenAI 适配器
-- `crates/decacan-infra/src/models/anthropic.rs` - Anthropic 适配器
-- `crates/decacan-infra/src/models/types.rs` - 统一请求/响应类型
-- `crates/decacan-infra/tests/models_test.rs` - 模型系统测试
+- `packages/orchestrator/src/models/config.ts` - 模型路由配置
+- `packages/orchestrator/src/models/router.ts` - 模型路由器
+- `packages/orchestrator/src/models/provider.ts` - 提供商接口
+- `packages/orchestrator/src/models/openai-provider.ts` - OpenAI 适配器
+- `packages/orchestrator/src/models/anthropic-provider.ts` - Anthropic 适配器
+- `packages/orchestrator/src/models/types.ts` - 统一请求/响应类型
+- `packages/orchestrator/tests/models.test.ts` - 模型系统测试
 
 ---
 

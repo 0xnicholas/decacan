@@ -5,26 +5,27 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use @superpowers:subagent-driven-development (recommended) or @superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **注意:** 本计划中的代码示例需要从 Rust 转换为 TypeScript 实现。核心逻辑和架构保持不变，仅变更语言实现。
+
 **Goal:** 构建分层 Secrets 管理系统，支持环境变量、.env 文件，并为 HashiCorp Vault 预留接口
 
-**架构：** 定义 `SecretsPort` trait，实现 `SecretsManager` 作为统一入口，支持多来源（Env > .env file > Vault），带内存缓存。
+**架构：** 定义 `SecretsManager` 作为统一入口，支持多来源（Env > .env file > Vault），带内存缓存。TypeScript 接口定义使用 Zod 进行验证。
 
-**Tech Stack:** Rust, async-trait, dotenvy, once_cell
+**Tech Stack:** TypeScript, dotenv, node-vault (optional), Zod
 
 ---
 
 ## 文件结构映射
 
 ### 修改文件
-- `crates/decacan-infra/Cargo.toml` - 添加依赖
-- `crates/decacan-infra/src/lib.rs` - 导出 secrets 模块
+- `packages/orchestrator/package.json` - 添加依赖
+- `packages/orchestrator/src/secrets/index.ts` - Secrets 模块入口
 
 ### 新建文件
-- `crates/decacan-infra/src/secrets/mod.rs` - SecretsPort trait 定义
-- `crates/decacan-infra/src/secrets/manager.rs` - SecretsManager 实现
-- `crates/decacan-infra/src/secrets/env.rs` - 环境变量来源
-- `crates/decacan-infra/src/secrets/vault.rs` - Vault 预留接口
-- `crates/decacan-infra/tests/secrets_test.rs` - Secrets 系统测试
+- `packages/orchestrator/src/secrets/manager.ts` - SecretsManager 实现
+- `packages/orchestrator/src/secrets/env-source.ts` - 环境变量来源
+- `packages/orchestrator/src/secrets/vault-source.ts` - Vault 预留接口
+- `packages/orchestrator/tests/secrets.test.ts` - Secrets 系统测试
 - `.env.example` - 环境变量示例文件
 
 ---

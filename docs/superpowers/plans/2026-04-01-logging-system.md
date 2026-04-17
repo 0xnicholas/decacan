@@ -5,26 +5,28 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use @superpowers:subagent-driven-development (recommended) or @superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **注意:** 本计划中的代码示例需要从 Rust 转换为 TypeScript 实现。核心逻辑和架构保持不变，仅变更语言实现。
+
 **Goal:** 构建 JSON 结构化日志系统，支持 stdout 和文件输出，带日志轮转
 
-**架构：** 使用 `tracing` 生态（tracing + tracing-subscriber），实现 JSON 格式订阅器，支持多级输出（stdout + file），文件按天轮转。
+**架构：** 使用 pino 实现 JSON 结构化日志，支持 stdout 和文件输出。文件按天轮转，支持多级别输出（development + production）。
 
-**Tech Stack:** Rust, tracing, tracing-subscriber, tracing-appender, serde_json
+**Tech Stack:** TypeScript, pino (logging), pino-pretty (dev formatting), rotating-file-stream
 
 ---
 
 ## 文件结构映射
 
 ### 修改文件
-- `crates/decacan-infra/Cargo.toml` - 添加依赖
-- `crates/decacan-infra/src/lib.rs` - 更新导出
-- `crates/decacan-infra/src/logging/mod.rs` - 替换现有极简实现
+- `packages/orchestrator/package.json` - 添加 pino 依赖
+- `packages/orchestrator/src/server.ts` - 集成日志中间件
+- `packages/orchestrator/src/logging/index.ts` - 替换现有极简实现
 
 ### 新建文件
-- `crates/decacan-infra/src/logging/config.rs` - 日志配置结构
-- `crates/decacan-infra/src/logger.rs` - Logger 实现
-- `crates/decacan-infra/src/logging/subscriber.rs` - tracing-subscriber 配置
-- `crates/decacan-infra/tests/logging_test.rs` - 日志系统测试
+- `packages/orchestrator/src/logging/config.ts` - 日志配置结构
+- `packages/orchestrator/src/logging/logger.ts` - Logger 实现
+- `packages/orchestrator/src/logging/formatter.ts` - JSON 格式化配置
+- `packages/orchestrator/tests/logging.test.ts` - 日志系统测试
 
 ---
 

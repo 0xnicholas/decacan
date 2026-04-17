@@ -5,11 +5,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **注意:** 本计划中的代码示例需要从 Rust 转换为 TypeScript 实现。核心逻辑和架构保持不变，仅变更语言实现。
+
 **Goal:** Hard-code the product boundary between `Console` and `workspaces` by making account APIs user-scoped, using an explicit default workspace contract, removing infrastructure leaks from account DTOs, moving playbook authoring fully out of workspace launch, and only then layering permissions onto `Console`.
 
 **Architecture:** Execute this as four sequential, mergeable batches. Batch A introduces a real account-scoped contract around `/api/account/home` and makes workspace entry consume that contract. Batch B removes backend path leakage from account DTOs. Batch C splits playbook authoring/publishing from workspace task launch so the execution surface only consumes published playbooks. Batch D adds permissions on top of those now-stable boundaries instead of using permissions to mask unclear product ownership.
 
-**Tech Stack:** Rust, Axum, Serde, Tokio, React 19, TypeScript, React Router v7, Vitest, Testing Library, pnpm
+**Tech Stack:** TypeScript (Hono, Drizzle ORM, Zod), React 19, TypeScript, React Router v7, Vitest, Testing Library, pnpm
 
 ---
 
@@ -26,17 +28,17 @@ Recommended merge order:
 ## File Structure
 
 ### Batch A: Account Aggregation And Default Workspace Contract
-- Modify: `crates/decacan-app/src/api/account.rs`
+- Modify: `packages/orchestrator/src/api/routes/account.ts`
   - Accept a shared request-scoped current-user context and route `/api/account/home` through a user-aware builder.
-- Modify: `crates/decacan-app/src/api/policy.rs`
+- Modify: `packages/orchestrator/src/api/routes/policy.ts`
   - Reuse the same current-user extraction path for `/api/me/permissions` so account home and permission reads cannot drift.
-- Modify: `crates/decacan-app/src/app/state.rs`
+- Modify: `packages/orchestrator/src/api/store.ts`
   - Split `build_account_home` into a user-aware builder and supporting query helpers.
-- Modify: `crates/decacan-app/src/dto/account.rs`
+- Modify: `packages/orchestrator/src/api/dto/account.ts`
   - Keep `default_workspace_id` as the explicit contract the frontend consumes.
-- Modify: `crates/decacan-app/tests/account_hub_api_test.rs`
+- Modify: `packages/orchestrator/tests/account-hub.test.ts`
   - Cover deterministic `default_workspace_id` and user-scoped shape.
-- Create or modify auth/context extraction files under `crates/decacan-app/src/` as needed
+- Create or modify auth/context extraction files under `packages/orchestrator/src/api/` as needed
   - Introduce a minimal `CurrentUserContext` extractor shared by account and permission routes instead of wiring either route directly to global state or route-local test stubs.
 - Modify: `apps/workspaces/src/features/launch/WorkspaceEntryRedirect.tsx`
   - Stop deriving the default workspace from `/api/workspaces`; consume `/api/account/home`.

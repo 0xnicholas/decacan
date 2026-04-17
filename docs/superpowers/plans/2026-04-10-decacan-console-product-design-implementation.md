@@ -5,11 +5,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **注意:** 本计划中的代码示例需要从 Rust 转换为 TypeScript 实现。核心逻辑和架构保持不变，仅变更语言实现。
+
 **Goal:** Align `apps/console` to the approved Console product design by shipping the 4-domain IA (`Workspaces`, `Agents`, `Dashboard`, `Manage`), predictable route prefixes, and permission-aware navigation with an MVP-usable Agents + Workspaces loop.
 
 **Architecture:** Deliver this in sequential batches so each merge keeps the Console operable. First lock IA behavior in tests, then introduce a single route/menu contract module, then implement domain pages (deepest in Agents and Workspaces, medium in Dashboard, shallow-but-official in Manage), and finally align backend/frontend permission contracts to navigation boundaries. Keep left sidebar limited to stable entry pages; create/edit/detail stay in content routes only.
 
-**Tech Stack:** React 19, TypeScript, React Router, Vitest, Testing Library, Rust, Axum, Serde, Cargo
+**Tech Stack:** React 19, TypeScript, React Router, Vitest, Testing Library, TypeScript (Hono, Drizzle ORM, Zod)
 
 ---
 

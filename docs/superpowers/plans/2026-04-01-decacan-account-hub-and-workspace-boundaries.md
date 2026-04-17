@@ -5,11 +5,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **注意:** 本计划中的代码示例需要从 Rust 转换为 TypeScript 实现。核心逻辑和架构保持不变，仅变更语言实现。
+
 **Goal:** Convert the current dual-frontend product into `workspace-first execution + account-level hub`, with account-scoped APIs in `decacan-app`, an account hub home in `apps/admin`, and a tightened workspace-scoped launch flow in `apps/workspaces`.
 
 **Architecture:** Add one new account aggregation seam in `decacan-app` instead of spreading cross-workspace logic across `/api/inbox`, `/api/me/tasks`, and frontend-only joins. Rebuild `apps/admin` around that account seam while keeping Playbook Studio there as the design/publish surface. Tighten `apps/workspaces` so it assumes a concrete workspace context and links outward to the account hub instead of owning account-scoped pages.
 
-**Tech Stack:** Rust (Axum, Serde, Tokio), TypeScript (React 19, React Router, Zustand), Vitest, Testing Library
+**Tech Stack:** TypeScript (Hono, Drizzle ORM, Zod), TypeScript (React 19, React Router, Zustand), Vitest, Testing Library
 
 ---
 
@@ -17,17 +19,17 @@
 
 ### Backend account aggregation
 
-- Create: `crates/decacan-app/src/dto/account.rs`
+- Create: `packages/orchestrator/src/api/dto/account.ts`
   Account hub DTOs that are explicitly user-scoped, not workspace-scoped.
-- Create: `crates/decacan-app/src/api/account.rs`
-  Axum routes for `/api/account/home`.
-- Modify: `crates/decacan-app/src/dto/mod.rs`
+- Create: `packages/orchestrator/src/api/routes/account.ts`
+  Hono routes for `/api/account/home`.
+- Modify: `packages/orchestrator/src/api/dto/index.ts`
   Re-export account DTOs.
-- Modify: `crates/decacan-app/src/api/mod.rs`
+- Modify: `packages/orchestrator/src/api/server.ts`
   Merge the new account router.
-- Modify: `crates/decacan-app/src/app/state.rs`
-  Add account-home projection helpers that aggregate from existing in-memory tasks, approvals, workspaces, and playbook lists.
-- Create: `crates/decacan-app/tests/account_hub_api_test.rs`
+- Modify: `packages/orchestrator/src/api/store.ts`
+  Add account-home projection helpers that aggregate from existing tasks, approvals, workspaces, and playbook lists.
+- Create: `packages/orchestrator/tests/account-hub.test.ts`
   Focused HTTP integration coverage for the new account endpoint.
 
 ### Backend playbook studio authoring APIs

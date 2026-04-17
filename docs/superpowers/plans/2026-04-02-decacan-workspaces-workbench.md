@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **注意:** 本计划中的代码示例需要从 Rust 转换为 TypeScript 实现。核心逻辑和架构保持不变，仅变更语言实现。
+
 **Goal:** Rebuild `apps/workspaces` home into a resume-first, template-driven workbench with a persistent workspace assistant dock, while keeping the workspace shell and task detail model consistent.
 
 **Architecture:** Keep the existing workspace shell and route structure stable, and introduce a new workbench view-model layer that normalizes the current `/api/workspaces/:workspaceId/home` payload into a slot-based home contract with safe defaults. Implement the new home incrementally in four phases: typed template normalization, resume-first layout rendering, assistant dock behavior with task-detail handoff, and fallback/verification hardening.

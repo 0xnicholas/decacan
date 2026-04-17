@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **注意:** 本计划中的代码示例需要从 Rust 转换为 TypeScript 实现。核心逻辑和架构保持不变，仅变更语言实现。
+
 **Goal:** Build a configurable multi-industry architecture for the Workspaces app that supports "medium differences" between industries through a hybrid approach of configuration-driven customization with selective feature overrides.
 
 **Architecture:** Implement a three-layer system: (1) Configuration layer with industry registry, (2) Base feature implementations with optional industry-specific overrides, (3) Dynamic module loader that falls back to base implementations when industry-specific versions don't exist. Uses environment variable `DECACAN_INDUSTRY` to select industry at build/dev time.

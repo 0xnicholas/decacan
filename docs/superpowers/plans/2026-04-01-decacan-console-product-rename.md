@@ -5,6 +5,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **注意:** 本计划中的代码示例需要从 Rust 转换为 TypeScript 实现。核心逻辑和架构保持不变，仅变更语言实现。
+
 **Goal:** Rename the user-visible `apps/admin` product surface from "Account Hub" to "Console" while keeping the engineering surface (`apps/admin`, `dev:admin`, package names, env vars) unchanged for now.
 
 **Architecture:** This change is product-layer only. Update user-facing labels, page copy, navigation text, and supporting docs so the account-level surface is consistently presented as `Console`, while preserving existing routes, package names, Vite ports, and cross-surface handoff contracts. Protect the rename with narrow UI tests and avoid pulling engineering renames into this pass.
