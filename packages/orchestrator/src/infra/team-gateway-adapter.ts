@@ -12,8 +12,15 @@ export interface TeamGatewayAdapterConfig extends TeamGatewayConfig {
 export class TeamGatewayAdapter implements ExecutionEnginePort {
   private gateway: TeamGatewayClient | null = null;
   private inProcess?: ExecutionEnginePort;
+  private currentMode: AdapterMode;
+  private config: TeamGatewayAdapterConfig;
 
-  constructor(private config: TeamGatewayAdapterConfig) {
+  constructor(config: TeamGatewayAdapterConfig) {
+    this.config = config;
+    this.currentMode = config.mode;
+    if (config.mode === 'in_process' && !config.inProcessEngine) {
+      throw new Error('inProcessEngine is required when mode is in_process');
+    }
     if (config.inProcessEngine) {
       this.inProcess = config.inProcessEngine;
     }
@@ -32,21 +39,21 @@ export class TeamGatewayAdapter implements ExecutionEnginePort {
   }
 
   async start(req: ExecutionRequest): Promise<ExecutionHandle> {
-    if (this.config.mode === 'gateway' && this.gateway) {
+    if (this.currentMode === 'gateway' && this.gateway) {
       return this.gateway.start(req);
     }
     return this.inProcess!.start(req);
   }
 
   async submit(execution_id: string, input: ExecutionInput): Promise<void> {
-    if (this.config.mode === 'gateway' && this.gateway) {
+    if (this.currentMode === 'gateway' && this.gateway) {
       return this.gateway.submit(execution_id, input);
     }
     return this.inProcess!.submit(execution_id, input);
   }
 
   async getStatus(execution_id: string): Promise<ExecutionStatus | null> {
-    if (this.config.mode === 'gateway' && this.gateway) {
+    if (this.currentMode === 'gateway' && this.gateway) {
       return this.gateway.getStatus(execution_id);
     }
     return this.inProcess!.getStatus(execution_id);
@@ -56,7 +63,7 @@ export class TeamGatewayAdapter implements ExecutionEnginePort {
     execution_id: string,
     onEvent: (event: ExecutionEvent) => void | Promise<void>
   ): Promise<() => void> {
-    if (this.config.mode === 'gateway' && this.gateway) {
+    if (this.currentMode === 'gateway' && this.gateway) {
       return this.gateway.subscribeEvents(execution_id, onEvent);
     }
     return this.inProcess!.subscribeEvents(execution_id, onEvent);
@@ -66,6 +73,6 @@ export class TeamGatewayAdapter implements ExecutionEnginePort {
     if (mode === 'gateway' && !this.gateway) {
       this.gateway = new TeamGatewayClient(this.config);
     }
-    (this.config as any).mode = mode;
+    this.currentMode = mode;
   }
 }

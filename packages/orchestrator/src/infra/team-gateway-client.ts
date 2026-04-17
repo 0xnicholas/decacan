@@ -152,7 +152,11 @@ export class TeamGatewayClient {
       }
     };
 
-    processEvents();
+    processEvents().catch((err) => {
+      if ((err as Error).name !== 'AbortError') {
+        console.error('Event stream error:', err);
+      }
+    });
 
     return () => reader.cancel();
   }
