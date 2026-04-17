@@ -54,7 +54,7 @@ export class TeamGatewayClient {
       headers[this.config.idempotencyKeyHeader] = idempotencyKey;
     }
 
-    if (body && this.signer) {
+    if (this.signer) {
       const sig = this.signer.signRequest(method, path, JSON.stringify(body));
       headers['X-Signature'] = sig.signature;
       headers['X-Timestamp'] = sig.timestamp.toString();
