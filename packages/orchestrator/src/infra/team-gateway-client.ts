@@ -14,8 +14,10 @@ export interface TeamGatewayConfig {
   signing?: SigningConfig;
 }
 
+type InternalTeamGatewayConfig = Omit<Required<TeamGatewayConfig>, 'signing'> & { signing?: SigningConfig };
+
 export class TeamGatewayClient {
-  private config: Required<TeamGatewayConfig>;
+  private config: InternalTeamGatewayConfig;
   private signer: RequestSigner | null = null;
 
   constructor(config: TeamGatewayConfig) {
@@ -31,6 +33,7 @@ export class TeamGatewayClient {
         backoffMultiplier: 2,
       },
       idempotencyKeyHeader: config.idempotencyKeyHeader ?? 'X-Idempotency-Key',
+      signing: config.signing,
     };
 
     if (config.signing) {
@@ -155,7 +158,9 @@ export class TeamGatewayClient {
               try {
                 const event = JSON.parse(data) as ExecutionEvent;
                 await onEvent(event);
-              } catch {}
+              } catch (e) {
+                console.error('Event parse error:', e);
+              }
             }
           }
         }
