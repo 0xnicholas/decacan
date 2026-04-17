@@ -1,15 +1,6 @@
 import { Card, CardContent, CardHeader } from "@decacan/ui";
-
-export interface DecisionRecord {
-  id: string;
-  decisionType: string;
-  decision: string;
-  reason?: string;
-  policyId?: string;
-  riskLevel?: string;
-  decidedBy: string;
-  createdAt: string;
-}
+import type { DecisionRecord } from "../../shared/api/decisions";
+export type { DecisionRecord } from "../../shared/api/decisions";
 
 interface DecisionAuditPanelProps {
   decisions: DecisionRecord[];

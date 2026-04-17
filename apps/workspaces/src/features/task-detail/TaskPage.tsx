@@ -5,6 +5,7 @@ import type { ArtifactContent } from "../../entities/artifact/types";
 import { readAssistantContextState } from "../../entities/workbench/assistantHandoff";
 import { fetchArtifactContent } from "../../shared/api/artifacts";
 import { reviewEvolutionProposal } from "../../shared/api/evolutionProposals";
+import { getDecisionsByTeamSession, type DecisionRecord } from "../../shared/api/decisions";
 import { decideApproval, sendTaskInstruction } from "../../shared/api/tasks";
 import { AssistantContextNotice } from "./AssistantContextNotice";
 import { AgentRail } from "./AgentRail";
@@ -76,6 +77,18 @@ export function TaskPage({ taskId, workspaceId }: TaskPageProps) {
   const [pendingInstructionKey, setPendingInstructionKey] = useState<string | null>(null);
   const [pendingReviewProposalId, setPendingReviewProposalId] = useState<string | null>(null);
   const [proposalReviewNotice, setProposalReviewNotice] = useState<ProposalReviewNotice | null>(null);
+  const [decisions, setDecisions] = useState<DecisionRecord[]>([]);
+
+  useEffect(() => {
+    const teamSessionId = taskDetail?.collaboration?.team_session?.session_id;
+    if (!teamSessionId) {
+      setDecisions([]);
+      return;
+    }
+    getDecisionsByTeamSession(teamSessionId)
+      .then(setDecisions)
+      .catch(() => setDecisions([]));
+  }, [taskDetail?.collaboration?.team_session?.session_id]);
 
   useEffect(() => {
     setActiveRailTab(activeAssistantContext ? "agent" : "context");
@@ -214,6 +227,7 @@ export function TaskPage({ taskId, workspaceId }: TaskPageProps) {
               ) : null}
               <TeamSessionPanel
                 session={taskDetail.collaboration.team_session}
+                decisions={decisions}
                 isReviewingProposalId={pendingReviewProposalId}
                 onReviewProposal={handleProposalReview}
               />
