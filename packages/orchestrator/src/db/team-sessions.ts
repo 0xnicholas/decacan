@@ -47,14 +47,14 @@ export class TeamSessionStore {
     const row = await db.query.teamSessions.findFirst({
       where: eq(teamSessions.id, id),
     });
-    return row as TeamSession | null;
+    return row ? row as TeamSession : null;
   }
 
   async getSessionByTask(taskId: string): Promise<TeamSession | null> {
     const row = await db.query.teamSessions.findFirst({
       where: eq(teamSessions.taskId, taskId),
     });
-    return row as TeamSession | null;
+    return row ? row as TeamSession : null;
   }
 
   async updatePhase(id: string, phase: string, blockedReason?: string): Promise<void> {
