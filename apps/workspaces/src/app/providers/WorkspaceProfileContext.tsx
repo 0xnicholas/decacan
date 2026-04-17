@@ -65,6 +65,6 @@ export function useWorkspaceProfile(): WorkspaceProfileContextValue {
 }
 
 export function useWorkspaceProfileId(): string | null {
-  const { profile } = useWorkspaceProfile();
-  return profile?.workspace_profile_id ?? null;
+  const context = useContext(WorkspaceProfileContext);
+  return context?.profile?.workspace_profile_id ?? null;
 }
