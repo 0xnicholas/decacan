@@ -5,5 +5,8 @@ export {
   useTerminology,
 } from './IndustryProvider';
 
-// Re-export for convenience
-export type { IndustryContextValue } from './IndustryProvider';
+export {
+  WorkspaceProfileProvider,
+  useWorkspaceProfile,
+  useWorkspaceProfileId,
+} from './WorkspaceProfileContext';
