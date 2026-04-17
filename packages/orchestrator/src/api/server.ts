@@ -300,6 +300,44 @@ export function createServer(engineOverride?: ExecutionEnginePort): Hono {
     return c.json({ profile: { workspace_profile_id: body.workspace_profile_id } });
   });
 
+  app.get('/workspaces/:id/home', async (c) => {
+    const id = c.req.param('id');
+
+    if (useDb) {
+      const wsRows = await db.select().from(schema.workspaces).where(eq(schema.workspaces.id, id));
+      if (!wsRows.length) return c.json({ error: 'Not found' }, 404);
+
+      const tasks = await db.select().from(schema.tasks).where(eq(schema.tasks.workspaceId, id));
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const taskHealth = {
+        running: tasks.filter(t => t.status === 'running').length,
+        waiting_approval: tasks.filter(t => t.status === 'pending_approval').length,
+        blocked: tasks.filter(t => t.status === 'blocked').length,
+        completed_today: tasks.filter(t => t.status === 'completed' && t.updatedAt >= today).length,
+      };
+
+      return c.json({
+        attention: [],
+        task_health: taskHealth,
+        activity: [],
+        deliverables: [],
+        team_snapshot: [],
+      });
+    }
+
+    if (!workspaces.has(id)) return c.json({ error: 'Not found' }, 404);
+
+    return c.json({
+      attention: [],
+      task_health: { running: 0, waiting_approval: 0, blocked: 0, completed_today: 0 },
+      activity: [],
+      deliverables: [],
+      team_snapshot: [],
+    });
+  });
+
   app.get('/playbook-store', async (c) => {
     if (useDb) {
       const list = await db
