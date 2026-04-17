@@ -16,6 +16,7 @@ export const workspaces = pgTable('workspaces', {
   description: text('description'),
   ownerId: varchar('owner_id', { length: 255 }).notNull(),
   status: varchar('status', { length: 50 }).notNull().default('active'),
+  workspaceProfileId: varchar('workspace_profile_id', { length: 255 }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });

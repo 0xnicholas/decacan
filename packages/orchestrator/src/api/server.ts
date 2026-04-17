@@ -141,20 +141,12 @@ export function createServer(engineOverride?: ExecutionEnginePort): Hono {
   const runs = new Map<string, ReturnType<typeof createRun>>();
   const workspaces = new Map<
     string,
-    { id: string; slug: string; name: string; status: string }
+    { id: string; slug: string; name: string; status: string; workspaceProfileId?: string }
   >();
   const playbooks = new Map<
     string,
-    { id: string; workspace_id: string; key: string; mode: 'standard' | 'discovery'; title?: string; content?: unknown; publishedAt?: Date }
+    { id: string; workspace_id: string; key: string; mode: 'standard' | 'discovery'; versionId: string; title?: string; content?: unknown; publishedAt?: Date }
   >();
-  const approvals = new Array<{
-    id: string;
-    task_id: string;
-    execution_id: string;
-    step_id: string;
-    prompt: string;
-    status: 'pending' | 'approved' | 'rejected';
-  }>();
   const users = new Map<
     string,
     { id: string; email: string; passwordHash: string; name?: string }
@@ -202,7 +194,7 @@ export function createServer(engineOverride?: ExecutionEnginePort): Hono {
     if (existing) return c.json({ error: 'Email already registered' }, 409);
     const user = { id: uuidv4(), email: body.email, passwordHash: hashPassword(body.password), name: body.name };
     users.set(user.id, user);
-    const token = await sign({ userId: user.id, exp: Math.floor(Date.now() / 1000) + 86400 }, JWT_SECRET);
+    const token = createToken({ userId: user.id, exp: Math.floor(Date.now() / 1000) + 86400 });
     return c.json({ user: { id: user.id, email: user.email, name: user.name }, token });
   });
 
@@ -222,7 +214,7 @@ export function createServer(engineOverride?: ExecutionEnginePort): Hono {
     if (!user || !verifyPassword(body.password, user.passwordHash)) {
       return c.json({ error: 'Invalid credentials' }, 401);
     }
-    const token = await sign({ userId: user.id, exp: Math.floor(Date.now() / 1000) + 86400 }, JWT_SECRET);
+    const token = createToken({ userId: user.id, exp: Math.floor(Date.now() / 1000) + 86400 });
     return c.json({ user: { id: user.id, email: user.email, name: user.name }, token });
   });
 
@@ -273,6 +265,39 @@ export function createServer(engineOverride?: ExecutionEnginePort): Hono {
     const ws = workspaces.get(c.req.param('id'));
     if (!ws) return c.json({ error: 'Not found' }, 404);
     return c.json({ workspace: ws });
+  });
+
+  app.get('/workspaces/:id/profile', async (c) => {
+    const id = c.req.param('id');
+    if (useDb) {
+      const rows = await db
+        .select()
+        .from(schema.workspaces)
+        .where(eq(schema.workspaces.id, id));
+      if (!rows.length) return c.json({ error: 'Not found' }, 404);
+      return c.json({ profile: { workspace_profile_id: rows[0].workspaceProfileId ?? null } });
+    }
+    const ws = workspaces.get(id);
+    if (!ws) return c.json({ error: 'Not found' }, 404);
+    return c.json({ profile: { workspace_profile_id: (ws as any).workspaceProfileId ?? null } });
+  });
+
+  app.put('/workspaces/:id/profile', async (c) => {
+    const id = c.req.param('id');
+    const body = (await c.req.json()) as { workspace_profile_id: string };
+    if (useDb) {
+      const [updated] = await db
+        .update(schema.workspaces)
+        .set({ workspaceProfileId: body.workspace_profile_id, updatedAt: new Date() })
+        .where(eq(schema.workspaces.id, id))
+        .returning();
+      if (!updated) return c.json({ error: 'Not found' }, 404);
+      return c.json({ profile: { workspace_profile_id: updated.workspaceProfileId } });
+    }
+    const ws = workspaces.get(id);
+    if (!ws) return c.json({ error: 'Not found' }, 404);
+    (ws as any).workspaceProfileId = body.workspace_profile_id;
+    return c.json({ profile: { workspace_profile_id: body.workspace_profile_id } });
   });
 
   app.get('/playbook-store', async (c) => {
@@ -642,6 +667,10 @@ export function createServer(engineOverride?: ExecutionEnginePort): Hono {
     }
     const task = tasks.get(id);
     if (!task) return c.json({ error: 'Task not found' }, 404);
+    const storedTask = memStore?.getTask(id);
+    if (storedTask) {
+      (task as any).status = storedTask.status;
+    }
     const taskRuns = Array.from(runs.values()).filter((r) => r.task_id === id);
     return c.json({ task, runs: taskRuns });
   });
@@ -743,8 +772,20 @@ export function createServer(engineOverride?: ExecutionEnginePort): Hono {
         })),
       });
     }
-    const list = approvals.filter((a) => (taskId ? a.task_id === taskId : true));
-    return c.json({ approvals: list });
+    if (memStore) {
+      const list = taskId ? memStore.getApprovalsForTask(taskId) : await store.getAllApprovals();
+      return c.json({
+        approvals: list.map((a) => ({
+          id: a.id,
+          task_id: a.task_id,
+          execution_id: a.execution_id,
+          step_id: a.step_id,
+          prompt: a.prompt,
+          status: a.decision ?? 'pending',
+        })),
+      });
+    }
+    return c.json({ approvals: [] });
   });
 
   app.post('/approvals/:id/decision', async (c) => {
@@ -772,14 +813,23 @@ export function createServer(engineOverride?: ExecutionEnginePort): Hono {
         },
       });
     }
-    const appItem = approvals.find((a) => a.id === id);
-    if (!appItem) return c.json({ error: 'Not found' }, 404);
-    appItem.status = body.decision;
+    const approval = await store.getApprovalById(id);
+    if (!approval) return c.json({ error: 'Not found' }, 404);
+    await store.updateApprovalDecision(id, body.decision, body.comment);
     const executionId = await store.getExecutionIdByApproval(id);
     if (executionId) {
       await coordinator.submit(executionId, { key: 'approval_decision', value: { decision: body.decision, comment: body.comment } });
     }
-    return c.json({ approval: appItem });
+    return c.json({
+      approval: {
+        id: approval.id,
+        task_id: approval.task_id,
+        execution_id: approval.execution_id,
+        step_id: approval.step_id,
+        prompt: approval.prompt,
+        status: approval.decision ?? 'pending',
+      },
+    });
   });
 
   app.get('/tasks/:id/artifacts', async (c) => {
