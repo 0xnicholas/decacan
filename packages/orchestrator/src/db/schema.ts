@@ -182,3 +182,19 @@ export const decisionRecords = pgTable('decision_records', {
   teamSessionIdIdx: index('decision_records_team_session_id_idx').on(table.teamSessionId),
   executionIdIdx: index('decision_records_execution_id_idx').on(table.executionId),
 }));
+
+export const assistantSessions = pgTable('assistant_sessions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspaceId: uuid('workspace_id').notNull(),
+  taskId: uuid('task_id').notNull(),
+  teamSessionId: uuid('team_session_id').notNull(),
+  objective: jsonb('objective').default({}),
+  executionMode: varchar('execution_mode', { length: 50 }).notNull().default('interactive'),
+  status: varchar('status', { length: 50 }).notNull().default('active'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+  workspaceIdIdx: index('assistant_sessions_workspace_id_idx').on(table.workspaceId),
+  taskIdIdx: index('assistant_sessions_task_id_idx').on(table.taskId),
+  teamSessionIdIdx: index('assistant_sessions_team_session_id_idx').on(table.teamSessionId),
+}));

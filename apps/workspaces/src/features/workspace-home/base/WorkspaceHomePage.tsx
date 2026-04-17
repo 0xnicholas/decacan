@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { defaultAssistantDock } from "../../../entities/workbench/defaultTemplate";
 import { normalizeWorkspaceHome } from "../../../entities/workbench/normalizeWorkspaceHome";
 import type { WorkspaceWorkbenchModel } from "../../../entities/workbench/types";
+import type { ActiveDelegation } from "../ActiveDelegationCard";
 import type { WorkspaceHomeData } from "../../../entities/workspace-home/types";
 import { createAssistantSession } from "../../../shared/api/assistant";
 import { fetchWorkspaceHome } from "../../../shared/api/workspace-home";
@@ -47,6 +48,7 @@ const fallbackWorkspaceHomeData: WorkspaceHomeData = {
 export function WorkspaceHomePage({ workspaceId }: WorkspaceHomePageProps) {
   const navigate = useNavigate();
   const [workbench, setWorkbench] = useState<WorkspaceWorkbenchModel | null>(null);
+  const [activeDelegation, setActiveDelegation] = useState<ActiveDelegation | null>(null);
   const [isDelegating, setIsDelegating] = useState(false);
   const [delegationStatus, setDelegationStatus] = useState<string | null>(null);
   const requestSequence = useRef(0);
@@ -58,6 +60,7 @@ export function WorkspaceHomePage({ workspaceId }: WorkspaceHomePageProps) {
     const requestId = requestSequence.current + 1;
     requestSequence.current = requestId;
     setWorkbench(null);
+    setActiveDelegation(null);
     setDelegationStatus(null);
 
     async function loadWorkspaceHome() {
@@ -65,10 +68,18 @@ export function WorkspaceHomePage({ workspaceId }: WorkspaceHomePageProps) {
         const data = await fetchWorkspaceHome(workspaceId);
         if (requestSequence.current == requestId) {
           setWorkbench(normalizeWorkspaceHome(workspaceId, data));
-          const restoredTeamSessionId = data.assistant_session?.active_team_session_id;
-          if (restoredTeamSessionId) {
+          const session = data.assistant_session;
+          if (session?.active_team_session_id && session?.task_id) {
+            const now = new Date().toISOString();
+            setActiveDelegation({
+              id: session.assistant_session_id,
+              taskId: session.task_id,
+              phase: session.state ?? 'active',
+              createdAt: now,
+              updatedAt: now,
+            });
             setDelegationStatus(
-              `Delegation active: ${restoredTeamSessionId} (${data.assistant_session?.state ?? "active"})`,
+              `Delegation active: ${session.active_team_session_id} (${session.state ?? "active"})`,
             );
           }
         }
@@ -106,6 +117,15 @@ export function WorkspaceHomePage({ workspaceId }: WorkspaceHomePageProps) {
       <WorkbenchLayout
         model={workbench}
         onOpenPrimary={handleOpenPrimary}
+        activeDelegation={activeDelegation}
+        onResumeDelegation={(delegationId) => {
+          if (activeDelegation) {
+            navigate(`/workspaces/${workspaceId}/tasks/${activeDelegation.taskId}`);
+          }
+        }}
+        onViewDelegationDetails={(taskId) => {
+          navigate(`/workspaces/${workspaceId}/tasks/${taskId}`);
+        }}
         assistantDock={
           <WorkspaceAssistantDock
             assistant={assistant}

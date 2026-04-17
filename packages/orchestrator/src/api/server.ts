@@ -9,6 +9,8 @@ import { HttpExecutionEngineClient } from '../infra/http-engine.js';
 import { DbExecutionStore } from '../db/store.js';
 import { db } from '../db/client.js';
 import { decisionRecordStore } from '../db/decision-records.js';
+import { assistantSessionStore } from '../db/assistant-sessions.js';
+import { teamSessionStore } from '../db/team-sessions.js';
 import { authorityEvaluator, policyMatrix } from '../runtime/authority/index.js';
 import { getTeamHealthStatus } from './admin/team-health.js';
 import * as schema from '../db/schema.js';
@@ -170,6 +172,19 @@ export function createServer(engineOverride?: ExecutionEnginePort): Hono {
     string,
     { id: string; playbookId: string; content: unknown; publishedAt: Date }
   >();
+  const assistantSessions = new Map<
+    string,
+    {
+      id: string;
+      workspaceId: string;
+      taskId: string;
+      teamSessionId: string;
+      objective: { title: string; user_goal: string };
+      executionMode: string;
+      status: string;
+      createdAt: Date;
+    }
+  >();
 
   app.use(logger());
 
@@ -321,12 +336,23 @@ export function createServer(engineOverride?: ExecutionEnginePort): Hono {
         completed_today: tasks.filter(t => t.status === 'completed' && t.updatedAt >= today).length,
       };
 
+      const activeAssistantSession = await assistantSessionStore.getActiveSessionByWorkspace(id);
+      const assistantSessionSummary = activeAssistantSession
+        ? {
+            assistant_session_id: activeAssistantSession.id,
+            active_team_session_id: activeAssistantSession.teamSessionId,
+            state: activeAssistantSession.status,
+            task_id: activeAssistantSession.taskId,
+          }
+        : undefined;
+
       return c.json({
         attention: [],
         task_health: taskHealth,
         activity: [],
         deliverables: [],
         team_snapshot: [],
+        assistant_session: assistantSessionSummary,
       });
     }
 
@@ -339,6 +365,97 @@ export function createServer(engineOverride?: ExecutionEnginePort): Hono {
       deliverables: [],
       team_snapshot: [],
     });
+  });
+
+  app.post('/assistant-sessions', async (c) => {
+    const body = (await c.req.json()) as {
+      workspace_id: string;
+      objective: { title: string; user_goal: string };
+      execution_mode: string;
+    };
+
+    if (useDb) {
+      const workspaceRows = await db.select().from(schema.workspaces).where(eq(schema.workspaces.id, body.workspace_id));
+      if (!workspaceRows.length) return c.json({ error: 'Workspace not found' }, 404);
+
+      const taskRows = await db.insert(schema.tasks).values({
+        workspaceId: body.workspace_id,
+        playbookId: '00000000-0000-0000-0000-000000000000',
+        playbookVersionId: '00000000-0000-0000-0000-000000000001',
+        status: 'pending',
+      }).returning();
+      const task = taskRows[0];
+
+      const [teamSession] = await db.insert(schema.teamSessions).values({
+        workspaceId: body.workspace_id,
+        taskId: task.id,
+        executionId: uuidv4(),
+        phase: 'initialized',
+        snapshot: {},
+      }).returning();
+
+      const assistantSession = await assistantSessionStore.createSession(
+        body.workspace_id,
+        task.id,
+        teamSession.id,
+        body.objective,
+        body.execution_mode || 'interactive'
+      );
+
+      return c.json({
+        assistant_session_id: assistantSession.id,
+        workspace_id: assistantSession.workspaceId,
+        objective: assistantSession.objective,
+        execution_mode: assistantSession.executionMode,
+        delegation: {
+          task_id: task.id,
+          run_id: '',
+          team_session_id: teamSession.id,
+          status: 'active',
+        },
+        team_session: {
+          session_id: teamSession.id,
+          status: teamSession.phase,
+          phase: teamSession.phase,
+          snapshot_version: 1,
+          evolution_proposals: [],
+        },
+      }, 201);
+    }
+
+    const assistantSessionId = uuidv4();
+    const taskId = uuidv4();
+    const teamSessionId = uuidv4();
+    assistantSessions.set(assistantSessionId, {
+      id: assistantSessionId,
+      workspaceId: body.workspace_id,
+      taskId,
+      teamSessionId,
+      objective: body.objective,
+      executionMode: body.execution_mode || 'interactive',
+      status: 'active',
+      createdAt: new Date(),
+    });
+
+    return c.json({
+      assistant_session_id: assistantSessionId,
+      workspace_id: body.workspace_id,
+      objective: body.objective,
+      execution_mode: body.execution_mode || 'interactive',
+      delegation: {
+        task_id: taskId,
+        run_id: '',
+        team_session_id: teamSessionId,
+        status: 'active',
+      },
+      team_session: {
+        session_id: teamSessionId,
+        status: 'initialized',
+        phase: 'initialized',
+        snapshot_version: 1,
+        evolution_proposals: [],
+      },
+    }, 201);
   });
 
   app.get('/playbook-store', async (c) => {
