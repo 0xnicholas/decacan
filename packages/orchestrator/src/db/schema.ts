@@ -138,3 +138,42 @@ export const taskEvents = pgTable('task_events', {
   sequence: integer('sequence').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
+
+export const teamSessions = pgTable('team_sessions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspaceId: uuid('workspace_id').notNull(),
+  taskId: uuid('task_id').notNull(),
+  executionId: varchar('execution_id', { length: 255 }).notNull(),
+  phase: varchar('phase', { length: 50 }).notNull().default('initialized'),
+  blockedReason: text('blocked_reason'),
+  snapshot: jsonb('snapshot').default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+});
+
+export const teamDelegations = pgTable('team_delegations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  teamSessionId: uuid('team_session_id').notNull(),
+  delegatorId: varchar('delegator_id', { length: 255 }).notNull(),
+  delegateId: varchar('delegate_id', { length: 255 }).notNull(),
+  capability: varchar('capability', { length: 255 }).notNull(),
+  grantedAt: timestamp('granted_at', { withTimezone: true }).defaultNow().notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }),
+  revokedAt: timestamp('revoked_at', { withTimezone: true }),
+});
+
+export const decisionRecords = pgTable('decision_records', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  teamSessionId: uuid('team_session_id').notNull(),
+  taskId: uuid('task_id').notNull(),
+  executionId: varchar('execution_id', { length: 255 }).notNull(),
+  decisionType: varchar('decision_type', { length: 50 }).notNull(),
+  decision: varchar('decision', { length: 255 }).notNull(),
+  reason: text('reason'),
+  policyId: varchar('policy_id', { length: 255 }),
+  riskLevel: varchar('risk_level', { length: 50 }),
+  decidedBy: varchar('decided_by', { length: 255 }).notNull(),
+  metadata: jsonb('metadata').default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
