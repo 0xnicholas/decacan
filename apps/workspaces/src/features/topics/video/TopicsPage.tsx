@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams } from 'react-router-dom';
 import { PageHeader } from '../../../shared/ui/PageHeader';
-import { useTerminology, useWorkflowMode } from '../../../app/providers';
+import { useTerminology, useWorkflowMode } from '../../../app/providers/index';
 
 /**
  * Topics Page - workflow-aware component

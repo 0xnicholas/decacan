@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams } from 'react-router-dom';
 import { PageHeader } from '../../../shared/ui/PageHeader';
-import { useTerminology } from '../../../app/providers';
+import { useTerminology } from '../../../app/providers/index';
 
 /**
  * Analytics Page (数据分析页面)
