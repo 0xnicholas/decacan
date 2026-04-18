@@ -113,3 +113,51 @@ export function useTerminology(): IndustryConfig['terminology'] {
   const { config } = useIndustry();
   return config.terminology;
 }
+
+/**
+ * Workflow mode type
+ * - 'content': topic → script → shoot → edit (短视频风格)
+ * - 'production': script → storyboard → art → production (短剧风格)
+ */
+export type WorkflowMode = 'content' | 'production';
+
+interface WorkflowModeConfig {
+  default: WorkflowMode;
+  modes?: {
+    content?: {
+      groupBy?: string[];
+      taskLabel?: string;
+      deliverableLabel?: string;
+      workspaceLabel?: string;
+      memberLabel?: string;
+    };
+    production?: {
+      groupBy?: string[];
+      taskLabel?: string;
+      deliverableLabel?: string;
+      workspaceLabel?: string;
+      memberLabel?: string;
+    };
+  };
+}
+
+/**
+ * Hook to get current workflow mode
+ * Returns 'content' by default if not configured
+ */
+export function useWorkflowMode(): WorkflowMode {
+  const { config } = useIndustry();
+  const workflowModeConfig = config.features?.workflowMode?.config as WorkflowModeConfig | undefined;
+  return workflowModeConfig?.default ?? 'content';
+}
+
+/**
+ * Hook to get workflow mode configuration
+ * Returns full config for the current mode
+ */
+export function useWorkflowModeConfig(): WorkflowModeConfig['modes'][WorkflowMode] | undefined {
+  const { config } = useIndustry();
+  const workflowMode = useWorkflowMode();
+  const workflowModeConfig = config.features?.workflowMode?.config as WorkflowModeConfig | undefined;
+  return workflowModeConfig?.modes?.[workflowMode];
+}
