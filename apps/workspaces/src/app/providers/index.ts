@@ -3,6 +3,8 @@ export {
   useIndustry,
   useIndustryConfig,
   useTerminology,
+  useWorkflowMode,
+  useWorkflowModeConfig,
 } from './IndustryProvider';
 
 export {
