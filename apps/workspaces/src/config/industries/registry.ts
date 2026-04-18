@@ -37,6 +37,15 @@ export const industryRegistry: Record<string, IndustryRegistryEntry> = {
       return { config: module.shortVideoConfig };
     },
   },
+  video: {
+    id: 'video',
+    name: '视频行业',
+    description: '统一的视频内容创作和短剧制作工作空间，支持内容模式和制作模式切换',
+    load: async () => {
+      const module = await import('./video');
+      return { config: module.videoConfig };
+    },
+  },
 };
 
 export type IndustryId = keyof typeof industryRegistry;
