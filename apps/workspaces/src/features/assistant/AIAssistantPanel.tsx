@@ -23,7 +23,7 @@ interface AIAssistantPanelProps {
   workspaceId: string;
 }
 
-export function AIAssistantPanel({ workspaceId }: AIAssistantPanelProps) {
+export function AIAssistantPanel({ workspaceId: _workspaceId }: AIAssistantPanelProps) {
   const config = useIndustryConfig();
   const terms = useTerminology();
   const [message, setMessage] = useState('');

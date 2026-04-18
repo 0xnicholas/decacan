@@ -118,7 +118,7 @@ export function WorkspaceHomePage({ workspaceId }: WorkspaceHomePageProps) {
         model={workbench}
         onOpenPrimary={handleOpenPrimary}
         activeDelegation={activeDelegation}
-        onResumeDelegation={(delegationId) => {
+        onResumeDelegation={(_delegationId) => {
           if (activeDelegation) {
             navigate(`/workspaces/${workspaceId}/tasks/${activeDelegation.taskId}`);
           }

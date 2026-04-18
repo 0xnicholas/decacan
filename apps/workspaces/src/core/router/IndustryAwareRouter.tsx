@@ -1,5 +1,5 @@
 import React, { Suspense } from 'react';
-import { Routes, Route, useParams, useNavigate } from 'react-router-dom';
+import { Routes, Route, useParams } from 'react-router-dom';
 import { createLazyComponent } from './dynamicLoader';
 import { WorkspaceShell } from '../../shared/layout/WorkspaceShell';
 import { WorkspaceProvider } from '../../shared/layout/WorkspaceContext';
