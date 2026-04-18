@@ -155,9 +155,11 @@ export function useWorkflowMode(): WorkflowMode {
  * Hook to get workflow mode configuration
  * Returns full config for the current mode
  */
-export function useWorkflowModeConfig(): WorkflowModeConfig['modes'][WorkflowMode] | undefined {
+export function useWorkflowModeConfig(): { groupBy?: string[]; taskLabel?: string; deliverableLabel?: string; workspaceLabel?: string; memberLabel?: string } | undefined {
   const { config } = useIndustry();
   const workflowMode = useWorkflowMode();
   const workflowModeConfig = config.features?.workflowMode?.config as WorkflowModeConfig | undefined;
-  return workflowModeConfig?.modes?.[workflowMode];
+  const modes = workflowModeConfig?.modes;
+  if (!modes) return undefined;
+  return modes[workflowMode];
 }
