@@ -5,7 +5,7 @@ import { useTerminology } from '../../../app/providers/index';
 
 /**
  * Storyboard Page (分镜页面)
- * For short-drama industry: Storyboard management and visualization
+ * For short-video industry: Shot planning and camera angles
  */
 export function StoryboardPage() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
