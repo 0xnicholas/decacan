@@ -78,7 +78,13 @@ export const shortVideoConfig: IndustryConfig = {
   },
   
   features: {
-    tasks: { 
+    workflowMode: {
+      enabled: true,
+      config: {
+        default: 'content',
+      },
+    },
+    tasks: {
       enabled: true,
       config: {
         groupBy: ['topic', 'script', 'shoot', 'edit'],
@@ -86,7 +92,7 @@ export const shortVideoConfig: IndustryConfig = {
         defaultView: 'list',
       },
     },
-    deliverables: { 
+    deliverables: {
       enabled: true,
       config: {
         assetTypes: ['script', 'raw-video', 'edited-video', 'thumbnail'],
@@ -96,7 +102,7 @@ export const shortVideoConfig: IndustryConfig = {
     approvals: { enabled: true },
     activity: { enabled: true },
     members: { enabled: true },
-    assistant: { 
+    assistant: {
       enabled: true,
       config: {
         specialized: true,

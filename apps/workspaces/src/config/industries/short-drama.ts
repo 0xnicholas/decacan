@@ -79,7 +79,13 @@ export const shortDramaConfig: IndustryConfig = {
   },
   
   features: {
-    tasks: { 
+    workflowMode: {
+      enabled: true,
+      config: {
+        default: 'production',
+      },
+    },
+    tasks: {
       enabled: true,
       config: {
         groupBy: ['script', 'storyboard', 'art', 'production'],
@@ -88,14 +94,14 @@ export const shortDramaConfig: IndustryConfig = {
         defaultView: 'board',
       },
     },
-    deliverables: { 
+    deliverables: {
       enabled: true,
       config: {
         assetTypes: ['script', 'storyboard', 'art-asset', 'video-clip', 'audio'],
         previewEnabled: true,
       },
     },
-    approvals: { 
+    approvals: {
       enabled: true,
       config: {
         stages: ['script-review', 'art-review', 'final-review'],
@@ -103,7 +109,7 @@ export const shortDramaConfig: IndustryConfig = {
     },
     activity: { enabled: true },
     members: { enabled: true },
-    assistant: { 
+    assistant: {
       enabled: true,
       config: {
         specialized: true,
